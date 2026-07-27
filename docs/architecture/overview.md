@@ -33,28 +33,27 @@ The PAC program preserves first-match behavior while checking inexpensive indexe
 
 ## Modules
 
-| Module | Responsibility |
-| --- | --- |
-| `packages/contracts` | Versioned TypeScript domain types and import/export schemas. |
-| `crates/config-model` | Rust validation and normalized configuration representation. |
-| `crates/routing-core` | Rust rule analysis and matcher index construction. |
-| `crates/pac-compiler` | Rust PAC source generation and deterministic source maps for explanations. |
-| `apps/chrome-extension/src/background` | MV3 lifecycle, storage hydration, proxy application, auth, and diagnostics. |
-| `apps/chrome-extension/src/popup` | Quick profile switching and current-page rule actions. |
-| `apps/chrome-extension/src/options` | Full configuration, imports, subscriptions, diagnostics, and settings UI. |
-| `packages/ui` | Independently authored reusable UI primitives and accessibility behavior. |
-| `tests/contracts` | Behavior contracts, migration fixtures, and routing compatibility cases. |
+| Module                              | Responsibility                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| `packages/contracts`                | Versioned TypeScript domain types, backup migration, and shared quick-rule behavior. |
+| `crates/config-model`               | Rust validation and normalized configuration representation.                         |
+| `crates/routing-core`               | Rust rule analysis, matcher indexes, route decisions, and explanations.              |
+| `crates/pac-compiler`               | Rust PAC source generation for indexed auto-switch rules.                            |
+| `crates/routing-wasm`               | Browser-facing Rust/WASM compilation and route-explanation boundary.                 |
+| `apps/chrome-extension/entrypoints` | MV3 service worker, React popup, and React options entrypoints.                      |
+| `apps/chrome-extension/src/runtime` | Chrome storage, proxy settings, authentication, diagnostics, and WASM loading.       |
+| `apps/chrome-extension/src/ui`      | Shared configuration actions and UI performance helpers.                             |
 
 ## Storage and diagnostics
 
-Configuration is stored in Chrome extension storage as versioned JSON. This avoids a local service dependency and allows Chrome sync support where appropriate. Credentials remain separate from sync by default.
+Configuration is stored as versioned JSON in `chrome.storage.local`. Proxy credentials live in a separate local-only record store; the route configuration contains only a credential identifier. Exported backups remove both passwords and credential identifiers.
 
-Diagnostics use a bounded ring buffer in extension storage. High-volume successful request capture is disabled by default; failure events retain request URL, selected route, error category, time, and relevant configuration revision. Logs never participate in routing decisions.
+Diagnostics use a bounded ring buffer in extension storage. Successful requests are never captured. Network failures retain URL, error category, and time, with duplicate resource failures folded for one minute. Logs never participate in routing decisions.
 
 ## Reliability rules
 
 - A service-worker restart rehydrates the last known compiled proxy state idempotently.
 - An invalid profile change never replaces the last valid active configuration.
-- Every proxy selection has an explicit fallback policy.
+- Every auto-switch proxy selection has an explicit direct-failover or proxy-only policy.
 - Local and loopback traffic has a clear default policy and visible override path.
 - No production source file may exceed 2,000 lines.

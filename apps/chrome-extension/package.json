@@ -1,0 +1,21 @@
+{
+  "name": "@switchypeformance/chrome-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wxt build --browser chrome",
+    "dev": "wxt --browser chrome",
+    "prepare": "wxt prepare"
+  },
+  "dependencies": {
+    "@switchypeformance/contracts": "workspace:*",
+    "lucide-react": "1.27.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@wxt-dev/module-react": "1.2.2",
+    "wxt": "0.21.1"
+  }
+}

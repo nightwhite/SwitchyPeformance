@@ -1,0 +1,34 @@
+{
+  "name": "switchypeformance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "High-performance Chrome MV3 proxy profile manager",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.5",
+  "engines": {
+    "node": ">=22.17.0",
+    "pnpm": ">=9.15.5"
+  },
+  "scripts": {
+    "build": "pnpm build:wasm && pnpm build:extension",
+    "build:extension": "pnpm --filter @switchypeformance/chrome-extension build",
+    "build:wasm": "cargo build -p routing-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/routing_wasm.wasm --target web --out-dir apps/chrome-extension/src/generated/routing-wasm --out-name routing_wasm",
+    "check": "pnpm check:source-size && pnpm check:ts && cargo check --workspace",
+    "check:source-size": "node scripts/check-source-size.mjs",
+    "check:ts": "tsc --noEmit",
+    "dev": "pnpm --filter @switchypeformance/chrome-extension dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm test:ts && cargo test --workspace",
+    "test:ts": "vitest run"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.2.2",
+    "@types/node": "25.0.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

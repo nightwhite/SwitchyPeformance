@@ -1,0 +1,67 @@
+import type { ProfileDocument, RouteTarget } from '@switchypeformance/contracts';
+
+import type {
+  BackgroundRequest,
+  BackgroundResponse,
+  BackgroundState
+} from '../runtime/messages.ts';
+
+export async function requestBackgroundState(message: BackgroundRequest): Promise<BackgroundState> {
+  const response = await sendBackgroundCommand(message);
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+  if (!response.state) {
+    throw new Error('The background response did not include state');
+  }
+  return response.state;
+}
+
+export async function sendBackgroundCommand(
+  message: BackgroundRequest
+): Promise<BackgroundResponse> {
+  const response = (await chrome.runtime.sendMessage(message)) as BackgroundResponse;
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+  return response;
+}
+
+export function routeOptions(document: ProfileDocument): readonly {
+  label: string;
+  value: string;
+  target: RouteTarget;
+}[] {
+  return [
+    { label: 'Direct', value: 'direct', target: { kind: 'direct' } },
+    ...document.proxies.map((proxy) => ({
+      label: proxy.name,
+      value: `proxy:${proxy.id}`,
+      target: { kind: 'proxy' as const, proxyId: proxy.id }
+    }))
+  ];
+}
+
+export function targetFromValue(value: string): RouteTarget {
+  if (value === 'direct') {
+    return { kind: 'direct' };
+  }
+  if (value === 'system') {
+    return { kind: 'system' };
+  }
+  if (value.startsWith('proxy:')) {
+    return { kind: 'proxy', proxyId: value.slice('proxy:'.length) };
+  }
+  throw new Error(`Unsupported route target: ${value}`);
+}
+
+export function targetToValue(target: RouteTarget): string {
+  if (target.kind === 'proxy') {
+    return `proxy:${target.proxyId}`;
+  }
+  return target.kind;
+}
+
+export function createId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}

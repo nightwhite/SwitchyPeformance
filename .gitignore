@@ -1,6 +1,8 @@
 .reference/
 node_modules/
 .output/
+.wxt/
+apps/chrome-extension/src/generated/
 dist/
 target/
 coverage/

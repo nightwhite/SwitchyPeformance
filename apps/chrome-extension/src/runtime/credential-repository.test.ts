@@ -1,0 +1,40 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { createCredentialRepository } from './credential-repository.ts';
+
+describe('createCredentialRepository', () => {
+  it('serializes local credential changes and does not mix them with routing configuration', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const repository = createCredentialRepository({
+      read: vi.fn().mockResolvedValue([]),
+      write
+    });
+
+    await repository.save({ id: 'credential-edge', password: 'secret', username: 'operator' });
+
+    expect(await repository.get('credential-edge')).toEqual({
+      id: 'credential-edge',
+      password: 'secret',
+      username: 'operator'
+    });
+    expect(write).toHaveBeenLastCalledWith([
+      { id: 'credential-edge', password: 'secret', username: 'operator' }
+    ]);
+
+    await repository.remove('credential-edge');
+    expect(await repository.get('credential-edge')).toBeUndefined();
+  });
+
+  it('rejects corrupt persisted credential records', async () => {
+    const repository = createCredentialRepository({
+      read: vi
+        .fn()
+        .mockResolvedValue([{ id: 'credential-edge', password: 3, username: 'operator' }]),
+      write: vi.fn().mockResolvedValue(undefined)
+    });
+
+    await expect(repository.get('credential-edge')).rejects.toThrow(
+      'Stored proxy credentials are invalid'
+    );
+  });
+});

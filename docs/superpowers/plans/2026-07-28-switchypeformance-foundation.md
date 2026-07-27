@@ -2,18 +2,25 @@
 
 > This plan covers the independently implemented foundation. Later phases remain gated by contract tests and documented Chrome limitations.
 
-## Phase 0: Repository and clean-room controls
+## Delivered Foundation
 
-1. Initialize the standalone repository with MIT licensing and an ignored reference directory.
-2. Document the clean-room boundary, architecture, source-size rule, and no-native-service constraint.
-3. Create the public GitHub repository only after verifying ignored reference material cannot be staged.
+- Clean-room controls, source-size enforcement, TypeScript/Rust workspaces, and Chrome MV3 production builds are in place.
+- The routing core compiles indexed PAC rules once per configuration change and has a 10,000-rule regression contract.
+- Direct, system, fixed-proxy, and multiple auto-switch profiles are implemented with direct-failover or proxy-only PAC behavior.
+- Local-only proxy credentials, bounded diagnostics, generic route inspection, legacy JSON/`.bak` migration, popup actions, failed-resource actions, and context-menu actions are implemented.
+
+## Remaining Release Work
+
+1. Keep the standalone MIT repository and ignored reference directory audited before each release.
+2. Keep the clean-room boundary, architecture, source-size rule, and no-native-service constraint documented.
+3. Verify ignored reference material cannot be staged before each release.
 
 ## Phase 1: Build and test baseline
 
-1. Create the pnpm workspace, React Chrome extension application, Rust workspace, and shared contract package.
-2. Add linting, formatting, TypeScript checking, Cargo checking, Vitest, and Playwright configuration.
-3. Add a file-size guard that fails for production source files over 2,000 lines.
-4. Verify a blank MV3 extension can build and load without a native process.
+1. Maintain the pnpm workspace, React Chrome extension application, Rust workspace, and shared contract package.
+2. Maintain formatting, TypeScript checking, Cargo checking, Vitest, and production-build checks.
+3. Keep the file-size guard active for production source files over 2,000 lines.
+4. Run manual Chrome installation and browser reliability checks before release.
 
 ## Phase 2: Independent domain and routing core
 
@@ -24,16 +31,13 @@
 
 ## Phase 3: User-facing parity
 
-1. Build options navigation and profile management.
-2. Build fixed proxy, PAC, auto-switch, rule-list, and virtual profile editors.
-3. Build the popup, quick page-rule actions, failed-resource actions, context menu, and temporary-rule workflows.
-4. Add independently authored visual regression coverage at popup, laptop, and wide desktop sizes.
+1. Expand proxy endpoint editing and remaining profile types such as PAC URL, rule-list, and virtual profiles.
+2. Add temporary-rule workflows and independently authored visual regression coverage at popup, laptop, and wide desktop sizes.
 
 ## Phase 4: Operations and recovery
 
-1. Implement import/export and legacy backup migration through documented schemas.
-2. Implement subscription refresh, proxy authentication, sync controls, diagnostics, and route explanation.
-3. Add bounded logs, performance summaries, worker restart recovery, and safe reset controls.
+1. Expand migration schemas and add optional subscription refresh and sync controls.
+2. Keep proxy authentication, diagnostics, route explanation, bounded logs, performance summaries, worker restart recovery, and safe reset controls covered by tests.
 
 ## Phase 5: Compatibility and release
 
