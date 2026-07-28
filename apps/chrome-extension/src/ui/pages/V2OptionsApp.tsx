@@ -27,10 +27,11 @@ import type { BackgroundState } from '../../runtime/messages.ts';
 import { calculateVirtualWindow } from '../rule-virtualizer.ts';
 import { toUserFacingMessage } from '../error-message.ts';
 import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-routes.ts';
-import { conditionLabel, profileKindLabel, profileName } from '../v2-labels.ts';
+import { conditionLabel, profileName } from '../v2-labels.ts';
 import { requestBackgroundState } from '../background-client.ts';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
+import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
@@ -183,7 +184,14 @@ export function V2OptionsApp({
               onReplace={onReplace}
             />
           ) : null}
-          {page === 'proxy-servers' ? <V2ProxyServersPage document={document} /> : null}
+          {page === 'proxy-servers' ? (
+            <V2ProxyServersPage
+              busy={busy}
+              document={document}
+              onReplace={onReplace}
+              onState={onState}
+            />
+          ) : null}
           {page === 'rules' ? <V2RulesPage document={document} /> : null}
           {page === 'diagnostics' ? (
             <V2DiagnosticsPage busy={busy} events={state.diagnostics} onState={onState} />
@@ -225,40 +233,6 @@ function NavButton({
       <span>{label}</span>
       {selected ? <ChevronRight size={15} /> : null}
     </button>
-  );
-}
-
-function V2ProxyServersPage({ document }: { document: ProfileDocumentV2 }) {
-  const usage = useMemo(() => proxyUsage(document), [document]);
-  return (
-    <section className="page-panel table-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="panel-kicker">代理入口</p>
-          <h2>{document.proxyServers.length} 个代理服务器</h2>
-        </div>
-      </div>
-      {document.proxyServers.length === 0 ? (
-        <div className="empty-state">尚未添加代理服务器</div>
-      ) : (
-        <div className="data-table">
-          <div className="table-row table-head">
-            <span>名称</span>
-            <span>协议</span>
-            <span>地址</span>
-            <span>被固定配置引用</span>
-          </div>
-          {document.proxyServers.map((server) => (
-            <div className="table-row" key={server.id}>
-              <strong>{server.name}</strong>
-              <span className="mono-chip">{server.scheme.toUpperCase()}</span>
-              <span>{`${server.host}:${server.port}`}</span>
-              <span>{usage.get(server.id) ?? 0}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -572,24 +546,4 @@ function V2SettingsPage({
       {error ? <p className="inline-error">{error}</p> : null}
     </section>
   );
-}
-
-function proxyUsage(document: ProfileDocumentV2): ReadonlyMap<string, number> {
-  const usage = new Map<string, number>();
-  for (const profile of document.profiles) {
-    if (profile.kind !== 'fixed-proxy') {
-      continue;
-    }
-    for (const proxyId of [
-      profile.routes.fallbackProxyId,
-      profile.routes.httpProxyId,
-      profile.routes.httpsProxyId,
-      profile.routes.ftpProxyId
-    ]) {
-      if (proxyId) {
-        usage.set(proxyId, (usage.get(proxyId) ?? 0) + 1);
-      }
-    }
-  }
-  return usage;
 }

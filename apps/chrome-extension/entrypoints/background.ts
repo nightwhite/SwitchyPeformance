@@ -7,10 +7,7 @@ import {
 } from '../src/runtime/chrome-repositories.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
-import {
-  bindProxyCredential,
-  clearProxyCredential
-} from '../src/runtime/proxy-credential-binding.ts';
+import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
 import {
   DIRECT_QUICK_RULE_MENU_ID,
   profileQuickRuleMenuId,
@@ -50,6 +47,12 @@ export default defineBackground(() => {
   const authenticate = createProxyAuthenticationHandler({
     configuration: chromeConfigurationRepository,
     credentials: chromeCredentialRepository
+  });
+  const proxyCredentials = createProxyCredentialService({
+    configuration: chromeConfigurationRepository,
+    createCredentialId: () => `credential-${crypto.randomUUID()}`,
+    credentials: chromeCredentialRepository,
+    replace: (document) => service.replaceConfiguration(document)
   });
   const recordNetworkFailure = createNetworkFailureRecorder((event) =>
     chromeDiagnosticsRepository.append(event)
@@ -100,7 +103,7 @@ export default defineBackground(() => {
     void addContextMenuRule(service, info.pageUrl ?? info.frameUrl, target);
   });
   chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
-    void handleMessage(service, message)
+    void handleMessage(service, proxyCredentials, message)
       .then(async (response) => {
         if (messageChangesProxyList(message)) {
           await rebuildQuickRuleMenus();
@@ -176,13 +179,14 @@ export default defineBackground(() => {
 
 async function handleMessage(
   service: ReturnType<typeof createBackgroundService>,
+  proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
     return { ok: false, error: '不支持的后台请求' };
   }
 
-  await dispatch(service, message);
+  await dispatch(service, proxyCredentials, message);
   if (message.type === 'options.open') {
     return { ok: true };
   }
@@ -191,6 +195,7 @@ async function handleMessage(
 
 async function dispatch(
   service: ReturnType<typeof createBackgroundService>,
+  proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   message: BackgroundRequest
 ): Promise<void> {
   switch (message.type) {
@@ -209,55 +214,14 @@ async function dispatch(
       await chrome.runtime.openOptionsPage();
       return;
     case 'proxy.credentials.save':
-      await saveProxyCredentials(service, message);
+      await proxyCredentials.save(message.proxyId, message.username, message.password);
       return;
     case 'proxy.credentials.clear':
-      await clearProxyCredentials(service, message.proxyId);
+      await proxyCredentials.clear(message.proxyId);
       return;
     case 'proxy.credentials.delete':
       await chromeCredentialRepository.remove(message.credentialId);
       return;
-  }
-}
-
-async function saveProxyCredentials(
-  service: ReturnType<typeof createBackgroundService>,
-  message: Extract<BackgroundRequest, { type: 'proxy.credentials.save' }>
-): Promise<void> {
-  const document = await chromeConfigurationRepository.load();
-  const proxy = proxyById(document, message.proxyId);
-  if (!proxy) {
-    throw new Error('代理不存在');
-  }
-  const credentialId = proxy.credentialId ?? `credential-${crypto.randomUUID()}`;
-  await chromeCredentialRepository.save({
-    id: credentialId,
-    username: message.username,
-    password: message.password
-  });
-  await service.replaceConfiguration(
-    document.schemaVersion === 1
-      ? bindProxyCredential(document, proxy.id, credentialId)
-      : bindProxyCredential(document, proxy.id, credentialId)
-  );
-}
-
-async function clearProxyCredentials(
-  service: ReturnType<typeof createBackgroundService>,
-  proxyId: string
-): Promise<void> {
-  const document = await chromeConfigurationRepository.load();
-  const proxy = proxyById(document, proxyId);
-  if (!proxy) {
-    throw new Error('代理不存在');
-  }
-  await service.replaceConfiguration(
-    document.schemaVersion === 1
-      ? clearProxyCredential(document, proxy.id)
-      : clearProxyCredential(document, proxy.id)
-  );
-  if (proxy.credentialId) {
-    await chromeCredentialRepository.remove(proxy.credentialId);
   }
 }
 
@@ -346,9 +310,4 @@ function fixedProfileIdForLegacyProxy(document: ProfileDocumentV2, proxyId: stri
     throw new Error('V2 快捷规则需要选择固定代理配置');
   }
   return profile.id;
-}
-
-function proxyById(document: ConfigurationDocument, proxyId: string) {
-  const proxies = document.schemaVersion === 1 ? document.proxies : document.proxyServers;
-  return proxies.find((candidate) => candidate.id === proxyId);
 }

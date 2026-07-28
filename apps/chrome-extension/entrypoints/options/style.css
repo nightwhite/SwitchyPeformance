@@ -323,6 +323,10 @@ h2 {
   grid-template-columns: minmax(150px, 0.7fr) minmax(220px, 1.3fr) auto;
   align-items: end;
 }
+.form-grid-proxy-server {
+  grid-template-columns: minmax(150px, 1fr) 110px minmax(180px, 1.2fr) 96px auto;
+  align-items: end;
+}
 label {
   display: grid;
   gap: 6px;
@@ -331,7 +335,8 @@ label {
   font-weight: 700;
 }
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 34px;
   padding: 0 9px;
@@ -342,9 +347,15 @@ select {
   font-size: 13px;
 }
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid rgba(22, 123, 88, 0.22);
   border-color: #167b58;
+}
+textarea {
+  min-height: 92px;
+  padding: 8px 9px;
+  resize: vertical;
 }
 .form-command {
   white-space: nowrap;
@@ -449,6 +460,12 @@ select:focus {
 .profile-table-row {
   grid-template-columns: minmax(190px, 1fr) 126px 94px minmax(310px, auto);
 }
+.proxy-server-table-row {
+  grid-template-columns: minmax(160px, 1fr) 88px minmax(170px, 1fr) 98px 112px 118px;
+}
+.proxy-server-actions {
+  justify-content: flex-end;
+}
 .profile-actions {
   justify-content: flex-end;
   flex-wrap: wrap;
@@ -520,6 +537,25 @@ select:focus {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+.credential-dialog {
+  width: min(100%, 500px);
+}
+.credential-actions {
+  flex-wrap: wrap;
+}
+.fixed-proxy-picker {
+  max-width: 560px;
+}
+.fixed-proxy-editor {
+  max-width: 1080px;
+}
+.fixed-proxy-grid {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  align-items: end;
+}
+.bypass-input {
+  grid-column: span 3;
 }
 .credential-panel {
   max-width: 720px;
@@ -745,12 +781,30 @@ select:focus {
   align-items: center;
 }
 
+@media (max-width: 1100px) {
+  .form-grid-proxy-server,
+  .fixed-proxy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .form-grid-proxy-server .form-command,
+  .bypass-input {
+    grid-column: span 2;
+  }
+}
+
 @media (max-width: 920px) {
   .form-grid-proxy,
   .form-grid-profile-create,
+  .form-grid-proxy-server,
   .credential-form,
   .inspection-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fixed-proxy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .bypass-input {
+    grid-column: span 2;
   }
   .form-command {
     grid-column: span 2;

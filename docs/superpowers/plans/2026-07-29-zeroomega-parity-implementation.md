@@ -898,7 +898,7 @@ git commit -m "feat: manage profiles safely"
 - Test: `apps/chrome-extension/src/ui/components/FixedProxyEditor.test.tsx`
 - Test: `apps/chrome-extension/src/runtime/proxy-credential-binding.test.ts`
 
-- [ ] **Step 1: 写出协议分别选择、绕过项和删除服务器受引用保护的失败测试。**
+- [x] **Step 1: 写出协议分别选择、绕过项和删除服务器受引用保护的失败测试。**
 
 ```ts
 expect(updateFixedProfile(profile, { httpsProxyId: 'proxy-https' })).toMatchObject({
@@ -910,13 +910,13 @@ expect(removeProxyServer(document, 'proxy-http')).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/components/FixedProxyEditor.test.tsx apps/chrome-extension/src/runtime/proxy-credential-binding.test.ts`
 
 Expected: FAIL，当前模型没有协议路由映射。
 
-- [ ] **Step 3: 实现编辑器和凭据隔离。**
+- [x] **Step 3: 实现编辑器和凭据隔离。**
 
 ```ts
 export interface ProxyRoutes {
@@ -929,18 +929,20 @@ export interface ProxyRoutes {
 
 账号密码只保存在 `chrome.storage.local` 的凭据仓库，配置导出、Chrome 同步、Gist 和 WebDAV 都不包含密码。代理服务器被删除时，界面显示引用的固定配置并要求先替换或删除这些引用。
 
-- [ ] **Step 4: 运行认证与界面测试。**
+- [x] **Step 4: 运行认证与界面测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/components/FixedProxyEditor.test.tsx apps/chrome-extension/src/runtime/proxy-auth.test.ts apps/chrome-extension/src/runtime/proxy-credential-binding.test.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交代理编辑器。**
+- [x] **Step 5: 提交代理编辑器。**
 
 ```bash
 git add apps/chrome-extension/src/ui apps/chrome-extension/src/runtime
 git commit -m "feat: edit protocol-specific proxy servers"
 ```
+
+**执行记录（2026-07-29）：** 新增代理服务器会同时生成同名固定代理配置，因此它会立即出现在配置切换、弹窗和快捷规则目标中。固定代理可分别设置默认、HTTP、HTTPS、FTP 服务器和绕过地址；删除服务器会列出所有固定配置引用，并要求先选择替代服务器。账号密码继续只保存在本机 `chrome.storage.local` 凭据仓库，导出配置只保留绑定 ID；密码更新改为先保存一个新的本地凭据 ID、再原子切换配置引用，配置应用失败时会删除新凭据且完全不覆盖旧密码。Chrome 的 `fixed_servers` 本身不提供“连接失败后直连”的配置字段，因此界面不伪造这个选项。定向测试 27 项通过；完整测试 37 个文件、114 项通过；`pnpm check`、`pnpm format:check` 和 `pnpm build` 通过。
 
 ### Task 14: 实现自动切换规则编辑器、完整条件和虚拟列表
 
