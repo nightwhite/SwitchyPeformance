@@ -1,5 +1,11 @@
 #![forbid(unsafe_code)]
 
+mod matcher;
+
+pub use matcher::{
+    ConditionMatch, matches_host_suffix, matches_ip_cidr, matches_time_range, matches_weekdays,
+};
+
 use std::{cmp::Ordering, collections::BTreeMap, net::IpAddr, str::FromStr};
 
 use config_model::{
