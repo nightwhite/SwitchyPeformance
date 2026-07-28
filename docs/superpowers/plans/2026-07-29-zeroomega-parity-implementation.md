@@ -404,7 +404,7 @@ git commit -m "feat: migrate v1 configurations to v2"
 - Modify: `apps/chrome-extension/src/runtime/background-service.ts`
 - Test: `apps/chrome-extension/src/runtime/configuration-service.test.ts`
 
-- [ ] **Step 1: 写出“新配置编译失败时旧配置继续有效”的失败测试。**
+- [x] **Step 1: 写出“新配置编译失败时旧配置继续有效”的失败测试。**
 
 ```ts
 it('编译失败时保留已应用配置', async () => {
@@ -417,13 +417,13 @@ it('编译失败时保留已应用配置', async () => {
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/configuration-service.test.ts`
 
 Expected: FAIL，事务服务尚不存在。
 
-- [ ] **Step 3: 实现保存顺序。**
+- [x] **Step 3: 实现保存顺序。**
 
 ```ts
 export async function replaceConfiguration(candidate: unknown): Promise<BackgroundState> {
@@ -437,18 +437,20 @@ export async function replaceConfiguration(candidate: unknown): Promise<Backgrou
 
 编译、Chrome 应用、持久化三步任一失败时，恢复最后一个已应用的 Chrome 设置并保留旧持久化文档；诊断中写一条配置错误事件。
 
-- [ ] **Step 4: 运行后台回归测试。**
+- [x] **Step 4: 运行后台回归测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/configuration-service.test.ts apps/chrome-extension/src/runtime/apply-configuration.test.ts apps/chrome-extension/src/runtime/background-service.test.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交配置事务。**
+- [x] **Step 5: 提交配置事务。**
 
 ```bash
 git add apps/chrome-extension/src/runtime
 git commit -m "feat: apply configuration changes atomically"
 ```
+
+**执行记录（2026-07-29）：** 先运行事务测试，因服务不存在而失败；实现后覆盖应用或编译失败不写入候选配置，以及持久化失败自动恢复旧 Chrome 配置。完整测试 28 个文件、74 项测试通过，`pnpm check` 通过。
 
 ## M1：Rust/WASM 路由核心和 Chrome 代理映射
 

@@ -1,7 +1,8 @@
-import { parseProfileDocument, type ProfileDocument } from '@switchypeformance/contracts';
+import type { ProfileDocument } from '@switchypeformance/contracts';
 
 import type { ApplyConfigurationResult } from './apply-configuration.ts';
 import type { ConfigurationRepository } from './configuration-repository.ts';
+import { createConfigurationService } from './configuration-service.ts';
 import type { DiagnosticEvent, DiagnosticsRepository } from './diagnostics-repository.ts';
 
 export interface BackgroundServiceDependencies {
@@ -30,30 +31,32 @@ export function createBackgroundService(
   async function applyWithDiagnostics(
     document: ProfileDocument
   ): Promise<ApplyConfigurationResult> {
+    const result = await dependencies.apply(document);
+    await dependencies.diagnostics.append({
+      level: 'info',
+      scope: 'configuration',
+      message: appliedConfigurationMessage(result)
+    });
+    return result;
+  }
+
+  const configurationService = createConfigurationService({
+    apply: applyWithDiagnostics,
+    configuration: dependencies.configuration
+  });
+
+  async function runConfigurationOperation<T>(operation: () => Promise<T>): Promise<T> {
     try {
-      const result = await dependencies.apply(document);
-      await dependencies.diagnostics.append({
-        level: 'info',
-        scope: 'configuration',
-        message: appliedConfigurationMessage(result)
-      });
-      return result;
+      return await operation();
     } catch (error) {
       await recordFailure('configuration', error);
       throw error;
     }
   }
 
-  async function updateConfiguration(candidate: unknown): Promise<ProfileDocument> {
-    const document = validateConfiguration(candidate);
-    await applyWithDiagnostics(document);
-    return dependencies.configuration.replace(document);
-  }
-
   return {
     async activateProfile(profileId) {
-      const current = await dependencies.configuration.load();
-      return updateConfiguration({ ...current, activeProfileId: profileId });
+      return runConfigurationOperation(() => configurationService.activate(profileId));
     },
     async clearDiagnostics() {
       await dependencies.diagnostics.clear();
@@ -67,10 +70,11 @@ export function createBackgroundService(
       });
     },
     async reapplyCurrent() {
-      const document = await dependencies.configuration.load();
-      return applyWithDiagnostics(document);
+      return runConfigurationOperation(() => configurationService.reapply());
     },
-    replaceConfiguration: updateConfiguration,
+    async replaceConfiguration(candidate) {
+      return runConfigurationOperation(() => configurationService.replace(candidate));
+    },
     async snapshot() {
       const [configuration, diagnostics] = await Promise.all([
         dependencies.configuration.load(),
@@ -91,14 +95,6 @@ export function createBackgroundService(
       // Diagnostics must never replace the original routing failure.
     }
   }
-}
-
-function validateConfiguration(candidate: unknown): ProfileDocument {
-  const result = parseProfileDocument(candidate);
-  if (!result.ok) {
-    throw new Error('配置无效');
-  }
-  return result.value;
 }
 
 function errorMessage(error: unknown): string {
