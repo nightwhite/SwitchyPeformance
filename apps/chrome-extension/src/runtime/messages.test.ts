@@ -52,4 +52,36 @@ describe('background messages', () => {
     expect(isBackgroundRequest({ type: 'route.explain', url: 'https://x.com/home' })).toBe(true);
     expect(isBackgroundRequest({ type: 'route.explain' })).toBe(false);
   });
+
+  it('accepts complete temporary-rule commands', () => {
+    expect(
+      isBackgroundRequest({
+        type: 'temporary-rule.add',
+        automaticProfileId: 'automatic',
+        condition: { type: 'host-wildcard', pattern: '*.example.test' },
+        expiresAt: Date.now() + 60_000,
+        host: 'www.example.test',
+        scope: 'domain',
+        target: { profileId: 'fixed-work' }
+      })
+    ).toBe(true);
+    expect(isBackgroundRequest({ type: 'temporary-rule.remove', ruleId: 'temporary-1' })).toBe(
+      true
+    );
+    expect(isBackgroundRequest({ type: 'temporary-rule.clear' })).toBe(true);
+  });
+
+  it('rejects temporary rules without a future-compatible expiry value', () => {
+    expect(
+      isBackgroundRequest({
+        type: 'temporary-rule.add',
+        automaticProfileId: 'automatic',
+        condition: { type: 'host-wildcard', pattern: '*.example.test' },
+        expiresAt: 0,
+        host: 'www.example.test',
+        scope: 'domain',
+        target: { profileId: 'fixed-work' }
+      })
+    ).toBe(false);
+  });
 });

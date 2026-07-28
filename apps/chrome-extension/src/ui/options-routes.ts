@@ -3,6 +3,7 @@ export const OPTION_PAGES = [
   'profiles',
   'proxy-servers',
   'rules',
+  'temporary-rules',
   'diagnostics',
   'data',
   'settings'

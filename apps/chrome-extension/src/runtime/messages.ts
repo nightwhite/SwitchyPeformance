@@ -8,6 +8,7 @@ import { validateCondition } from '@switchypeformance/contracts';
 
 import type { CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
+import type { TemporaryRule } from './temporary-rule-service.ts';
 
 export type QuickRuleTarget = ProfileTarget | RouteTarget;
 export type QuickRuleCondition = Extract<
@@ -28,6 +29,17 @@ export type BackgroundRequest =
       scope: CurrentSiteScope;
       target: QuickRuleTarget;
     }
+  | {
+      type: 'temporary-rule.add';
+      automaticProfileId: string;
+      condition: QuickRuleCondition;
+      expiresAt: number;
+      host: string;
+      scope: CurrentSiteScope;
+      target: QuickRuleTarget;
+    }
+  | { type: 'temporary-rule.remove'; ruleId: string }
+  | { type: 'temporary-rule.clear' }
   | { type: 'diagnostics.clear' }
   | { type: 'options.open' }
   | { type: 'proxy.credentials.save'; proxyId: string; username: string; password: string }
@@ -45,6 +57,7 @@ export interface BackgroundState {
     target?: string;
     detail?: string;
   }[];
+  temporaryRules: readonly TemporaryRule[];
 }
 
 export type BackgroundResponse =
@@ -69,6 +82,8 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     url?: unknown;
     condition?: unknown;
     host?: unknown;
+    expiresAt?: unknown;
+    ruleId?: unknown;
   };
   return (
     message.type === 'state.get' ||
@@ -83,6 +98,15 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
       isNonEmptyString(message.host) &&
       isCurrentSiteScope(message.scope) &&
       isQuickRuleTarget(message.target)) ||
+    (message.type === 'temporary-rule.add' &&
+      isNonEmptyString(message.automaticProfileId) &&
+      isQuickRuleCondition(message.condition) &&
+      isExpiryTimestamp(message.expiresAt) &&
+      isNonEmptyString(message.host) &&
+      isCurrentSiteScope(message.scope) &&
+      isQuickRuleTarget(message.target)) ||
+    (message.type === 'temporary-rule.remove' && isNonEmptyString(message.ruleId)) ||
+    message.type === 'temporary-rule.clear' ||
     (message.type === 'proxy.credentials.save' &&
       typeof message.proxyId === 'string' &&
       typeof message.username === 'string' &&
@@ -124,4 +148,8 @@ function isQuickRuleTarget(value: unknown): value is QuickRuleTarget {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isExpiryTimestamp(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }

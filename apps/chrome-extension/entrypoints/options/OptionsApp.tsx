@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ChevronRight,
   CircleGauge,
+  Clock3,
   Download,
   FileUp,
   Globe2,
@@ -51,13 +52,16 @@ import type { BackgroundState } from '../../src/runtime/messages.ts';
 import { explainRouteWithWasm } from '../../src/runtime/wasm-runtime.ts';
 import type { RouteExplanation } from '../../src/runtime/route-explainer.ts';
 import { V2OptionsApp } from '../../src/ui/pages/V2OptionsApp.tsx';
+import { TemporaryRulesPage } from '../../src/ui/pages/TemporaryRulesPage.tsx';
 
-type Page = 'overview' | 'proxies' | 'automatic' | 'diagnostics' | 'data' | 'settings';
+type Page =
+  'overview' | 'proxies' | 'automatic' | 'temporary-rules' | 'diagnostics' | 'data' | 'settings';
 
 const PAGE_COPY: Record<Page, { title: string; eyebrow: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
   proxies: { eyebrow: '情景模式', title: '代理服务器' },
   automatic: { eyebrow: '情景模式', title: '自动切换' },
+  'temporary-rules': { eyebrow: '情景模式', title: '临时规则' },
   diagnostics: { eyebrow: '工具', title: '排查日志' },
   data: { eyebrow: '工具', title: '导入与导出' },
   settings: { eyebrow: '设置', title: '运行参数' }
@@ -186,6 +190,13 @@ export function OptionsApp() {
             onNavigate={navigate}
           />
           <NavButton
+            icon={<Clock3 />}
+            label="临时规则"
+            page="temporary-rules"
+            active={page}
+            onNavigate={navigate}
+          />
+          <NavButton
             icon={<Activity />}
             label="排查日志"
             page="diagnostics"
@@ -258,6 +269,14 @@ export function OptionsApp() {
           ) : null}
           {page === 'automatic' ? (
             <AutomaticPanel document={document} busy={busy} onSave={saveConfiguration} />
+          ) : null}
+          {page === 'temporary-rules' ? (
+            <TemporaryRulesPage
+              busy={busy}
+              document={document}
+              onState={setState}
+              rules={state.temporaryRules}
+            />
           ) : null}
           {page === 'diagnostics' ? (
             <DiagnosticsPanel
@@ -1378,6 +1397,7 @@ function pageFromHash(): Page {
   const page = window.location.hash.slice(1);
   return page === 'proxies' ||
     page === 'automatic' ||
+    page === 'temporary-rules' ||
     page === 'diagnostics' ||
     page === 'data' ||
     page === 'settings'

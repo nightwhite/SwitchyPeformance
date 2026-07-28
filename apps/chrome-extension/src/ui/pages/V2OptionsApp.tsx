@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ChevronRight,
   CircleGauge,
+  Clock3,
   Download,
   FileUp,
   Globe2,
@@ -31,12 +32,14 @@ import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
 import { V2RulesPage } from './V2RulesPage.tsx';
+import { TemporaryRulesPage } from './TemporaryRulesPage.tsx';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
   profiles: { eyebrow: '情景模式', title: '代理配置' },
   'proxy-servers': { eyebrow: '情景模式', title: '代理服务器' },
   rules: { eyebrow: '情景模式', title: '自动切换规则' },
+  'temporary-rules': { eyebrow: '情景模式', title: '临时规则' },
   diagnostics: { eyebrow: '工具', title: '排查日志' },
   data: { eyebrow: '工具', title: '导入与导出' },
   settings: { eyebrow: '设置', title: '运行参数' }
@@ -120,6 +123,13 @@ export function V2OptionsApp({
           />
           <NavButton
             active={page}
+            icon={<Clock3 />}
+            label="临时规则"
+            page="temporary-rules"
+            onNavigate={navigate}
+          />
+          <NavButton
+            active={page}
             icon={<Activity />}
             label="排查日志"
             page="diagnostics"
@@ -189,6 +199,14 @@ export function V2OptionsApp({
           ) : null}
           {page === 'rules' ? (
             <V2RulesPage busy={busy} document={document} onReplace={onReplace} />
+          ) : null}
+          {page === 'temporary-rules' ? (
+            <TemporaryRulesPage
+              busy={busy}
+              document={document}
+              onState={onState}
+              rules={state.temporaryRules}
+            />
           ) : null}
           {page === 'diagnostics' ? (
             <V2DiagnosticsPage busy={busy} events={state.diagnostics} onState={onState} />

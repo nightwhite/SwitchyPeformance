@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   ChevronRight,
+  Clock3,
   ExternalLink,
   Globe2,
   Plus,
@@ -27,6 +28,11 @@ import {
 import { toUserFacingMessage } from '../../src/ui/error-message.ts';
 import { recentFailureHosts } from '../../src/ui/failure-hosts.ts';
 import {
+  TEMPORARY_RULE_DURATION_OPTIONS,
+  temporaryRuleExpiry,
+  type TemporaryRuleDuration
+} from '../../src/ui/components/temporary-rule-form.ts';
+import {
   automaticProfileOptions,
   buildCurrentSiteRule,
   defaultAutomaticProfileId,
@@ -49,6 +55,7 @@ export function PopupApp() {
   const [automaticProfileId, setAutomaticProfileId] = useState<string>();
   const [ruleScope, setRuleScope] = useState<CurrentSiteScope>('domain');
   const [ruleTarget, setRuleTarget] = useState('');
+  const [temporaryDuration, setTemporaryDuration] = useState<TemporaryRuleDuration>('30m');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -151,6 +158,32 @@ export function PopupApp() {
         type: 'quick-rule.add',
         automaticProfileId: effectiveAutomaticProfileId,
         condition: siteRule.condition,
+        host: siteRule.host,
+        scope,
+        target: quickRuleTarget(document, effectiveRuleTarget)
+      });
+      await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
+    } catch (cause) {
+      setError(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addTemporaryRule(url: string, scope: CurrentSiteScope): Promise<void> {
+    if (!document || !effectiveAutomaticProfileId || !effectiveRuleTarget) {
+      return;
+    }
+
+    setBusy(true);
+    setError(undefined);
+    try {
+      const siteRule = buildCurrentSiteRule(url, scope);
+      const nextState = await requestBackgroundState({
+        type: 'temporary-rule.add',
+        automaticProfileId: effectiveAutomaticProfileId,
+        condition: siteRule.condition,
+        expiresAt: temporaryRuleExpiry(temporaryDuration, Date.now()),
         host: siteRule.host,
         scope,
         target: quickRuleTarget(document, effectiveRuleTarget)
@@ -307,15 +340,47 @@ export function PopupApp() {
                 ))}
               </select>
             </label>
-            <button
-              className="command-button command-button-full"
-              disabled={!canAddRule}
-              onClick={() => void addQuickRule(availableTab.url, ruleScope)}
-              type="button"
-            >
-              <Plus size={15} />
-              加入自动切换
-            </button>
+            <label className="field-label">
+              <span>临时生效</span>
+              <select
+                aria-label="临时规则持续时间"
+                disabled={busy}
+                onChange={(event) =>
+                  setTemporaryDuration(event.target.value as TemporaryRuleDuration)
+                }
+                value={temporaryDuration}
+              >
+                {TEMPORARY_RULE_DURATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="rule-command-grid">
+              <button
+                className="command-button"
+                disabled={!canAddRule}
+                onClick={() => void addQuickRule(availableTab.url, ruleScope)}
+                type="button"
+              >
+                <Plus size={15} />
+                加入自动切换
+              </button>
+              <button
+                className="command-button command-button-temporary"
+                disabled={!canAddRule}
+                onClick={() => void addTemporaryRule(availableTab.url, ruleScope)}
+                type="button"
+              >
+                <Clock3 size={15} />
+                临时加入自动切换
+              </button>
+            </div>
+            <p className="temporary-rule-notice">
+              <Clock3 size={13} aria-hidden="true" />
+              临时全局规则，会影响所有普通窗口标签页，到期后自动移除。
+            </p>
             {automaticProfiles.length === 0 ? (
               <p className="popup-hint">请先在设置中创建自动切换配置。</p>
             ) : null}

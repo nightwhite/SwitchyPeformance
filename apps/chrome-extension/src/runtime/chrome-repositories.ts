@@ -7,10 +7,12 @@ import type {
 import { createConfigurationRepository } from './configuration-repository.ts';
 import { createCredentialRepository } from './credential-repository.ts';
 import { createDiagnosticsRepository, type DiagnosticEvent } from './diagnostics-repository.ts';
+import { createTemporaryRuleRepository } from './temporary-rule-repository.ts';
 
 const CONFIGURATION_KEY = 'switchypeformance.configuration.v1';
 const CREDENTIALS_KEY = 'switchypeformance.proxy-credentials.v1';
 const DIAGNOSTICS_KEY = 'switchypeformance.diagnostics.v1';
+const TEMPORARY_RULES_KEY = 'switchypeformance.temporary-rules.v1';
 
 export const chromeConfigurationRepository = createConfigurationRepository({
   async read() {
@@ -39,6 +41,16 @@ export const chromeCredentialRepository = createCredentialRepository({
   },
   async write(credentials) {
     await chrome.storage.local.set({ [CREDENTIALS_KEY]: credentials });
+  }
+});
+
+export const chromeTemporaryRuleRepository = createTemporaryRuleRepository({
+  async read() {
+    const stored = await chrome.storage.session.get(TEMPORARY_RULES_KEY);
+    return stored[TEMPORARY_RULES_KEY];
+  },
+  async write(rules) {
+    await chrome.storage.session.set({ [TEMPORARY_RULES_KEY]: rules });
   }
 });
 

@@ -3,13 +3,21 @@ import { createBackgroundService } from '../src/runtime/background-service.ts';
 import {
   chromeCredentialRepository,
   chromeConfigurationRepository,
-  chromeDiagnosticsRepository
+  chromeDiagnosticsRepository,
+  chromeTemporaryRuleRepository
 } from '../src/runtime/chrome-repositories.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
 import { explainCurrentRoute, type CurrentRouteStatus } from '../src/runtime/current-route.ts';
 import { addCurrentSiteRule } from '../src/runtime/quick-site-rule.ts';
+import { TEMPORARY_RULE_EXPIRY_ALARM } from '../src/runtime/temporary-rule-alarm.ts';
+import { createTemporaryRuleLifecycle } from '../src/runtime/temporary-rule-lifecycle.ts';
+import {
+  createTemporaryRuleService,
+  type TemporaryRuleService
+} from '../src/runtime/temporary-rule-service.ts';
+import { createTemporaryRoutingDocumentService } from '../src/runtime/temporary-routing-document.ts';
 import {
   DIRECT_QUICK_RULE_MENU_ID,
   profileQuickRuleMenuId,
@@ -32,18 +40,28 @@ import {
 } from '@switchypeformance/contracts';
 
 export default defineBackground(() => {
+  const temporaryRules = createTemporaryRuleService({
+    repository: chromeTemporaryRuleRepository
+  });
+  const routingDocuments = createTemporaryRoutingDocumentService({ temporaryRules });
   const service = createBackgroundService({
-    apply: (document) =>
-      applyConfiguration(document, {
+    apply: async (document) =>
+      applyConfiguration(await routingDocuments.resolve(document), {
         compileAutoSwitch: compileAutoSwitchWithWasm,
         setProxySetting: setChromeProxySetting
       }),
     configuration: chromeConfigurationRepository,
     diagnostics: chromeDiagnosticsRepository
   });
+  const temporaryRuleLifecycle = createTemporaryRuleLifecycle({
+    alarms: chrome.alarms,
+    loadConfiguration: () => chromeConfigurationRepository.load(),
+    reapply: () => service.reapplyCurrent(),
+    temporaryRules
+  });
 
   const reapply = () => {
-    void service.reapplyCurrent().catch(() => undefined);
+    void temporaryRuleLifecycle.reapplyAndSchedule().catch(() => undefined);
     void rebuildQuickRuleMenus();
   };
   const authenticate = createProxyAuthenticationHandler({
@@ -62,6 +80,11 @@ export default defineBackground(() => {
 
   chrome.runtime.onInstalled.addListener(reapply);
   chrome.runtime.onStartup.addListener(reapply);
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === TEMPORARY_RULE_EXPIRY_ALARM) {
+      void temporaryRuleLifecycle.synchronize().catch(() => undefined);
+    }
+  });
   chrome.proxy.onProxyError.addListener((details) => {
     void service.recordProxyError(details.error, details.details);
   });
@@ -105,7 +128,18 @@ export default defineBackground(() => {
     void addContextMenuRule(service, info.pageUrl ?? info.frameUrl, target);
   });
   chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
-    void handleMessage(service, proxyCredentials, message)
+    void temporaryRuleLifecycle
+      .synchronize()
+      .then(() =>
+        handleMessage(
+          service,
+          proxyCredentials,
+          temporaryRules,
+          routingDocuments,
+          temporaryRuleLifecycle,
+          message
+        )
+      )
       .then(async (response) => {
         if (messageChangesProxyList(message)) {
           await rebuildQuickRuleMenus();
@@ -182,26 +216,42 @@ export default defineBackground(() => {
 async function handleMessage(
   service: ReturnType<typeof createBackgroundService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
+  temporaryRules: TemporaryRuleService,
+  routingDocuments: ReturnType<typeof createTemporaryRoutingDocumentService>,
+  temporaryRuleLifecycle: ReturnType<typeof createTemporaryRuleLifecycle>,
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
     return { ok: false, error: '不支持的后台请求' };
   }
 
-  const routeStatus = await dispatch(service, proxyCredentials, message);
+  const routeStatus = await dispatch(
+    service,
+    proxyCredentials,
+    temporaryRules,
+    routingDocuments,
+    message
+  );
+  await temporaryRuleLifecycle.synchronize();
   if (message.type === 'options.open') {
     return { ok: true };
   }
+  const snapshot = await service.snapshot();
   return {
     ok: true,
     ...(routeStatus === undefined ? {} : { routeStatus }),
-    state: await service.snapshot()
+    state: {
+      ...snapshot,
+      temporaryRules: await temporaryRules.list(snapshot.configuration)
+    }
   };
 }
 
 async function dispatch(
   service: ReturnType<typeof createBackgroundService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
+  temporaryRules: TemporaryRuleService,
+  routingDocuments: ReturnType<typeof createTemporaryRoutingDocumentService>,
   message: BackgroundRequest
 ): Promise<CurrentRouteStatus | undefined> {
   switch (message.type) {
@@ -214,7 +264,10 @@ async function dispatch(
       await service.replaceConfiguration(message.document);
       return undefined;
     case 'route.explain':
-      return explainCurrentRoute(await chromeConfigurationRepository.load(), message.url);
+      return explainCurrentRoute(
+        await routingDocuments.resolve(await chromeConfigurationRepository.load()),
+        message.url
+      );
     case 'quick-rule.add':
       await service.mutateConfiguration((document) =>
         addCurrentSiteRule(document, {
@@ -226,6 +279,29 @@ async function dispatch(
           target: message.target
         })
       );
+      return undefined;
+    case 'temporary-rule.add': {
+      const document = await chromeConfigurationRepository.load();
+      await temporaryRules.add(document, {
+        automaticProfileId: message.automaticProfileId,
+        condition: message.condition,
+        expiresAt: message.expiresAt,
+        host: message.host,
+        scope: message.scope,
+        target: message.target
+      });
+      await service.reapplyCurrent();
+      return undefined;
+    }
+    case 'temporary-rule.remove':
+      if (await temporaryRules.remove(message.ruleId)) {
+        await service.reapplyCurrent();
+      }
+      return undefined;
+    case 'temporary-rule.clear':
+      if (await temporaryRules.clear()) {
+        await service.reapplyCurrent();
+      }
       return undefined;
     case 'diagnostics.clear':
       await service.clearDiagnostics();

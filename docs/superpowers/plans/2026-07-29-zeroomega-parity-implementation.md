@@ -401,7 +401,7 @@ git commit -m "feat: migrate v1 configurations to v2"
 - Create: `apps/chrome-extension/src/runtime/configuration-service.ts`
 - Modify: `apps/chrome-extension/src/runtime/configuration-repository.ts`
 - Modify: `apps/chrome-extension/src/runtime/apply-configuration.ts`
-- Modify: `apps/chrome-extension/src/runtime/background-service.ts`
+- Modify: `apps/chrome-extension/entrypoints/background.ts`
 - Test: `apps/chrome-extension/src/runtime/configuration-service.test.ts`
 
 - [x] **Step 1: 写出“新配置编译失败时旧配置继续有效”的失败测试。**
@@ -1142,59 +1142,61 @@ git commit -m "feat: add current-site proxy rule workflow"
 
 **执行记录（2026-07-29）：** 新增当前页、主机和注册主域三种范围；主域采用 MIT 的 `tldts` 公共后缀解析，覆盖 `example.co.uk` 和私有后缀场景，不用“最后两段域名”的不可靠猜法。弹窗只为 HTTP/HTTPS 页面启用操作，内部页面、扩展页面、文件页和没有 URL 的标签页会明确禁用。选择的自动切换配置、规则目标和范围通过 `quick-rule.add` 后台命令原子保存；重复条件更新原规则，不重复插入；非直连的本地地址规则会明确改为 `use-rules`。弹窗显示虚拟配置解析后的实际配置、当前结果和命中规则。主域解析只留在弹窗，后台包从约 1.4 MB 降到约 1.24 MB，总构建包从约 3.01 MB 降到约 2.75 MB。全量测试为 46 个文件、152 项测试通过；`pnpm check`、`pnpm format:check`、`cargo fmt --check` 和 `pnpm build` 通过。
 
-### Task 17: 实现临时规则和临时规则管理器
+### Task 17: 实现临时全局规则和临时规则管理器
+
+> **Chrome 约束：** PAC 只能拿到 URL 和主机名，Chrome 代理设置也不是按标签页生效。纯 Chrome 扩展不能真实实现标签页独立代理规则；本任务只实现清楚标注的“临时全局规则”。完整依据见 `docs/architecture/chrome-temporary-rule-boundary.md`。
 
 **Files:**
 
 - Create: `apps/chrome-extension/src/runtime/temporary-rule-repository.ts`
 - Create: `apps/chrome-extension/src/runtime/temporary-rule-service.ts`
 - Create: `apps/chrome-extension/src/ui/pages/TemporaryRulesPage.tsx`
-- Create: `apps/chrome-extension/src/ui/components/TemporaryRuleForm.tsx`
+- Create: `apps/chrome-extension/src/ui/components/temporary-rule-form.ts`
 - Modify: `apps/chrome-extension/src/runtime/messages.ts`
 - Modify: `apps/chrome-extension/src/runtime/background-service.ts`
 - Modify: `apps/chrome-extension/entrypoints/popup/PopupApp.tsx`
 - Test: `apps/chrome-extension/src/runtime/temporary-rule-service.test.ts`
-- Test: `apps/chrome-extension/src/ui/components/TemporaryRuleForm.test.tsx`
+- Test: `apps/chrome-extension/src/ui/components/temporary-rule-form.test.ts`
 
-- [ ] **Step 1: 写出临时规则到期、标签页范围和持久规则不受影响的失败测试。**
+- [x] **Step 1: 写出临时规则到期、全局范围和持久规则不受影响的失败测试。**
 
 ```ts
-it('只把未过期且当前标签页匹配的临时规则加入编译计划', () => {
-  const active = activeTemporaryRules(rules, { now: 1_000, tabId: 42 });
-  expect(active.map((rule) => rule.id)).toEqual(['tab-42-live', 'global-live']);
+it('只把未过期的临时全局规则加入编译配置', () => {
+  const active = activeTemporaryRules(rules, 1_000);
+  expect(active.map((rule) => rule.id)).toEqual(['global-live']);
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/runtime/temporary-rule-service.test.ts apps/chrome-extension/src/ui/components/TemporaryRuleForm.test.tsx`
+Run: `pnpm vitest run apps/chrome-extension/src/runtime/temporary-rule-service.test.ts apps/chrome-extension/src/ui/components/temporary-rule-form.test.ts`
 
 Expected: FAIL，临时规则仓库和操作不存在。
 
-- [ ] **Step 3: 实现临时规则模型和过期处理。**
+- [x] **Step 3: 实现临时规则模型和过期处理。**
 
 ```ts
-export interface TemporaryRule extends SwitchRule {
-  scope: { kind: 'global' } | { kind: 'tab'; tabId: number };
-  expiresAt: number;
-  createdAt: number;
-}
+export type TemporaryRule =
+  | { schemaVersion: 1; scope: 'global'; rule: Rule; expiresAt: number; createdAt: number }
+  | { schemaVersion: 2; scope: 'global'; rule: SwitchRuleV2; expiresAt: number; createdAt: number };
 ```
 
-临时规则存于 `chrome.storage.session`；浏览器完全关闭后消失。后台在每次读取、定时闹钟和标签关闭时清理过期或失效的规则，并只在临时规则集合实际变化时重新编译。
+临时规则存于 `chrome.storage.session`；浏览器完全关闭、扩展重载或更新后消失。后台在每次读取和定时闹钟时清理过期或失效的规则，并只在临时规则集合实际变化时重新编译。临时规则按创建时间倒序覆盖在永久规则前，界面必须明确显示“临时全局规则”。
 
-- [ ] **Step 4: 运行后台、界面和构建验证。**
+- [x] **Step 4: 运行后台、界面和构建验证。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/runtime/temporary-rule-service.test.ts apps/chrome-extension/src/ui/components/TemporaryRuleForm.test.tsx && pnpm build`
+Run: `pnpm vitest run apps/chrome-extension/src/runtime/temporary-rule-service.test.ts apps/chrome-extension/src/ui/components/temporary-rule-form.test.ts && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交临时规则。**
+- [x] **Step 5: 提交临时规则。**
 
 ```bash
 git add apps/chrome-extension/src/runtime apps/chrome-extension/src/ui apps/chrome-extension/entrypoints/popup
 git commit -m "feat: manage expiring temporary routing rules"
 ```
+
+**执行记录（2026-07-29）：** 已实现会话级临时全局规则，不模拟 Chrome 无法提供的标签页独立代理。后台只在应用与路由解释时叠加临时规则，永久配置不会被写回；启动、消息和到期闹钟会清理无效规则并重设最早到期时间。弹窗提供 5/30/60 分钟选择和全局影响提示，V1/V2 设置页均可查看、单条移除和全部移除。重复点击相同自动切换配置与匹配条件时仅保留最新规则。52 个 Vitest 文件、174 项测试，`cargo test --workspace`、`cargo fmt --check`、`pnpm check:ts`、`pnpm format:check` 和生产构建均通过。当前自动化环境禁止访问扩展内部页，真实安装后的 Chrome 界面验收仍属于 M6，不伪报为已完成。
 
 ### Task 18: 补齐右键菜单、快捷切换和刷新策略
 

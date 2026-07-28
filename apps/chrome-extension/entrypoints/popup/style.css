@@ -309,10 +309,36 @@ select {
   background: #0f6647;
 }
 
-.command-button-full {
-  justify-content: center;
-  width: 100%;
+.rule-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
   margin-top: 11px;
+}
+
+.rule-command-grid .command-button {
+  justify-content: center;
+  min-width: 0;
+}
+
+.command-button-temporary {
+  color: #225244;
+  background: #ffffff;
+  border-color: #74ad96;
+}
+
+.command-button-temporary:hover:not(:disabled) {
+  background: #e8f5ed;
+}
+
+.temporary-rule-notice {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 9px 0 0;
+  color: #536d61;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .popup-hint {

@@ -7,6 +7,7 @@ describe('options routes', () => {
     expect(pageFromOptionsHash('#/profiles')).toBe('profiles');
     expect(pageFromOptionsHash('#proxy-servers')).toBe('proxy-servers');
     expect(pageFromOptionsHash('#/rules')).toBe('rules');
+    expect(pageFromOptionsHash('#/temporary-rules')).toBe('temporary-rules');
   });
 
   it('falls back to the overview for unknown pages', () => {
