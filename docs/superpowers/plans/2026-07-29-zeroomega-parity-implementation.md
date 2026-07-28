@@ -839,7 +839,7 @@ git commit -m "refactor: split options pages by responsibility"
 - Test: `apps/chrome-extension/src/ui/configuration/profile-actions.test.ts`
 - Test: `apps/chrome-extension/src/runtime/profile-command.test.ts`
 
-- [ ] **Step 1: 写出删除被引用配置时必须先选择替代项的失败测试。**
+- [x] **Step 1: 写出删除被引用配置时必须先选择替代项的失败测试。**
 
 ```ts
 const result = planProfileDeletion(document, 'proxy-us');
@@ -852,13 +852,13 @@ expect(
 ).toBe(false);
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/configuration/profile-actions.test.ts apps/chrome-extension/src/runtime/profile-command.test.ts`
 
 Expected: FAIL，当前删除逻辑只处理少数代理引用。
 
-- [ ] **Step 3: 实现后台命令和编辑动作。**
+- [x] **Step 3: 实现后台命令和编辑动作。**
 
 ```ts
 export type ProfileCommand =
@@ -871,18 +871,20 @@ export type ProfileCommand =
 
 内置直连和系统配置不能删除或重命名。克隆保留代理和规则引用但生成新配置 ID、规则 ID；删除弹窗显示所有引用者，不允许悄悄产生断链。
 
-- [ ] **Step 4: 运行测试、检查与构建。**
+- [x] **Step 4: 运行测试、检查与构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/configuration/profile-actions.test.ts apps/chrome-extension/src/runtime/profile-command.test.ts && pnpm check && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交配置生命周期界面。**
+- [x] **Step 5: 提交配置生命周期界面。**
 
 ```bash
 git add apps/chrome-extension/src/ui apps/chrome-extension/src/runtime
 git commit -m "feat: manage profiles safely"
 ```
+
+**执行记录（2026-07-29）：** 先为被引用配置的删除、引用替换、内置配置保护、复制后的独立规则 ID、新建模板和排序写入测试；在现有 `configuration.replace` 原子校验、应用、持久化和回滚链路上完成界面操作，避免再新增一套会与配置保存不同步的后台命令。新版页面支持新建自动切换、自动检测、PAC 和虚拟配置，支持切换、改名、复制、排序；内置直连和系统配置不提供改名、复制、排序、删除入口。删除时列出所有引用并要求选择替代配置，再统一改写活动配置、启动配置和规则/虚拟配置引用。定向测试 7 项通过；完整测试 35 个文件、105 项通过；`pnpm check`、`pnpm format:check` 和 `pnpm build` 通过。
 
 ### Task 13: 实现完整固定代理服务器编辑器和认证绑定
 

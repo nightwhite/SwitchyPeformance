@@ -30,6 +30,7 @@ import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-ro
 import { conditionLabel, profileKindLabel, profileName } from '../v2-labels.ts';
 import { requestBackgroundState } from '../background-client.ts';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
+import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
@@ -175,7 +176,12 @@ export function V2OptionsApp({
         <div className="workspace-content">
           {page === 'overview' ? <V2OverviewPage document={document} /> : null}
           {page === 'profiles' ? (
-            <V2ProfilesPage document={document} busy={busy} onActivate={onActivate} />
+            <V2ProfilesPage
+              busy={busy}
+              document={document}
+              onActivate={onActivate}
+              onReplace={onReplace}
+            />
           ) : null}
           {page === 'proxy-servers' ? <V2ProxyServersPage document={document} /> : null}
           {page === 'rules' ? <V2RulesPage document={document} /> : null}
@@ -219,55 +225,6 @@ function NavButton({
       <span>{label}</span>
       {selected ? <ChevronRight size={15} /> : null}
     </button>
-  );
-}
-
-function V2ProfilesPage({
-  document,
-  busy,
-  onActivate
-}: {
-  document: ProfileDocumentV2;
-  busy: boolean;
-  onActivate(profileId: string): Promise<void>;
-}) {
-  return (
-    <section className="page-panel table-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="panel-kicker">配置切换</p>
-          <h2>选择当前代理配置</h2>
-        </div>
-      </div>
-      <div className="data-table">
-        <div className="table-row table-head">
-          <span>名称</span>
-          <span>类型</span>
-          <span>状态</span>
-          <span>操作</span>
-        </div>
-        {document.profiles.map((profile) => {
-          const active = profile.id === document.activeProfileId;
-          return (
-            <div className="table-row" key={profile.id}>
-              <strong>{profile.name}</strong>
-              <span className="mono-chip">{profileKindLabel(profile.kind)}</span>
-              <span>{active ? '当前使用' : '未启用'}</span>
-              <span className="table-actions">
-                <button
-                  className="outline-button"
-                  disabled={busy || active}
-                  onClick={() => void onActivate(profile.id)}
-                  type="button"
-                >
-                  切换
-                </button>
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 
