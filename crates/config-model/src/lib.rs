@@ -1,5 +1,16 @@
 #![forbid(unsafe_code)]
 
+mod conditions;
+mod profiles;
+
+pub use conditions::V2RuleCondition;
+pub use profiles::{
+    V2AutoSwitchProfile, V2Configuration, V2FixedProxyProfile, V2NamedProfile, V2NetworkMonitor,
+    V2PacProfile, V2Profile, V2ProxyRoutes, V2ProxyServer, V2RefreshPolicy, V2RouteTarget,
+    V2RuleListProfile, V2RuleSource, V2RuntimeSettings, V2Source, V2SourceRequestHeader,
+    V2SwitchRule, V2VirtualProfile,
+};
+
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
