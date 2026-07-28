@@ -192,7 +192,7 @@ git commit -m "feat: add v2 proxy configuration contracts"
 - Create: `packages/contracts/src/config/condition-validation.ts`
 - Test: `packages/contracts/src/config/condition-validation.test.ts`
 
-- [ ] **Step 1: 写出失败测试，覆盖每种条件和错误输入。**
+- [x] **Step 1: 写出失败测试，覆盖每种条件和错误输入。**
 
 ```ts
 const accepted = [
@@ -217,13 +217,13 @@ expect(validateCondition({ type: 'ip-cidr', address: '10.0.0.1', prefixLength: 4
 );
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run packages/contracts/src/config/condition-validation.test.ts`
 
 Expected: FAIL，`validateCondition` 尚未存在。
 
-- [ ] **Step 3: 实现条件联合类型和校验函数。**
+- [x] **Step 3: 实现条件联合类型和校验函数。**
 
 ```ts
 export type RuleCondition =
@@ -242,18 +242,20 @@ export type RuleCondition =
 
 校验必须拒绝空字符串、非法正则、非法 IPv4/IPv6 前缀、非 0-1439 的分钟值和不在 0-6 范围内的星期值。正则只做语法校验，不执行用户给的正则；执行留给 Rust 路由核心。
 
-- [ ] **Step 4: 运行测试与格式检查。**
+- [x] **Step 4: 运行测试与格式检查。**
 
 Run: `pnpm vitest run packages/contracts/src/config/condition-validation.test.ts && pnpm format:check`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交条件模型。**
+- [x] **Step 5: 提交条件模型。**
 
 ```bash
 git add packages/contracts/src/config
 git commit -m "feat: define advanced routing conditions"
 ```
+
+**执行记录（2026-07-29）：** 先运行验证测试，4 项测试按预期因 `validateCondition` 不存在而失败；实现后覆盖 11 种条件、IPv4/IPv6 CIDR、正则、时间和星期输入。完整测试 25 个文件、66 项测试通过，`pnpm check` 和 `pnpm format:check` 通过。
 
 ### Task 3: 实现 V2 文档解析、引用校验和循环检测
 

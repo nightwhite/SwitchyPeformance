@@ -3,5 +3,6 @@ export * from './legacy-import.ts';
 export * from './quick-rule.ts';
 export * from './config/targets.ts';
 export * from './config/conditions.ts';
+export * from './config/condition-validation.ts';
 export * from './config/sources.ts';
 export * from './config/profiles.ts';
