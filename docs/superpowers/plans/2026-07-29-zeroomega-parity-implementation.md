@@ -117,7 +117,7 @@ M1 + M2 ──> M4 PAC/规则列表/更新 ──> M5 监控、导入导出、�
 - Test: `packages/contracts/src/config/profiles.test.ts`
 - Test: `packages/contracts/src/config/conditions.test.ts`
 
-- [ ] **Step 1: 写出失败的配置类型契约测试。**
+- [x] **Step 1: 写出失败的配置类型契约测试。**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -132,13 +132,13 @@ describe('V2 配置目标', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败。**
+- [x] **Step 2: 运行测试确认失败。**
 
 Run: `pnpm vitest run packages/contracts/src/config/profiles.test.ts packages/contracts/src/config/conditions.test.ts`
 
 Expected: FAIL，原因是 `targets.ts` 和 V2 导出尚不存在。
 
-- [ ] **Step 3: 实现最小公共类型。**
+- [x] **Step 3: 实现最小公共类型。**
 
 ```ts
 export const BUILTIN_PROFILE_IDS = { direct: 'direct', system: 'system' } as const;
@@ -169,18 +169,20 @@ export function isProfileTarget(value: unknown): value is ProfileTarget {
 
 在 `profiles.ts` 定义 `ProxyServer`、`FixedProxyProfile`、`PacProfile`、`AutoDetectProfile`、`AutoSwitchProfile`、`RuleListProfile`、`VirtualProfile`；固定代理的协议映射使用 `fallbackProxyId`、`httpProxyId`、`httpsProxyId`、`ftpProxyId`，而不是把四套地址塞进一个字符串。
 
-- [ ] **Step 4: 运行类型和单元测试。**
+- [x] **Step 4: 运行类型和单元测试。**
 
 Run: `pnpm vitest run packages/contracts/src/config/profiles.test.ts packages/contracts/src/config/conditions.test.ts && pnpm check:ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交公共类型。**
+- [x] **Step 5: 提交公共类型。**
 
 ```bash
 git add packages/contracts/src
 git commit -m "feat: add v2 proxy configuration contracts"
 ```
+
+**执行记录（2026-07-29）：** 先运行定向测试，6 项测试按预期因 V2 导出不存在而失败；实现后定向测试 6/6 通过，完整测试 24 个文件、62 项测试通过，`pnpm check` 和 `pnpm format:check` 通过。
 
 ### Task 2: 定义完整条件模型和确定性验证
 
