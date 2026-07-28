@@ -94,7 +94,7 @@ describe('addHostRuleToAutoSwitch', () => {
         ruleId: 'quick-rule',
         target: { kind: 'direct' }
       })
-    ).toThrow('A host name is required');
+    ).toThrow('请输入主机名');
   });
 
   it('keeps loopback direct unless the user explicitly adds a loopback proxy rule', () => {
@@ -161,7 +161,7 @@ describe('automatic profile lifecycle', () => {
     };
 
     expect(() => removeAutoSwitchProfile(onlyAutomatic, 'only-auto')).toThrow(
-      'At least one automatic routing profile is required'
+      '至少需要保留一个自动切换配置'
     );
   });
 });

@@ -41,10 +41,10 @@ export function addAutoSwitchProfile(
   name: string
 ): ProfileDocument {
   if (!profileId.trim() || document.profiles.some((profile) => profile.id === profileId)) {
-    throw new Error('Automatic routing profile id already exists');
+    throw new Error('自动切换配置 ID 已存在');
   }
   if (!name.trim()) {
-    throw new Error('Automatic routing profile name is required');
+    throw new Error('请填写自动切换配置名称');
   }
   const profile: AutoSwitchProfile = {
     id: profileId,
@@ -66,10 +66,10 @@ export function removeAutoSwitchProfile(
     (profile): profile is AutoSwitchProfile => profile.kind === 'auto-switch'
   );
   if (!automaticProfiles.some((profile) => profile.id === profileId)) {
-    throw new Error('Automatic routing profile does not exist');
+    throw new Error('自动切换配置不存在');
   }
   if (automaticProfiles.length <= 1) {
-    throw new Error('At least one automatic routing profile is required');
+    throw new Error('至少需要保留一个自动切换配置');
   }
   const profiles = document.profiles.filter((profile) => profile.id !== profileId);
   const activeProfileId =

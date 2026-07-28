@@ -16,6 +16,47 @@ describe('createConfigurationRepository', () => {
       'system',
       'auto-switch'
     ]);
+    expect(document.profiles.map((profile) => profile.name)).toEqual([
+      '直连',
+      '系统代理',
+      '自动切换'
+    ]);
+    expect(write).toHaveBeenCalledWith(document);
+  });
+
+  it('upgrades old built-in English profile names to Chinese', async () => {
+    const stored = {
+      activeProfileId: 'auto-switch',
+      credentials: {},
+      profiles: [
+        { id: 'direct', kind: 'direct', name: 'Direct' },
+        { id: 'system', kind: 'system', name: 'System proxy' },
+        {
+          fallback: { kind: 'direct' },
+          id: 'auto-switch',
+          kind: 'auto-switch',
+          loopbackPolicy: 'direct',
+          name: 'Automatic routing',
+          proxyFailurePolicy: 'direct',
+          rules: []
+        }
+      ],
+      proxies: [],
+      schemaVersion: 1
+    };
+    const write = vi.fn().mockResolvedValue(undefined);
+    const repository = createConfigurationRepository({
+      read: vi.fn().mockResolvedValue(stored),
+      write
+    });
+
+    const document = await repository.load();
+
+    expect(document.profiles.map((profile) => profile.name)).toEqual([
+      '直连',
+      '系统代理',
+      '自动切换'
+    ]);
     expect(write).toHaveBeenCalledWith(document);
   });
 
@@ -24,7 +65,7 @@ describe('createConfigurationRepository', () => {
     const write = vi.fn().mockResolvedValue(undefined);
     const repository = createConfigurationRepository({ read, write });
 
-    await expect(repository.load()).rejects.toThrow('Stored configuration is invalid');
+    await expect(repository.load()).rejects.toThrow('保存的配置无效');
     expect(write).not.toHaveBeenCalled();
   });
 });

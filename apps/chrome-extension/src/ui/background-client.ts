@@ -12,7 +12,7 @@ export async function requestBackgroundState(message: BackgroundRequest): Promis
     throw new Error(response.error);
   }
   if (!response.state) {
-    throw new Error('The background response did not include state');
+    throw new Error('后台响应没有返回状态');
   }
   return response.state;
 }
@@ -33,7 +33,7 @@ export function routeOptions(document: ProfileDocument): readonly {
   target: RouteTarget;
 }[] {
   return [
-    { label: 'Direct', value: 'direct', target: { kind: 'direct' } },
+    { label: '直连', value: 'direct', target: { kind: 'direct' } },
     ...document.proxies.map((proxy) => ({
       label: proxy.name,
       value: `proxy:${proxy.id}`,
@@ -52,7 +52,7 @@ export function targetFromValue(value: string): RouteTarget {
   if (value.startsWith('proxy:')) {
     return { kind: 'proxy', proxyId: value.slice('proxy:'.length) };
   }
-  throw new Error(`Unsupported route target: ${value}`);
+  throw new Error(`不支持的路由目标：${value}`);
 }
 
 export function targetToValue(target: RouteTarget): string {

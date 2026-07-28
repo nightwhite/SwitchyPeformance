@@ -245,18 +245,18 @@ fn require_proxy(proxy_id: &str, proxy_ids: &BTreeSet<String>) -> Result<(), Con
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
 pub enum ConfigurationError {
-    #[error("unsupported schema version {0}")]
+    #[error("不支持的配置版本：{0}")]
     UnsupportedSchemaVersion(u32),
-    #[error("{0} identifier must not be empty")]
+    #[error("{0} 标识不能为空")]
     EmptyIdentifier(&'static str),
-    #[error("duplicate {category} identifier: {id}")]
+    #[error("重复的 {category} 标识：{id}")]
     DuplicateIdentifier { category: &'static str, id: String },
-    #[error("active profile does not exist: {0}")]
+    #[error("当前配置不存在：{0}")]
     UnknownActiveProfile(String),
-    #[error("proxy host must not be empty: {0}")]
+    #[error("代理地址不能为空：{0}")]
     EmptyProxyHost(String),
-    #[error("unknown proxy: {0}")]
+    #[error("未知代理：{0}")]
     UnknownProxy(String),
-    #[error("rule condition must not be empty: {0}")]
+    #[error("规则匹配条件不能为空：{0}")]
     EmptyRuleCondition(String),
 }

@@ -14,10 +14,10 @@ export function parseRouteExplanation(rawResult: string): RouteExplanation {
   try {
     parsed = JSON.parse(rawResult);
   } catch {
-    throw new Error('WASM route explanation is invalid');
+    throw new Error('WASM 路由结果无效');
   }
   if (!isRouteExplanation(parsed)) {
-    throw new Error('WASM route explanation is invalid');
+    throw new Error('WASM 路由结果无效');
   }
   return {
     route: parsed.route,

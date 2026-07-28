@@ -37,6 +37,7 @@ import {
   targetFromValue,
   targetToValue
 } from '../../src/ui/background-client.ts';
+import { toUserFacingMessage } from '../../src/ui/error-message.ts';
 import {
   addAutoSwitchProfile,
   addHostRuleToAutoSwitch,
@@ -53,12 +54,12 @@ import type { RouteExplanation } from '../../src/runtime/route-explainer.ts';
 type Page = 'overview' | 'proxies' | 'automatic' | 'diagnostics' | 'data' | 'settings';
 
 const PAGE_COPY: Record<Page, { title: string; eyebrow: string }> = {
-  overview: { eyebrow: 'Runtime', title: 'Routing overview' },
-  proxies: { eyebrow: 'Profiles', title: 'Proxy endpoints' },
-  automatic: { eyebrow: 'Profiles', title: 'Automatic routing' },
-  diagnostics: { eyebrow: 'Operations', title: 'Diagnostics' },
-  data: { eyebrow: 'Operations', title: 'Import and export' },
-  settings: { eyebrow: 'Runtime', title: 'Settings' }
+  overview: { eyebrow: '运行状态', title: '代理路由状态' },
+  proxies: { eyebrow: '情景模式', title: '代理服务器' },
+  automatic: { eyebrow: '情景模式', title: '自动切换' },
+  diagnostics: { eyebrow: '工具', title: '排查日志' },
+  data: { eyebrow: '工具', title: '导入与导出' },
+  settings: { eyebrow: '设置', title: '运行参数' }
 };
 
 const RULE_ROW_HEIGHT = 59;
@@ -119,7 +120,7 @@ export function OptionsApp() {
   }
 
   if (!state) {
-    return <main className="options-loading">Loading SwitchyPeformance...</main>;
+    return <main className="options-loading">正在加载 SwitchyPeformance...</main>;
   }
 
   const copy = PAGE_COPY[page];
@@ -132,48 +133,48 @@ export function OptionsApp() {
           </span>
           <span>
             <strong>SwitchyPeformance</strong>
-            <small>Chrome routing</small>
+            <small>Chrome 代理路由</small>
           </span>
         </div>
-        <nav aria-label="Settings navigation" className="side-nav">
+        <nav aria-label="设置导航" className="side-nav">
           <NavButton
             icon={<CircleGauge />}
-            label="Overview"
+            label="运行状态"
             page="overview"
             active={page}
             onNavigate={navigate}
           />
           <NavButton
             icon={<Network />}
-            label="Proxy endpoints"
+            label="代理服务器"
             page="proxies"
             active={page}
             onNavigate={navigate}
           />
           <NavButton
             icon={<Route />}
-            label="Automatic routing"
+            label="自动切换"
             page="automatic"
             active={page}
             onNavigate={navigate}
           />
           <NavButton
             icon={<Activity />}
-            label="Diagnostics"
+            label="排查日志"
             page="diagnostics"
             active={page}
             onNavigate={navigate}
           />
           <NavButton
             icon={<FileUp />}
-            label="Import / export"
+            label="导入与导出"
             page="data"
             active={page}
             onNavigate={navigate}
           />
           <NavButton
             icon={<Settings2 />}
-            label="Settings"
+            label="运行参数"
             page="settings"
             active={page}
             onNavigate={navigate}
@@ -181,7 +182,7 @@ export function OptionsApp() {
         </nav>
         <div className="rail-status">
           <span className={error ? 'rail-dot rail-dot-error' : 'rail-dot'} />
-          <span>{error ? 'Attention needed' : 'Chrome proxy ready'}</span>
+          <span>{error ? '需要处理' : 'Chrome 代理正常'}</span>
         </div>
       </aside>
 
@@ -199,7 +200,7 @@ export function OptionsApp() {
               type="button"
             >
               <RefreshCw size={16} />
-              Refresh
+              刷新
             </button>
           </div>
         </header>
@@ -294,34 +295,34 @@ function OverviewPanel({
       <section className="control-band">
         <div className="control-signal">
           <span className="signal-dot" />
-          <span>Current mode</span>
+          <span>当前模式</span>
         </div>
-        <strong>{activeName ?? 'Unknown profile'}</strong>
+        <strong>{activeName ?? '未知配置'}</strong>
         <ShieldCheck size={28} aria-hidden="true" />
       </section>
-      <section className="metric-grid" aria-label="Routing metrics">
-        <Metric value={state.configuration.proxies.length} label="Proxy endpoints" />
-        <Metric value={autoRules} label="Automatic rules" />
-        <Metric value={errors} label="Recent errors" tone={errors > 0 ? 'danger' : 'normal'} />
+      <section className="metric-grid" aria-label="路由指标">
+        <Metric value={state.configuration.proxies.length} label="代理服务器" />
+        <Metric value={autoRules} label="自动切换规则" />
+        <Metric value={errors} label="近期错误" tone={errors > 0 ? 'danger' : 'normal'} />
       </section>
       <section className="page-panel overview-actions">
         <div>
-          <p className="panel-kicker">Configuration</p>
-          <h2>Manage proxy endpoints and profiles</h2>
+          <p className="panel-kicker">配置管理</p>
+          <h2>管理代理服务器和代理配置</h2>
         </div>
         <button className="primary-button" onClick={() => onNavigate('proxies')} type="button">
           <Network size={16} />
-          Open proxies
+          打开代理服务器
         </button>
       </section>
       <section className="page-panel overview-actions">
         <div>
-          <p className="panel-kicker">Rule engine</p>
-          <h2>Compile automatic routing after each saved change</h2>
+          <p className="panel-kicker">规则引擎</p>
+          <h2>每次保存后都会重新编译自动切换规则</h2>
         </div>
         <button className="primary-button" onClick={() => onNavigate('automatic')} type="button">
           <Waypoints size={16} />
-          Edit rules
+          编辑规则
         </button>
       </section>
     </>
@@ -381,11 +382,11 @@ function ProxyPanel({
       port < 1 ||
       port > 65535
     ) {
-      setLocalError('Enter a name, host, and port between 1 and 65535');
+      setLocalError('请填写名称、地址和 1 到 65535 之间的端口');
       return;
     }
     if ((draft.username || draft.password) && !draft.username.trim()) {
-      setLocalError('Enter a username before saving proxy credentials');
+      setLocalError('保存代理账号密码前请填写用户名');
       return;
     }
     setLocalError(undefined);
@@ -415,7 +416,7 @@ function ProxyPanel({
   }
 
   async function removeProxy(proxyId: string): Promise<void> {
-    if (!window.confirm('Remove this proxy and its dependent rules?')) {
+    if (!window.confirm('要删除此代理及其关联规则吗？')) {
       return;
     }
     const proxy = document.proxies.find((candidate) => candidate.id === proxyId);
@@ -440,7 +441,7 @@ function ProxyPanel({
   async function saveCredentials(): Promise<void> {
     if (!credentialDraft) return;
     if (!credentialDraft.username.trim()) {
-      setLocalError('Enter a username before saving proxy credentials');
+      setLocalError('保存代理账号密码前请填写用户名');
       return;
     }
     try {
@@ -460,7 +461,7 @@ function ProxyPanel({
   }
 
   async function clearCredentials(proxy: ProxyEndpoint): Promise<void> {
-    if (!proxy.credentialId || !window.confirm(`Clear stored credentials for ${proxy.name}?`)) {
+    if (!proxy.credentialId || !window.confirm(`要清除 ${proxy.name} 已保存的账号密码吗？`)) {
       return;
     }
     try {
@@ -479,22 +480,22 @@ function ProxyPanel({
       <section className="page-panel proxy-form-panel">
         <div className="panel-heading">
           <div>
-            <p className="panel-kicker">New endpoint</p>
-            <h2>Add proxy</h2>
+            <p className="panel-kicker">新增代理</p>
+            <h2>添加代理服务器</h2>
           </div>
           <Plus size={20} />
         </div>
         <div className="form-grid form-grid-proxy">
           <label>
-            Name
+            名称
             <input
               value={draft.name}
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-              placeholder="Tokyo edge"
+              placeholder="例如：东京节点"
             />
           </label>
           <label>
-            Protocol
+            协议
             <select
               value={draft.scheme}
               onChange={(event) =>
@@ -508,7 +509,7 @@ function ProxyPanel({
             </select>
           </label>
           <label>
-            Host
+            地址
             <input
               value={draft.host}
               onChange={(event) => setDraft({ ...draft, host: event.target.value })}
@@ -516,7 +517,7 @@ function ProxyPanel({
             />
           </label>
           <label>
-            Port
+            端口
             <input
               inputMode="numeric"
               value={draft.port}
@@ -524,22 +525,22 @@ function ProxyPanel({
             />
           </label>
           <label>
-            Username
+            用户名
             <input
               autoComplete="username"
               value={draft.username}
               onChange={(event) => setDraft({ ...draft, username: event.target.value })}
-              placeholder="Optional"
+              placeholder="可选"
             />
           </label>
           <label>
-            Password
+            密码
             <input
               autoComplete="new-password"
               type="password"
               value={draft.password}
               onChange={(event) => setDraft({ ...draft, password: event.target.value })}
-              placeholder="Optional"
+              placeholder="可选"
             />
           </label>
           <button
@@ -549,7 +550,7 @@ function ProxyPanel({
             type="button"
           >
             <Plus size={16} />
-            Add proxy
+            添加代理
           </button>
         </div>
         {localError ? <p className="inline-error">{localError}</p> : null}
@@ -557,20 +558,20 @@ function ProxyPanel({
       <section className="page-panel table-panel">
         <div className="panel-heading">
           <div>
-            <p className="panel-kicker">Endpoints</p>
-            <h2>{document.proxies.length} configured</h2>
+            <p className="panel-kicker">代理服务器</p>
+            <h2>已配置 {document.proxies.length} 个</h2>
           </div>
         </div>
         {document.proxies.length === 0 ? (
-          <EmptyState icon={<Network />} label="No proxy endpoints yet" />
+          <EmptyState icon={<Network />} label="还没有代理服务器" />
         ) : (
           <div className="data-table">
             <div className="table-row table-head">
-              <span>Name</span>
-              <span>Protocol</span>
-              <span>Endpoint</span>
-              <span>Credentials</span>
-              <span>Actions</span>
+              <span>名称</span>
+              <span>协议</span>
+              <span>服务器地址</span>
+              <span>账号密码</span>
+              <span>操作</span>
             </div>
             {document.proxies.map((proxy) => (
               <div className="table-row" key={proxy.id}>
@@ -579,10 +580,10 @@ function ProxyPanel({
                 <span className="endpoint-value">
                   {proxy.host}:{proxy.port}
                 </span>
-                <span>{proxy.credentialId ? 'Stored locally' : 'Not set'}</span>
+                <span>{proxy.credentialId ? '已本地保存' : '未设置'}</span>
                 <span className="table-actions">
                   <button
-                    aria-label={`Set credentials for ${proxy.name}`}
+                    aria-label={`设置 ${proxy.name} 的账号密码`}
                     className="icon-action"
                     disabled={busy}
                     onClick={() =>
@@ -593,29 +594,29 @@ function ProxyPanel({
                         username: ''
                       })
                     }
-                    title="Set credentials"
+                    title="设置账号密码"
                     type="button"
                   >
                     <KeyRound size={16} />
                   </button>
                   {proxy.credentialId ? (
                     <button
-                      aria-label={`Clear credentials for ${proxy.name}`}
+                      aria-label={`清除 ${proxy.name} 的账号密码`}
                       className="icon-action"
                       disabled={busy}
                       onClick={() => void clearCredentials(proxy)}
-                      title="Clear credentials"
+                      title="清除账号密码"
                       type="button"
                     >
                       <RotateCcw size={16} />
                     </button>
                   ) : null}
                   <button
-                    aria-label={`Delete ${proxy.name}`}
+                    aria-label={`删除 ${proxy.name}`}
                     className="icon-danger"
                     disabled={busy}
                     onClick={() => void removeProxy(proxy.id)}
-                    title="Delete proxy"
+                    title="删除代理"
                     type="button"
                   >
                     <Trash2 size={16} />
@@ -630,14 +631,14 @@ function ProxyPanel({
         <section className="page-panel credential-panel">
           <div className="panel-heading">
             <div>
-              <p className="panel-kicker">Local credentials</p>
+              <p className="panel-kicker">本地账号密码</p>
               <h2>{credentialDraft.proxyName}</h2>
             </div>
             <KeyRound size={20} />
           </div>
           <div className="form-grid credential-form">
             <label>
-              Username
+              用户名
               <input
                 autoComplete="username"
                 value={credentialDraft.username}
@@ -647,7 +648,7 @@ function ProxyPanel({
               />
             </label>
             <label>
-              Password
+              密码
               <input
                 autoComplete="new-password"
                 type="password"
@@ -664,7 +665,7 @@ function ProxyPanel({
               type="button"
             >
               <Save size={16} />
-              Save credentials
+              保存账号密码
             </button>
           </div>
         </section>
@@ -734,7 +735,7 @@ function AutomaticPanel({
   if (!selected || !draft) {
     return (
       <section className="page-panel">
-        <EmptyState icon={<Waypoints />} label="No automatic routing profile" />
+        <EmptyState icon={<Waypoints />} label="未找到自动切换配置" />
       </section>
     );
   }
@@ -777,16 +778,14 @@ function AutomaticPanel({
     const profileId = createId('auto');
     try {
       setLocalError(undefined);
-      await onSave(
-        addAutoSwitchProfile(document, profileId, `Automatic routing ${profiles.length + 1}`)
-      );
+      await onSave(addAutoSwitchProfile(document, profileId, `自动切换 ${profiles.length + 1}`));
       setSelectedId(profileId);
     } catch (cause) {
       setLocalError(messageFor(cause));
     }
   }
   async function deleteAutomaticProfile(): Promise<void> {
-    if (!window.confirm(`Delete ${activeDraft.name} and its rules?`)) {
+    if (!window.confirm(`要删除 ${activeDraft.name} 及其所有规则吗？`)) {
       return;
     }
     try {
@@ -816,7 +815,7 @@ function AutomaticPanel({
       <section className="page-panel rule-toolbar">
         <div className="profile-select">
           <label>
-            Automatic profile
+            自动切换配置
             <select value={selected.id} onChange={(event) => setSelectedId(event.target.value)}>
               {profiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
@@ -826,14 +825,14 @@ function AutomaticPanel({
             </select>
           </label>
           <label>
-            Profile name
+            配置名称
             <input
               onChange={(event) => setDraft({ ...activeDraft, name: event.target.value })}
               value={activeDraft.name}
             />
           </label>
           <label>
-            Fallback
+            兜底策略
             <select
               value={targetToValue(activeDraft.fallback)}
               onChange={(event) =>
@@ -848,7 +847,7 @@ function AutomaticPanel({
             </select>
           </label>
           <label>
-            Proxy failure
+            代理失败处理
             <select
               value={activeDraft.proxyFailurePolicy}
               onChange={(event) =>
@@ -858,17 +857,17 @@ function AutomaticPanel({
                 })
               }
             >
-              <option value="direct">Try direct</option>
-              <option value="block">Proxy only</option>
+              <option value="direct">失败后直连</option>
+              <option value="block">仅使用代理</option>
             </select>
           </label>
           <label className="rule-search">
-            Search rules
+            搜索规则
             <input
               type="search"
               value={ruleQuery}
               onChange={(event) => updateRuleSearch(event.target.value)}
-              placeholder="Domain or route"
+              placeholder="域名或路由"
             />
           </label>
         </div>
@@ -880,21 +879,21 @@ function AutomaticPanel({
             type="button"
           >
             <Plus size={16} />
-            New profile
+            新建配置
           </button>
           <button
-            aria-label={`Delete ${activeDraft.name}`}
+            aria-label={`删除 ${activeDraft.name}`}
             className="icon-danger"
             disabled={busy || profiles.length <= 1}
             onClick={() => void deleteAutomaticProfile()}
-            title="Delete automatic profile"
+            title="删除自动切换配置"
             type="button"
           >
             <Trash2 size={16} />
           </button>
           <button className="outline-button" disabled={busy} onClick={addRule} type="button">
             <Plus size={16} />
-            Add rule
+            添加规则
           </button>
           <button
             className="primary-button"
@@ -903,18 +902,18 @@ function AutomaticPanel({
             type="button"
           >
             <Save size={16} />
-            Apply {activeDraft.rules.length} rules
+            应用 {activeDraft.rules.length} 条规则
           </button>
         </div>
       </section>
       {localError ? <p className="inline-error">{localError}</p> : null}
       <section className="page-panel rule-table-panel">
         <div className="rule-table-heading">
-          <span>Enabled</span>
-          <span>Condition</span>
-          <span>Pattern</span>
-          <span>Route</span>
-          <span>Action</span>
+          <span>启用</span>
+          <span>匹配条件</span>
+          <span>匹配内容</span>
+          <span>路由</span>
+          <span>操作</span>
         </div>
         <div
           className="rule-table"
@@ -951,12 +950,12 @@ function AutomaticPanel({
                         })
                       }
                     >
-                      <option value="host-suffix">Host suffix</option>
-                      <option value="host-equals">Exact host</option>
-                      <option value="url-glob">URL wildcard</option>
+                      <option value="host-suffix">主机后缀</option>
+                      <option value="host-equals">完整主机</option>
+                      <option value="url-glob">网址通配符</option>
                     </select>
                     <input
-                      aria-label={`Rule ${index + 1} pattern`}
+                      aria-label={`规则 ${index + 1} 的匹配内容`}
                       value={rule.condition.value}
                       onChange={(event) =>
                         updateRule(index, {
@@ -978,10 +977,10 @@ function AutomaticPanel({
                       ))}
                     </select>
                     <button
-                      aria-label={`Delete rule ${index + 1}`}
+                      aria-label={`删除规则 ${index + 1}`}
                       className="icon-danger"
                       onClick={() => removeRule(index)}
-                      title="Delete rule"
+                      title="删除规则"
                       type="button"
                     >
                       <Trash2 size={16} />
@@ -993,7 +992,7 @@ function AutomaticPanel({
           ) : (
             <EmptyState
               icon={<Route />}
-              label={activeDraft.rules.length === 0 ? 'No automatic rules' : 'No matching rules'}
+              label={activeDraft.rules.length === 0 ? '尚未添加规则' : '没有匹配的规则'}
             />
           )}
         </div>
@@ -1029,7 +1028,7 @@ function DiagnosticsPanel({
   }, [document, failureTarget, targets]);
 
   async function clear(): Promise<void> {
-    if (!window.confirm('Clear diagnostic history?')) {
+    if (!window.confirm('要清空排查日志吗？')) {
       return;
     }
     onState(await requestBackgroundState({ type: 'diagnostics.clear' }));
@@ -1045,13 +1044,13 @@ function DiagnosticsPanel({
         (profile): profile is AutoSwitchProfile => profile.kind === 'auto-switch'
       );
     if (!automatic) {
-      setLocalError('No automatic routing profile is available');
+      setLocalError('没有可用的自动切换配置');
       return;
     }
     try {
       const host = new URL(targetUrl).hostname;
       if (!host) {
-        throw new Error('The failed request has no host name');
+        throw new Error('失败请求没有主机名');
       }
       setLocalError(undefined);
       await onSave(
@@ -1086,14 +1085,14 @@ function DiagnosticsPanel({
       <section className="page-panel route-inspector">
         <div className="panel-heading">
           <div>
-            <p className="panel-kicker">Route inspector</p>
-            <h2>Check a URL</h2>
+            <p className="panel-kicker">路由排查</p>
+            <h2>检查网址</h2>
           </div>
           <Search size={20} />
         </div>
         <div className="inspection-form">
           <label>
-            URL
+            网址
             <input
               inputMode="url"
               onChange={(event) => setInspectionUrl(event.target.value)}
@@ -1108,14 +1107,14 @@ function DiagnosticsPanel({
             type="button"
           >
             <Search size={16} />
-            Inspect route
+            检查路由
           </button>
         </div>
         {inspection ? (
           <div className="inspection-result">
             <span className="mono-chip">{routeDescription(document, inspection)}</span>
             <span>
-              {inspection.matchedRuleId ? `Rule ${inspection.matchedRuleId}` : 'Profile fallback'}
+              {inspection.matchedRuleId ? `规则 ${inspection.matchedRuleId}` : '配置兜底'}
             </span>
             <span>{reasonDescription(inspection.reason)}</span>
           </div>
@@ -1124,12 +1123,12 @@ function DiagnosticsPanel({
       <section className="page-panel diagnostics-panel">
         <div className="panel-heading">
           <div>
-            <p className="panel-kicker">Bounded local events</p>
-            <h2>{state.diagnostics.length} events</h2>
+            <p className="panel-kicker">本地事件</p>
+            <h2>{state.diagnostics.length} 条事件</h2>
           </div>
           <div className="diagnostic-actions">
             <label>
-              Failed route
+              失败请求的路由
               <select
                 value={failureTarget}
                 onChange={(event) => setFailureTarget(event.target.value)}
@@ -1148,13 +1147,13 @@ function DiagnosticsPanel({
               type="button"
             >
               <Trash2 size={16} />
-              Clear
+              清空
             </button>
           </div>
         </div>
         {localError ? <p className="inline-error">{localError}</p> : null}
         {state.diagnostics.length === 0 ? (
-          <EmptyState icon={<Activity />} label="No diagnostic events" />
+          <EmptyState icon={<Activity />} label="没有排查事件" />
         ) : (
           <div className="diagnostic-list">
             {state.diagnostics
@@ -1170,15 +1169,15 @@ function DiagnosticsPanel({
                   key={event.id}
                 >
                   <time>{new Date(event.timestamp).toLocaleString()}</time>
-                  <span className="event-scope">{event.scope}</span>
+                  <span className="event-scope">{diagnosticScopeLabel(event.scope)}</span>
                   <strong>{event.message}</strong>
                   {event.scope === 'network' && event.target ? (
                     <button
-                      aria-label={`Add ${event.target} to automatic routing`}
+                      aria-label={`将 ${event.target} 添加到自动切换`}
                       className="icon-action"
                       disabled={busy}
                       onClick={() => void addFailureRule(event.target ?? '')}
-                      title="Add failed host to automatic routing"
+                      title="将失败主机添加到自动切换"
                       type="button"
                     >
                       <Plus size={16} />
@@ -1217,7 +1216,7 @@ function DataPanel({
     };
     const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const anchor = documentCreateAnchor(url, 'SwitchyPeformance-config.json');
+    const anchor = documentCreateAnchor(url, 'SwitchyPeformance-配置.json');
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -1236,7 +1235,7 @@ function DataPanel({
         .filter((profile): profile is AutoSwitchProfile => profile.kind === 'auto-switch')
         .reduce((count, profile) => count + profile.rules.length, 0);
       setLocalNotice(
-        `Imported ${imported.value.proxies.length} proxies, ${imported.value.profiles.length} profiles, and ${ruleCount} rules.`
+        `已导入 ${imported.value.proxies.length} 个代理、${imported.value.profiles.length} 个配置和 ${ruleCount} 条规则。`
       );
       setWarnings(imported.warnings);
     } catch (cause) {
@@ -1247,8 +1246,8 @@ function DataPanel({
     <section className="data-grid">
       <article className="page-panel data-action">
         <Download size={24} />
-        <h2>Export configuration</h2>
-        <p>Proxy credentials are excluded.</p>
+        <h2>导出配置</h2>
+        <p>代理账号密码不会导出。</p>
         <button
           className="primary-button"
           disabled={busy}
@@ -1256,16 +1255,16 @@ function DataPanel({
           type="button"
         >
           <Download size={16} />
-          Export JSON
+          导出 JSON
         </button>
       </article>
       <article className="page-panel data-action">
         <Upload size={24} />
-        <h2>Import configuration</h2>
-        <p>Invalid documents are rejected before they change routing.</p>
+        <h2>导入配置</h2>
+        <p>无效文件不会修改现有路由。</p>
         <label className="file-button">
           <FileUp size={16} />
-          Choose file
+          选择文件
           <input
             accept=".json,.bak,application/json"
             disabled={busy}
@@ -1301,15 +1300,15 @@ function SettingsPanel({
 }) {
   const direct = document.profiles.find((profile) => profile.kind === 'direct');
   async function resetToDirect(): Promise<void> {
-    if (!direct || !window.confirm('Switch Chrome back to direct mode?')) return;
+    if (!direct || !window.confirm('要让 Chrome 切回直连模式吗？')) return;
     await onSave({ ...document, activeProfileId: direct.id });
   }
   return (
     <section className="page-panel settings-panel">
       <div>
-        <p className="panel-kicker">Recovery</p>
-        <h2>Return Chrome to direct mode</h2>
-        <p>Profiles and rules stay saved.</p>
+        <p className="panel-kicker">恢复</p>
+        <h2>切回 Chrome 直连模式</h2>
+        <p>原有配置和规则会保留。</p>
       </div>
       <button
         className="danger-outline"
@@ -1318,7 +1317,7 @@ function SettingsPanel({
         type="button"
       >
         <RotateCcw size={16} />
-        Use direct mode
+        切换到直连模式
       </button>
     </section>
   );
@@ -1360,33 +1359,46 @@ function documentCreateAnchor(url: string, filename: string): HTMLAnchorElement 
 }
 
 function messageFor(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
+  return toUserFacingMessage(cause);
 }
 
 function routeDescription(document: ProfileDocument, explanation: RouteExplanation): string {
   const route = explanation.route;
   if (route.kind === 'direct') {
-    return 'Direct';
+    return '直连';
   }
   if (route.kind === 'system') {
-    return 'System proxy';
+    return '系统代理';
   }
   const proxy = document.proxies.find((candidate) => candidate.id === route.proxyId);
-  return proxy ? `Proxy: ${proxy.name}` : `Proxy: ${route.proxyId}`;
+  return proxy ? `代理：${proxy.name}` : `代理：${route.proxyId}`;
+}
+
+function diagnosticScopeLabel(scope: BackgroundState['diagnostics'][number]['scope']): string {
+  switch (scope) {
+    case 'configuration':
+      return '配置';
+    case 'proxy':
+      return '代理';
+    case 'network':
+      return '网络';
+    case 'runtime':
+      return '运行时';
+  }
 }
 
 function reasonDescription(reason: RouteExplanation['reason']): string {
   switch (reason) {
     case 'fixed-profile':
-      return 'Fixed profile';
+      return '固定代理配置';
     case 'indexed-rule':
-      return 'Indexed host rule';
+      return '索引主机规则';
     case 'complex-rule':
-      return 'URL wildcard rule';
+      return '网址通配符规则';
     case 'loopback-default':
-      return 'Loopback default';
+      return '本地地址默认直连';
     case 'profile-default':
-      return 'Profile fallback';
+      return '配置兜底';
     default:
       return reason;
   }

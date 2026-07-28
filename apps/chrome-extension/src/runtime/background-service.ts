@@ -96,7 +96,7 @@ export function createBackgroundService(
 function validateConfiguration(candidate: unknown): ProfileDocument {
   const result = parseProfileDocument(candidate);
   if (!result.ok) {
-    throw new Error('Configuration is invalid');
+    throw new Error('配置无效');
   }
   return result.value;
 }
@@ -107,13 +107,24 @@ function errorMessage(error: unknown): string {
 
 function appliedConfigurationMessage(result: ApplyConfigurationResult): string {
   if (result.mode !== 'pac_script') {
-    return `Applied ${result.mode} proxy configuration`;
+    return `已应用${proxyModeLabel(result.mode)}代理配置`;
   }
   const { metrics } = result;
   const details = [
-    `${metrics.simpleRuleCount} indexed rules, ${metrics.complexRuleCount} complex rules`,
-    ...(metrics.pacByteLength === undefined ? [] : [`${metrics.pacByteLength} bytes`]),
-    ...(metrics.compileDurationMs === undefined ? [] : [`${metrics.compileDurationMs} ms`])
+    `${metrics.simpleRuleCount} 条索引规则，${metrics.complexRuleCount} 条复杂规则`,
+    ...(metrics.pacByteLength === undefined ? [] : [`${metrics.pacByteLength} 字节`]),
+    ...(metrics.compileDurationMs === undefined ? [] : [`${metrics.compileDurationMs} 毫秒`])
   ];
-  return `Applied automatic routing: ${details.join('; ')}.`;
+  return `已应用自动切换：${details.join('；')}。`;
+}
+
+function proxyModeLabel(mode: Exclude<ApplyConfigurationResult['mode'], 'pac_script'>): string {
+  switch (mode) {
+    case 'direct':
+      return '直连';
+    case 'system':
+      return '系统';
+    case 'fixed_servers':
+      return '固定服务器';
+  }
 }

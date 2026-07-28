@@ -29,7 +29,7 @@ function updateProxy(
     return update(proxy);
   });
   if (!found) {
-    throw new Error('Proxy does not exist');
+    throw new Error('代理不存在');
   }
   return { ...document, proxies };
 }

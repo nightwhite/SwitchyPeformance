@@ -12,11 +12,11 @@ export function parseWasmCompilation(rawResult: string): AutoSwitchCompilation {
   try {
     parsed = JSON.parse(rawResult);
   } catch {
-    throw new Error('WASM compiler returned an invalid result');
+    throw new Error('WASM 编译器返回了无效结果');
   }
 
   if (!isWasmCompilationWireResult(parsed)) {
-    throw new Error('WASM compiler returned an invalid result');
+    throw new Error('WASM 编译器返回了无效结果');
   }
 
   return {

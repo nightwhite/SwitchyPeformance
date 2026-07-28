@@ -5,7 +5,7 @@ import './style.css';
 
 const root = document.getElementById('root');
 if (!root) {
-  throw new Error('Options root is missing');
+  throw new Error('设置页根节点不存在');
 }
 
 createRoot(root).render(<OptionsApp />);

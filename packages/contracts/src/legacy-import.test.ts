@@ -58,9 +58,7 @@ describe('importProfileDocument', () => {
     }
 
     expect(result.source).toBe('legacy');
-    expect(result.warnings).toEqual([
-      'Credentials for edge were skipped; set them locally after import.'
-    ]);
+    expect(result.warnings).toEqual(['已跳过 edge 的账号密码；请在导入后本地设置。']);
     expect(result.value.activeProfileId).toBe('legacy-profile-automatic');
     expect(result.value.proxies).toEqual([
       {
@@ -137,16 +135,16 @@ describe('importProfileDocument', () => {
       rules: []
     });
     expect(result.warnings).toEqual([
-      'Automatic profile automatic uses system proxy as its fallback; imported as direct.',
-      'Rule 1 in automatic uses an unsupported condition and was skipped.',
-      'Rule 2 in automatic routes to the system proxy and was skipped.'
+      '自动切换配置 automatic 使用系统代理作为兜底，已按直连模式导入。',
+      '配置 automatic 的第 1 条规则使用了不支持的条件，已跳过。',
+      '配置 automatic 的第 2 条规则路由到系统代理，已跳过。'
     ]);
   });
 
   it('rejects an unrelated file', () => {
     expect(importProfileDocument({ unrelated: true })).toEqual({
       ok: false,
-      error: 'This file is not a supported SwitchyPeformance configuration backup.'
+      error: '此文件不是受支持的 SwitchyPeformance 配置备份。'
     });
   });
 

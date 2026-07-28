@@ -81,10 +81,10 @@ fn reason_name(reason: &DecisionReason) -> &'static str {
 
 #[derive(Debug, Error)]
 pub enum CompileConfigurationError {
-    #[error("configuration JSON is invalid: {0}")]
+    #[error("配置 JSON 无效：{0}")]
     ConfigurationJson(#[from] serde_json::Error),
-    #[error("routing plan is invalid: {0}")]
+    #[error("路由方案无效：{0}")]
     Routing(#[from] RoutingCompileError),
-    #[error("PAC compilation failed: {0}")]
+    #[error("PAC 编译失败：{0}")]
     Pac(#[from] PacCompileError),
 }

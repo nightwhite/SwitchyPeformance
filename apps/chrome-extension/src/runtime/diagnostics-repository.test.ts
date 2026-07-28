@@ -26,6 +26,6 @@ describe('createDiagnosticsRepository', () => {
       write: vi.fn().mockResolvedValue(undefined)
     });
 
-    await expect(repository.list()).rejects.toThrow('Stored diagnostics are invalid');
+    await expect(repository.list()).rejects.toThrow('保存的排查日志无效');
   });
 });

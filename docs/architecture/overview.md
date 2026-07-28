@@ -1,59 +1,59 @@
-# Architecture Overview
+# 架构概览
 
-## Runtime boundary
+## 运行边界
 
-SwitchyPeformance is a self-contained Chrome extension. It has no native messaging host, no local daemon, no SQLite process, and no cloud service required for routing.
+SwitchyPeformance 是自包含的 Chrome 扩展。它不需要原生消息宿主、本地守护进程、SQLite 进程或云端路由服务。
 
 ```
-React popup/options UI
+React 弹窗/设置界面
         |
         v
-MV3 service worker <----> chrome.storage
+MV3 服务工作线程 <----> chrome.storage
         |
         v
-Rust/WASM compiler ----> generated PAC or fixed proxy configuration
+Rust/WASM 编译器 ----> 生成的 PAC 或固定代理配置
         |
         v
-Chrome proxy subsystem ----> HTTP, HTTPS, SOCKS4, SOCKS5 proxy servers
+Chrome 代理子系统 ----> HTTP、HTTPS、SOCKS4、SOCKS5 代理服务器
 ```
 
-Chrome owns network connections and proxy authentication handshakes. The extension owns profile configuration, route selection rules, PAC generation, import/export, and diagnostics.
+Chrome 负责网络连接和代理认证握手。扩展负责配置、路由选择规则、PAC 生成、导入导出和排查日志。
 
-## Performance model
+## 性能模型
 
-The page-load hot path must not deserialize the whole profile set, scan a JavaScript rule list, write logs, or call the network. A configuration edit instead triggers one background compilation pass:
+网页加载的关键路径不能反序列化整个配置集合、扫描 JavaScript 规则列表、写日志或访问网络。每次编辑配置时，后台只执行一次编译：
 
-1. Validate and normalize the configuration.
-2. Build exact-host and suffix-host lookup indexes.
-3. Compile remaining complex conditions into an ordered fallback section.
-4. Generate a compact PAC program or fixed-proxy configuration.
-5. Atomically apply the resulting Chrome proxy setting.
+1. 校验并标准化配置。
+2. 构建完整主机名和主机后缀的查询索引。
+3. 将剩余复杂条件编译为按顺序执行的兜底区段。
+4. 生成紧凑的 PAC 程序或固定代理配置。
+5. 原子地应用生成后的 Chrome 代理设置。
 
-The PAC program preserves first-match behavior while checking inexpensive indexed rules before complex conditions. It returns an explicit fallback route for every request.
+PAC 程序会先检查成本低的索引规则，再检查复杂条件，同时保持“第一条匹配规则优先”的行为。每一个请求都会返回明确的兜底路由。
 
-## Modules
+## 模块
 
-| Module                              | Responsibility                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------------------ |
-| `packages/contracts`                | Versioned TypeScript domain types, backup migration, and shared quick-rule behavior. |
-| `crates/config-model`               | Rust validation and normalized configuration representation.                         |
-| `crates/routing-core`               | Rust rule analysis, matcher indexes, route decisions, and explanations.              |
-| `crates/pac-compiler`               | Rust PAC source generation for indexed auto-switch rules.                            |
-| `crates/routing-wasm`               | Browser-facing Rust/WASM compilation and route-explanation boundary.                 |
-| `apps/chrome-extension/entrypoints` | MV3 service worker, React popup, and React options entrypoints.                      |
-| `apps/chrome-extension/src/runtime` | Chrome storage, proxy settings, authentication, diagnostics, and WASM loading.       |
-| `apps/chrome-extension/src/ui`      | Shared configuration actions and UI performance helpers.                             |
+| 模块                                | 职责                                                       |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `packages/contracts`                | 带版本的 TypeScript 领域类型、备份迁移和共享快捷规则逻辑。 |
+| `crates/config-model`               | Rust 配置校验和标准化后的配置表示。                        |
+| `crates/routing-core`               | Rust 规则分析、匹配索引、路由判断和解释。                  |
+| `crates/pac-compiler`               | 为带索引的自动切换规则生成 Rust PAC 源码。                 |
+| `crates/routing-wasm`               | 面向浏览器的 Rust/WASM 编译和路由解释边界。                |
+| `apps/chrome-extension/entrypoints` | MV3 服务工作线程、React 弹窗和 React 设置页入口。          |
+| `apps/chrome-extension/src/runtime` | Chrome 存储、代理设置、认证、排查日志和 WASM 加载。        |
+| `apps/chrome-extension/src/ui`      | 共享配置操作和界面性能辅助逻辑。                           |
 
-## Storage and diagnostics
+## 存储和排查日志
 
-Configuration is stored as versioned JSON in `chrome.storage.local`. Proxy credentials live in a separate local-only record store; the route configuration contains only a credential identifier. Exported backups remove both passwords and credential identifiers.
+配置以带版本的 JSON 形式存储在 `chrome.storage.local`。代理账号密码存储在单独的仅本地记录中；路由配置只保存账号密码标识。导出的备份会移除密码和账号密码标识。
 
-Diagnostics use a bounded ring buffer in extension storage. Successful requests are never captured. Network failures retain URL, error category, and time, with duplicate resource failures folded for one minute. Logs never participate in routing decisions.
+排查日志在扩展存储中使用数量受限的环形缓冲区。成功请求不会被记录。网络失败会保留网址、错误类别和时间；相同资源的失败会在一分钟内合并。日志不会参与路由判断。
 
-## Reliability rules
+## 稳定性规则
 
-- A service-worker restart rehydrates the last known compiled proxy state idempotently.
-- An invalid profile change never replaces the last valid active configuration.
-- Every auto-switch proxy selection has an explicit direct-failover or proxy-only policy.
-- Local and loopback traffic has a clear default policy and visible override path.
-- No production source file may exceed 2,000 lines.
+- 服务工作线程重启后，会幂等地恢复上一次已编译的代理状态。
+- 无效的配置修改不会替换当前有效的配置。
+- 每次自动切换选择代理时，都会有明确的失败后直连或仅代理策略。
+- 本地和回环流量有明确的默认策略，也有可见的覆盖入口。
+- 每个生产代码文件不超过 2,000 行。

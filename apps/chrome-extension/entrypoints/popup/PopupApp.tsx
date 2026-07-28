@@ -21,6 +21,7 @@ import {
   targetFromValue
 } from '../../src/ui/background-client.ts';
 import { addHostRuleToAutoSwitch } from '../../src/ui/configuration-actions.ts';
+import { toUserFacingMessage } from '../../src/ui/error-message.ts';
 import { recentFailureHosts } from '../../src/ui/failure-hosts.ts';
 import type { BackgroundState } from '../../src/runtime/messages.ts';
 
@@ -74,7 +75,7 @@ export function PopupApp() {
     }
     const automatic = document.profiles.find((profile) => profile.kind === 'auto-switch');
     if (!automatic || automatic.kind !== 'auto-switch') {
-      setError('No automatic routing profile is available');
+      setError('没有可用的自动切换配置');
       return;
     }
 
@@ -116,20 +117,15 @@ export function PopupApp() {
         </div>
         <div className="brand-copy">
           <strong>SwitchyPeformance</strong>
-          <span>Chrome proxy routing</span>
+          <span>Chrome 代理路由</span>
         </div>
-        <button
-          className="icon-button"
-          onClick={() => void refresh()}
-          title="Refresh"
-          type="button"
-        >
+        <button className="icon-button" onClick={() => void refresh()} title="刷新" type="button">
           <RefreshCw size={16} />
         </button>
         <button
           className="icon-button"
           onClick={() => void openOptions()}
-          title="Open settings"
+          title="打开设置"
           type="button"
         >
           <Settings2 size={16} />
@@ -139,17 +135,17 @@ export function PopupApp() {
       <section className="popup-status" aria-live="polite">
         <span className={error ? 'status-dot status-dot-error' : 'status-dot'} />
         <div>
-          <span className="eyebrow">ACTIVE ROUTE</span>
-          <strong>{activeProfile?.name ?? 'Loading configuration'}</strong>
+          <span className="eyebrow">当前模式</span>
+          <strong>{activeProfile?.name ?? '正在加载配置'}</strong>
         </div>
         <ShieldCheck size={20} aria-hidden="true" />
       </section>
 
       {error ? <p className="popup-error">{error}</p> : null}
 
-      <section className="popup-section" aria-label="Profiles">
+      <section className="popup-section" aria-label="代理配置">
         <div className="section-label">
-          <span>Profiles</span>
+          <span>代理配置</span>
           <span>{document?.profiles.length ?? 0}</span>
         </div>
         <div className="profile-list">
@@ -166,22 +162,22 @@ export function PopupApp() {
               >
                 <span className="profile-kind">{profileGlyph(profile.kind)}</span>
                 <span className="profile-name">{profile.name}</span>
-                {active ? <Check size={16} aria-label="Active" /> : <ChevronRight size={16} />}
+                {active ? <Check size={16} aria-label="当前启用" /> : <ChevronRight size={16} />}
               </button>
             );
           })}
         </div>
       </section>
 
-      <section className="popup-section quick-rule" aria-label="Quick rule">
+      <section className="popup-section quick-rule" aria-label="快捷规则">
         <div className="section-label">
-          <span>Current site</span>
+          <span>当前网站</span>
           <Globe2 size={14} aria-hidden="true" />
         </div>
-        <strong className="host-value">{currentHost ?? 'No active web page'}</strong>
+        <strong className="host-value">{currentHost ?? '没有可用网页'}</strong>
         <div className="quick-rule-controls">
           <select
-            aria-label="Route for current site"
+            aria-label="当前网站的路由"
             disabled={busy || !currentHost}
             onChange={(event) => setRuleTarget(event.target.value)}
             value={ruleTarget}
@@ -203,15 +199,15 @@ export function PopupApp() {
             type="button"
           >
             <Plus size={15} />
-            Add rule
+            添加规则
           </button>
         </div>
       </section>
 
       {failedHosts.length > 0 ? (
-        <section className="popup-section" aria-label="Failed resources">
+        <section className="popup-section" aria-label="失败资源">
           <div className="section-label">
-            <span>Failed resources</span>
+            <span>失败资源</span>
             <span>{failedHosts.length}</span>
           </div>
           <div className="failure-list">
@@ -219,11 +215,11 @@ export function PopupApp() {
               <div className="failure-row" key={failure.host} title={failure.target}>
                 <span className="failure-host">{failure.host}</span>
                 <button
-                  aria-label={`Add ${failure.host} to automatic routing`}
+                  aria-label={`将 ${failure.host} 添加到自动切换`}
                   className="icon-button"
                   disabled={busy}
                   onClick={() => void addHostRule(failure.host)}
-                  title="Add failed host to automatic routing"
+                  title="将失败主机添加到自动切换"
                   type="button"
                 >
                   <Plus size={15} />
@@ -236,10 +232,10 @@ export function PopupApp() {
 
       <footer className="popup-footer">
         <span>
-          {state?.diagnostics.filter((event) => event.level === 'error').length ?? 0} recent errors
+          {state?.diagnostics.filter((event) => event.level === 'error').length ?? 0} 条近期错误
         </span>
         <button className="link-button" onClick={() => void openOptions()} type="button">
-          Dashboard
+          打开设置
           <ExternalLink size={14} />
         </button>
       </footer>
@@ -250,13 +246,13 @@ export function PopupApp() {
 function profileGlyph(kind: ProfileDocument['profiles'][number]['kind']): string {
   switch (kind) {
     case 'direct':
-      return 'D';
+      return '直';
     case 'system':
-      return 'S';
+      return '系';
     case 'fixed-proxy':
-      return 'P';
+      return '代';
     case 'auto-switch':
-      return 'A';
+      return '自';
   }
 }
 
@@ -275,5 +271,5 @@ async function loadCurrentHost(): Promise<string | undefined> {
 }
 
 function messageFor(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
+  return toUserFacingMessage(cause);
 }

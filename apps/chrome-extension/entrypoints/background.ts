@@ -70,14 +70,14 @@ export default defineBackground(() => {
         .then((response) => {
           if (response && 'cancel' in response && response.cancel) {
             void service.recordProxyError(
-              'Proxy authentication was rejected after one credential attempt',
+              '代理认证在一次凭据尝试后被拒绝',
               `${details.challenger.host}:${details.challenger.port}`
             );
           }
           callback?.(response ?? {});
         })
         .catch((error: unknown) => {
-          void service.recordProxyError('Proxy authentication handler failed', errorMessage(error));
+          void service.recordProxyError('代理认证处理失败', errorMessage(error));
           callback?.({});
         });
       return undefined;
@@ -111,20 +111,20 @@ export default defineBackground(() => {
       chrome.contextMenus.create({
         contexts: ['page'],
         id: DIRECT_QUICK_RULE_MENU_ID,
-        title: 'Route this site through: Direct'
+        title: '将此网站通过以下方式访问：直连'
       });
       for (const proxy of document.proxies) {
         chrome.contextMenus.create({
           contexts: ['page'],
           id: proxyQuickRuleMenuId(proxy.id),
-          title: `Route this site through: ${proxy.name}`
+          title: `将此网站通过以下方式访问：${proxy.name}`
         });
       }
     } catch (error) {
       await chromeDiagnosticsRepository.append({
         detail: errorMessage(error),
         level: 'error',
-        message: 'Could not rebuild quick-rule menu',
+        message: '无法重建快捷规则菜单',
         scope: 'runtime'
       });
     }
@@ -146,7 +146,7 @@ export default defineBackground(() => {
           (profile) => profile.kind === 'auto-switch' && profile.id === document.activeProfileId
         ) ?? document.profiles.find((profile) => profile.kind === 'auto-switch');
       if (!automatic || automatic.kind !== 'auto-switch') {
-        throw new Error('Automatic routing profile does not exist');
+        throw new Error('自动切换配置不存在');
       }
       await service.replaceConfiguration(
         addHostRuleToAutoSwitch(document, {
@@ -161,7 +161,7 @@ export default defineBackground(() => {
       await chromeDiagnosticsRepository.append({
         detail: errorMessage(error),
         level: 'error',
-        message: 'Could not add context-menu rule',
+        message: '无法添加右键菜单规则',
         scope: 'runtime'
       });
     }
@@ -173,7 +173,7 @@ async function handleMessage(
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
-    return { ok: false, error: 'Unsupported background request' };
+    return { ok: false, error: '不支持的后台请求' };
   }
 
   await dispatch(service, message);
@@ -221,7 +221,7 @@ async function saveProxyCredentials(
   const document = await chromeConfigurationRepository.load();
   const proxy = document.proxies.find((candidate) => candidate.id === message.proxyId);
   if (!proxy) {
-    throw new Error('Proxy does not exist');
+    throw new Error('代理不存在');
   }
   const credentialId = proxy.credentialId ?? `credential-${crypto.randomUUID()}`;
   await chromeCredentialRepository.save({
@@ -239,7 +239,7 @@ async function clearProxyCredentials(
   const document = await chromeConfigurationRepository.load();
   const proxy = document.proxies.find((candidate) => candidate.id === proxyId);
   if (!proxy) {
-    throw new Error('Proxy does not exist');
+    throw new Error('代理不存在');
   }
   await service.replaceConfiguration(clearProxyCredential(document, proxy.id));
   if (proxy.credentialId) {

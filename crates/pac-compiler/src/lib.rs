@@ -172,16 +172,16 @@ fn json_string(value: &str) -> Result<String, PacCompileError> {
 
 #[derive(Debug, Error)]
 pub enum PacCompileError {
-    #[error("routing compilation failed: {0}")]
+    #[error("路由编译失败：{0}")]
     Routing(#[from] RoutingCompileError),
-    #[error("the active profile is not auto-switch")]
+    #[error("当前配置不是自动切换")]
     ActiveProfileIsNotAutoSwitch,
-    #[error("auto-switch cannot use the system route inside a PAC program")]
+    #[error("自动切换不能在 PAC 规则中使用系统代理")]
     SystemRouteInAutoSwitch,
-    #[error("referenced proxy does not exist: {0}")]
+    #[error("引用的代理不存在：{0}")]
     MissingProxy(String),
-    #[error("a simple host condition reached the complex PAC renderer")]
+    #[error("简单主机条件进入了复杂 PAC 渲染器")]
     UnexpectedIndexedCondition,
-    #[error("PAC serialization failed: {0}")]
+    #[error("PAC 序列化失败：{0}")]
     Json(#[from] serde_json::Error),
 }

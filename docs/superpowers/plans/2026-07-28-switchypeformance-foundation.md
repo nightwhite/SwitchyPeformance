@@ -1,47 +1,47 @@
-# SwitchyPeformance Foundation Plan
+# SwitchyPeformance 基础计划
 
-> This plan covers the independently implemented foundation. Later phases remain gated by contract tests and documented Chrome limitations.
+> 本计划覆盖独立实现的基础能力。后续阶段仍以约定测试和已记录的 Chrome 平台限制为准。
 
-## Delivered Foundation
+## 已交付的基础能力
 
-- Clean-room controls, source-size enforcement, TypeScript/Rust workspaces, and Chrome MV3 production builds are in place.
-- The routing core compiles indexed PAC rules once per configuration change and has a 10,000-rule regression contract.
-- Direct, system, fixed-proxy, and multiple auto-switch profiles are implemented with direct-failover or proxy-only PAC behavior.
-- Local-only proxy credentials, bounded diagnostics, generic route inspection, legacy JSON/`.bak` migration, popup actions, failed-resource actions, and context-menu actions are implemented.
+- 已具备净室开发控制、代码文件大小限制、TypeScript/Rust 工作区和 Chrome MV3 生产构建。
+- 路由核心会在每次配置修改时只编译一次带索引的 PAC 规则，并具备 10,000 条规则的回归测试约定。
+- 已实现直连、系统、固定代理和多个自动切换配置，并支持失败后直连或仅代理的 PAC 行为。
+- 已实现仅本地保存的代理账号密码、数量受限的排查日志、通用路由检查、旧版 JSON/`.bak` 迁移、弹窗操作、失败资源操作和右键菜单操作。
 
-## Remaining Release Work
+## 剩余发布工作
 
-1. Keep the standalone MIT repository and ignored reference directory audited before each release.
-2. Keep the clean-room boundary, architecture, source-size rule, and no-native-service constraint documented.
-3. Verify ignored reference material cannot be staged before each release.
+1. 每次发布前审查独立的 MIT 仓库和被忽略的参考目录。
+2. 持续记录净室边界、架构、代码大小限制和不使用本地服务的约束。
+3. 每次发布前确认被忽略的参考资料无法被暂存。
 
-## Phase 1: Build and test baseline
+## 阶段 1：构建和测试基线
 
-1. Maintain the pnpm workspace, React Chrome extension application, Rust workspace, and shared contract package.
-2. Maintain formatting, TypeScript checking, Cargo checking, Vitest, and production-build checks.
-3. Keep the file-size guard active for production source files over 2,000 lines.
-4. Run manual Chrome installation and browser reliability checks before release.
+1. 维护 pnpm 工作区、React Chrome 扩展应用、Rust 工作区和共享约定包。
+2. 维护格式化、TypeScript 检查、Cargo 检查、Vitest 和生产构建检查。
+3. 保持生产代码文件超过 2,000 行时的大小限制检查。
+4. 发布前进行手动 Chrome 安装和浏览器稳定性检查。
 
-## Phase 2: Independent domain and routing core
+## 阶段 2：独立领域模型和路由核心
 
-1. Write failing contract tests for direct, fixed-proxy, fallback, loopback, ordered-rule, and invalid-config behavior.
-2. Implement versioned configuration types and Rust normalization.
-3. Implement routing analysis, indexed host matching, and deterministic PAC generation.
-4. Add compiler telemetry and an atomic apply/revert boundary in the service worker.
+1. 为直连、固定代理、兜底、回环、规则顺序和无效配置行为编写先失败的约定测试。
+2. 实现带版本的配置类型和 Rust 标准化逻辑。
+3. 实现路由分析、带索引的主机匹配和确定性的 PAC 生成。
+4. 在服务工作线程中加入编译指标以及原子应用/恢复边界。
 
-## Phase 3: User-facing parity
+## 阶段 3：用户功能对齐
 
-1. Expand proxy endpoint editing and remaining profile types such as PAC URL, rule-list, and virtual profiles.
-2. Add temporary-rule workflows and independently authored visual regression coverage at popup, laptop, and wide desktop sizes.
+1. 补充代理服务器编辑和剩余的配置类型，例如 PAC 网址、规则列表和虚拟配置。
+2. 加入临时规则工作流，并为弹窗、笔记本尺寸和宽桌面尺寸提供独立设计的视觉回归覆盖。
 
-## Phase 4: Operations and recovery
+## 阶段 4：运行和恢复
 
-1. Expand migration schemas and add optional subscription refresh and sync controls.
-2. Keep proxy authentication, diagnostics, route explanation, bounded logs, performance summaries, worker restart recovery, and safe reset controls covered by tests.
+1. 扩展迁移结构，并加入可选的订阅刷新和同步控制。
+2. 用测试覆盖代理认证、排查日志、路由解释、数量受限日志、性能摘要、服务工作线程重启恢复和安全重置控制。
 
-## Phase 5: Compatibility and release
+## 阶段 5：兼容性和发布
 
-1. Grow black-box behavior contracts until every public workflow is represented.
-2. Run generated large-rule performance tests and browser reliability tests.
-3. Audit licensing, source isolation, extension permissions, secrets, and documentation.
-4. Publish an installable Chrome package and GitHub release only after all checks pass.
+1. 持续增加黑盒行为约定，直到每个公开工作流都有对应覆盖。
+2. 运行生成的大规则性能测试和浏览器稳定性测试。
+3. 审查许可证、源码隔离、扩展权限、密钥和文档。
+4. 所有检查通过后才发布可安装的 Chrome 包和 GitHub Release。

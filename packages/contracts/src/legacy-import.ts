@@ -72,8 +72,8 @@ function migrateLegacyBackup(input: unknown): ImportedConfigurationResult {
   const usedProfileIds = new Set(['direct', 'system']);
   const usedProxyIds = new Set<string>();
   const profiles: Profile[] = [
-    { id: 'direct', kind: 'direct', name: 'Direct' },
-    { id: 'system', kind: 'system', name: 'System proxy' }
+    { id: 'direct', kind: 'direct', name: '直连' },
+    { id: 'system', kind: 'system', name: '系统代理' }
   ];
   const proxies: ProxyEndpoint[] = [];
   const fixedByReference = new Map<string, FixedLegacyProfile>();
@@ -89,7 +89,7 @@ function migrateLegacyBackup(input: unknown): ImportedConfigurationResult {
 
     const endpoint = parseLegacyEndpoint(legacy.value, legacy.name, usedProxyIds);
     if (!endpoint) {
-      warnings.push(`Fixed profile ${legacy.name} has no valid proxy endpoint and was skipped.`);
+      warnings.push(`固定代理配置 ${legacy.name} 没有有效的代理地址，已跳过。`);
       continue;
     }
 
@@ -104,7 +104,7 @@ function migrateLegacyBackup(input: unknown): ImportedConfigurationResult {
     proxies.push(endpoint);
     registerReference(fixedByReference, profileIdByReference, fixed);
     if (hasLegacyCredentials(legacy.value)) {
-      warnings.push(`Credentials for ${legacy.name} were skipped; set them locally after import.`);
+      warnings.push(`已跳过 ${legacy.name} 的账号密码；请在导入后本地设置。`);
     }
   }
 
@@ -123,7 +123,7 @@ function migrateLegacyBackup(input: unknown): ImportedConfigurationResult {
   );
   for (const legacy of legacyProfiles) {
     if (!supportedProfiles.includes(legacy)) {
-      warnings.push(`Profile ${legacy.name} uses an unsupported type and was skipped.`);
+      warnings.push(`配置 ${legacy.name} 使用了不支持的类型，已跳过。`);
     }
   }
 
@@ -136,7 +136,7 @@ function migrateLegacyBackup(input: unknown): ImportedConfigurationResult {
       ? profileIdByReference.get(referenceKey(firstAutomatic.name))
       : 'direct';
   if (startupProfileName && !activeProfileId) {
-    warnings.push(`Startup profile ${startupProfileName} was not found; imported as direct.`);
+    warnings.push(`未找到启动配置 ${startupProfileName}，已按直连模式导入。`);
   }
 
   const parsed = parseProfileDocument({
@@ -190,14 +190,12 @@ function readLegacyRules(
   const rules: Rule[] = [];
   for (const [index, rawRule] of input.entries()) {
     if (!isRecord(rawRule)) {
-      warnings.push(`Rule ${index + 1} in ${profileName} is malformed and was skipped.`);
+      warnings.push(`配置 ${profileName} 的第 ${index + 1} 条规则格式错误，已跳过。`);
       continue;
     }
     const condition = migrateLegacyCondition(rawRule.condition);
     if (!condition) {
-      warnings.push(
-        `Rule ${index + 1} in ${profileName} uses an unsupported condition and was skipped.`
-      );
+      warnings.push(`配置 ${profileName} 的第 ${index + 1} 条规则使用了不支持的条件，已跳过。`);
       continue;
     }
     const target = resolveRuleTarget(
@@ -247,9 +245,7 @@ function resolveFallback(
     return { kind: 'direct' };
   }
   if (input === 'system') {
-    warnings.push(
-      `Automatic profile ${profileName} uses system proxy as its fallback; imported as direct.`
-    );
+    warnings.push(`自动切换配置 ${profileName} 使用系统代理作为兜底，已按直连模式导入。`);
     return { kind: 'direct' };
   }
   if (typeof input === 'string') {
@@ -258,7 +254,7 @@ function resolveFallback(
       return { kind: 'proxy', proxyId: fixed.proxy.id };
     }
   }
-  warnings.push(`Automatic profile ${profileName} has an unknown fallback; imported as direct.`);
+  warnings.push(`自动切换配置 ${profileName} 的兜底目标未知，已按直连模式导入。`);
   return { kind: 'direct' };
 }
 
@@ -273,9 +269,7 @@ function resolveRuleTarget(
     return { kind: 'direct' };
   }
   if (input === 'system') {
-    warnings.push(
-      `Rule ${index + 1} in ${profileName} routes to the system proxy and was skipped.`
-    );
+    warnings.push(`配置 ${profileName} 的第 ${index + 1} 条规则路由到系统代理，已跳过。`);
     return undefined;
   }
   if (typeof input === 'string') {
@@ -284,9 +278,7 @@ function resolveRuleTarget(
       return { kind: 'proxy', proxyId: fixed.proxy.id };
     }
   }
-  warnings.push(
-    `Rule ${index + 1} in ${profileName} references an unknown profile and was skipped.`
-  );
+  warnings.push(`配置 ${profileName} 的第 ${index + 1} 条规则引用了未知配置，已跳过。`);
   return undefined;
 }
 
@@ -406,6 +398,6 @@ function isRecord(input: unknown): input is Record<string, unknown> {
 function unsupportedBackup(): ImportedConfigurationResult {
   return {
     ok: false,
-    error: 'This file is not a supported SwitchyPeformance configuration backup.'
+    error: '此文件不是受支持的 SwitchyPeformance 配置备份。'
   };
 }

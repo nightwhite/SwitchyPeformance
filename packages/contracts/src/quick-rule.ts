@@ -13,7 +13,7 @@ export function addHostRuleToAutoSwitch(
 ): ProfileDocument {
   const profile = document.profiles.find((candidate) => candidate.id === input.profileId);
   if (!profile || profile.kind !== 'auto-switch') {
-    throw new Error('Automatic routing profile does not exist');
+    throw new Error('自动切换配置不存在');
   }
   const host = normalizeHost(input.host);
   const existingIndex = profile.rules.findIndex(
@@ -57,7 +57,7 @@ function replaceAutoSwitchProfile(
 function normalizeHost(input: string): string {
   const host = input.trim().replace(/^\*\./, '').toLocaleLowerCase();
   if (!/^[a-z0-9][a-z0-9.-]*$/i.test(host) || host.includes('..')) {
-    throw new Error('A host name is required');
+    throw new Error('请输入主机名');
   }
   return host;
 }

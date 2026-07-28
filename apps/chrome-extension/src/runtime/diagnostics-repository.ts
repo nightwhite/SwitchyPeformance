@@ -88,7 +88,7 @@ async function readEvents(storage: DiagnosticsStorage): Promise<readonly Diagnos
     return [];
   }
   if (!Array.isArray(stored) || !stored.every(isDiagnosticEvent)) {
-    throw new Error('Stored diagnostics are invalid');
+    throw new Error('保存的排查日志无效');
   }
   return stored;
 }

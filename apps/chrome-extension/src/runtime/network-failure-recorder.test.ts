@@ -25,7 +25,7 @@ describe('createNetworkFailureRecorder', () => {
     expect(report).toHaveBeenCalledWith({
       detail: 'net::ERR_CONNECTION_TIMED_OUT',
       level: 'error',
-      message: 'Network request failed',
+      message: '网络请求失败',
       scope: 'network',
       target: 'https://x.example.test/api?attempt=1'
     });

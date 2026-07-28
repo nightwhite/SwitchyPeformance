@@ -32,7 +32,7 @@ export async function applyConfiguration(
     (candidate) => candidate.id === document.activeProfileId
   );
   if (!activeProfile) {
-    throw new Error(`Active profile does not exist: ${document.activeProfileId}`);
+    throw new Error(`当前配置不存在：${document.activeProfileId}`);
   }
 
   if (activeProfile.kind !== 'auto-switch') {

@@ -22,10 +22,15 @@ export function createConfigurationRepository(
         return document;
       }
 
-      return parseStoredDocument(stored);
+      const document = parseStoredDocument(stored);
+      const localized = localizeBuiltInProfileNames(document);
+      if (localized !== document) {
+        await storage.write(localized);
+      }
+      return localized;
     },
     async replace(candidate) {
-      const document = parseStoredDocument(candidate);
+      const document = localizeBuiltInProfileNames(parseStoredDocument(candidate));
       await storage.write(document);
       return document;
     }
@@ -39,12 +44,12 @@ export function createDefaultProfileDocument(): ProfileDocument {
     credentials: {},
     proxies: [],
     profiles: [
-      { id: 'direct', kind: 'direct', name: 'Direct' },
-      { id: 'system', kind: 'system', name: 'System proxy' },
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' },
       {
         id: 'auto-switch',
         kind: 'auto-switch',
-        name: 'Automatic routing',
+        name: '自动切换',
         loopbackPolicy: 'direct',
         proxyFailurePolicy: 'direct',
         fallback: { kind: 'direct' },
@@ -57,7 +62,42 @@ export function createDefaultProfileDocument(): ProfileDocument {
 function parseStoredDocument(candidate: unknown): ProfileDocument {
   const result = parseProfileDocument(candidate);
   if (!result.ok) {
-    throw new Error('Stored configuration is invalid');
+    throw new Error('保存的配置无效');
   }
   return result.value;
+}
+
+function localizeBuiltInProfileNames(document: ProfileDocument): ProfileDocument {
+  let changed = false;
+  const profiles = document.profiles.map((profile) => {
+    const name = localizedBuiltInProfileName(profile);
+    if (name === profile.name) {
+      return profile;
+    }
+    changed = true;
+    return { ...profile, name };
+  });
+
+  return changed ? { ...document, profiles } : document;
+}
+
+function localizedBuiltInProfileName(profile: ProfileDocument['profiles'][number]): string {
+  if (profile.id === 'direct' && profile.kind === 'direct' && profile.name === 'Direct') {
+    return '直连';
+  }
+  if (
+    profile.id === 'system' &&
+    profile.kind === 'system' &&
+    (profile.name === 'System' || profile.name === 'System proxy')
+  ) {
+    return '系统代理';
+  }
+  if (
+    profile.id === 'auto-switch' &&
+    profile.kind === 'auto-switch' &&
+    (profile.name === 'Automatic' || profile.name === 'Automatic routing')
+  ) {
+    return '自动切换';
+  }
+  return profile.name;
 }

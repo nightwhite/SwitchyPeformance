@@ -36,8 +36,6 @@ describe('proxy credential binding', () => {
   });
 
   it('does not silently bind credentials to an unknown proxy', () => {
-    expect(() => bindProxyCredential(document, 'missing', 'credential-edge')).toThrow(
-      'Proxy does not exist'
-    );
+    expect(() => bindProxyCredential(document, 'missing', 'credential-edge')).toThrow('代理不存在');
   });
 });

@@ -20,8 +20,6 @@ describe('parseRouteExplanation', () => {
   });
 
   it('rejects malformed route explanations', () => {
-    expect(() => parseRouteExplanation('{"reason":"indexed-rule"}')).toThrow(
-      'WASM route explanation is invalid'
-    );
+    expect(() => parseRouteExplanation('{"reason":"indexed-rule"}')).toThrow('WASM 路由结果无效');
   });
 });

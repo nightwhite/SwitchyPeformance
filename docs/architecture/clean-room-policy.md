@@ -1,34 +1,34 @@
-# Clean-Room Policy
+# 净室开发规范
 
-## Purpose
+## 目的
 
-SwitchyPeformance aims for feature-level compatibility with established proxy-profile workflows while remaining an independent MIT project.
+SwitchyPeformance 的目标是在功能层面兼容成熟的代理配置工作流，同时保持为独立的 MIT 项目。
 
-## Allowed reference use
+## 允许的参考方式
 
-- Observe user-visible behavior in a running extension.
-- Record an input, user action, and externally visible result in a behavior contract.
-- Read public documentation and browser API documentation.
-- Design a new data model, algorithm, interface, and test based on the recorded contract.
+- 观察正在运行的扩展中用户可见的行为。
+- 记录输入、用户操作和外部可见的结果，形成行为约定。
+- 阅读公开文档和浏览器 API 文档。
+- 基于记录下来的行为约定，设计新的数据模型、算法、界面和测试。
 
-## Prohibited material
+## 禁止使用的材料
 
-- Copying or adapting source code, stylesheets, HTML, assets, icons, translations, comments, tests, build output, or generated PAC code from a reference project.
-- Importing any reference package, source tree, or dependency into the build.
-- Committing reference material, screenshots used as shipped assets, or mechanically derived source.
-- Reusing reference string catalogs or code structure as an implementation template.
+- 复制或改编参考项目的源代码、样式表、HTML、资源、图标、翻译、注释、测试、构建产物或生成的 PAC 代码。
+- 将参考项目的任何软件包、源码树或依赖导入构建流程。
+- 提交参考材料、作为正式资源使用的截图，或机械派生出的源码。
+- 将参考项目的文案目录或代码结构作为实现模板复用。
 
-## Working method
+## 工作方式
 
-1. Describe a user-visible behavior without quoting reference code.
-2. Write an independent contract test that captures the behavior.
-3. Implement against the contract using this repository's data model and architecture.
-4. Review every change for copied material and for generated artifacts that expose reference implementation details.
+1. 描述用户可见的行为，但不引用参考代码。
+2. 编写独立的约定测试来固定该行为。
+3. 基于本仓库的数据模型和架构实现该约定。
+4. 检查每次修改，确认没有复制材料或暴露参考实现细节的生成产物。
 
-## Local reference isolation
+## 本地参考隔离
 
-If temporary reference material is needed, it lives under `.reference/`, which Git ignores. It is never built, imported, packaged, published, or committed. The product must build and test after the directory is deleted.
+临时参考资料如有需要，只能放在被 Git 忽略的 `.reference/` 目录中。它不会被构建、导入、打包、发布或提交。即使删除该目录，产品也必须能够构建并通过测试。
 
-## UI compatibility
+## 界面兼容性
 
-The product may preserve familiar workflows, screen hierarchy, and actions. Components, layouts, icons, wording, styles, and interaction code are independently designed and authored here.
+产品可以保留用户熟悉的工作流、页面层级和操作方式。组件、布局、图标、文案、样式和交互代码必须在本项目中独立设计和实现。

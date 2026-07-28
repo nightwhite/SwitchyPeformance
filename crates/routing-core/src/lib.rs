@@ -414,8 +414,8 @@ fn glob_matches(pattern: &str, value: &str) -> bool {
 
 #[derive(Debug, Error)]
 pub enum RoutingCompileError {
-    #[error("configuration validation failed: {0}")]
+    #[error("配置校验失败：{0}")]
     Configuration(#[from] ConfigurationError),
-    #[error("active profile disappeared during compilation: {0}")]
+    #[error("编译过程中当前配置消失：{0}")]
     MissingActiveProfile(String),
 }

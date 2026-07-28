@@ -72,8 +72,7 @@ describe('createBackgroundService', () => {
 
     expect(diagnostics.append).toHaveBeenCalledWith({
       level: 'info',
-      message:
-        'Applied automatic routing: 861 indexed rules, 0 complex rules; 42000 bytes; 12.5 ms.',
+      message: '已应用自动切换：861 条索引规则，0 条复杂规则；42000 字节；12.5 毫秒。',
       scope: 'configuration'
     });
   });

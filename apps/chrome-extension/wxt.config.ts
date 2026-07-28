@@ -4,7 +4,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'SwitchyPeformance',
-    description: 'Fast local routing for HTTP, HTTPS, and SOCKS proxies.',
+    description: '为 HTTP、HTTPS 和 SOCKS 代理提供快速的本地路由。',
     minimum_chrome_version: '120',
     permissions: [
       'alarms',

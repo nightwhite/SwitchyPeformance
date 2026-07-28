@@ -51,7 +51,7 @@ export function createNetworkFailureRecorder(
       await report({
         level: 'error',
         scope: 'network',
-        message: 'Network request failed',
+        message: '网络请求失败',
         target: failure.url,
         detail: failure.error
       });

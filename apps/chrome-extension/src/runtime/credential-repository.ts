@@ -53,7 +53,7 @@ export function createCredentialRepository(storage: CredentialStorage): Credenti
     },
     save(credential) {
       if (!isProxyCredential(credential)) {
-        return Promise.reject(new Error('Proxy credential is invalid'));
+        return Promise.reject(new Error('代理账号密码无效'));
       }
       return queue(async () => {
         const next = [
@@ -73,7 +73,7 @@ async function readCredentials(storage: CredentialStorage): Promise<readonly Pro
     return [];
   }
   if (!Array.isArray(stored) || !stored.every(isProxyCredential)) {
-    throw new Error('Stored proxy credentials are invalid');
+    throw new Error('保存的代理账号密码无效');
   }
   return stored.map((credential) => ({ ...credential }));
 }

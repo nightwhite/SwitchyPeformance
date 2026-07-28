@@ -1,50 +1,50 @@
-# SwitchyPeformance Design
+# SwitchyPeformance 设计说明
 
-**Date:** 2026-07-28
+**日期：** 2026-07-28
 
-## Goal
+## 目标
 
-Create a Chrome-only proxy profile extension with the familiar operational scope of ZeroOmega-class products, while independently implementing the entire product under MIT. The differentiators are route-decision performance and actionable diagnostics.
+做一个只支持 Chrome 的代理配置扩展，提供与 ZeroOmega 类产品相似的使用范围，但整个产品都以 MIT 协议独立实现。核心差异是路由判断性能和可执行的排查日志。
 
-## Non-negotiable constraints
+## 不可妥协的约束
 
-- Chrome only; Manifest V3.
-- No native application, local server, daemon, SQLite service, or external routing backend.
-- Support HTTP, HTTPS, SOCKS4, SOCKS5, and HTTP proxy authentication through Chrome extension capabilities.
-- Preserve user-visible workflows through independent React UI and Rust/WASM-backed routing logic.
-- Never copy, import, or ship reference project material.
-- Keep source modules below 2,000 lines and extract shared concerns.
+- 只支持 Chrome，使用 Manifest V3。
+- 不使用原生应用、本地服务器、守护进程、SQLite 服务或外部路由后端。
+- 通过 Chrome 扩展能力支持 HTTP、HTTPS、SOCKS4、SOCKS5 和 HTTP 代理认证。
+- 通过独立的 React 界面和 Rust/WASM 路由逻辑保留用户可见工作流。
+- 绝不复制、导入或发布参考项目材料。
+- 源码模块不超过 2,000 行，并提取共用逻辑。
 
-## Functional parity inventory
+## 功能对齐清单
 
-- Direct, system, fixed proxy, PAC, auto-switch, rule list, and virtual profiles.
-- Ordered rules, enabled state, profile fallbacks, bypass lists, and a deterministic default route.
-- Host, wildcard, URL wildcard, URL regex, keyword, IP/CIDR, weekday, and time-range conditions where Chrome/PAC capabilities permit them.
-- Profile switching from the toolbar popup, current-page quick actions, failed-request quick actions, context-menu actions, and temporary rules.
-- PAC URL support, rule-list subscriptions, refresh scheduling, import/export, and legacy backup migration.
-- HTTP proxy authentication, diagnostics, route explanation, performance measurements, and reset/recovery controls.
+- 直连、系统、固定代理、PAC、自动切换、规则列表和虚拟配置。
+- 有序规则、启用状态、配置兜底、绕过列表和确定性的默认路由。
+- 在 Chrome/PAC 能力允许时，支持主机名、通配符、网址通配符、网址正则、关键字、IP/CIDR、星期和时间范围条件。
+- 支持从工具栏弹窗切换配置、当前页面快捷操作、失败请求快捷操作、右键菜单操作和临时规则。
+- 支持 PAC 网址、规则列表订阅、定时刷新、导入导出和旧备份迁移。
+- 支持 HTTP 代理认证、排查日志、路由解释、性能指标和重置/恢复控制。
 
-## User experience direction
+## 用户体验方向
 
-The information architecture follows familiar proxy-extension tasks: quick switch in the popup; profiles and auto-switch rules in options; import/export and diagnostics as first-class pages. The visual system, components, styles, wording, icons, and source code are new work.
+信息结构遵循熟悉的代理扩展任务：在弹窗中快速切换；在设置页管理配置和自动切换规则；将导入导出和排查日志作为一级页面。视觉系统、组件、样式、文案、图标和源码均为新创作。
 
-## Routing strategy
+## 路由策略
 
-Static profiles apply through Chrome's fixed proxy configuration. Auto-switch profiles compile into PAC only when PAC is the correct Chrome API representation. The compiler preclassifies simple host rules into indexed tables and emits ordered fallback conditions for complex rules, retaining configured rule precedence.
+静态配置通过 Chrome 的固定代理配置应用。只有 PAC 是正确的 Chrome API 表示形式时，自动切换配置才会编译成 PAC。编译器会先将简单主机规则归类到带索引的表中，并为复杂规则生成有顺序的兜底条件，以保持已配置的规则优先级。
 
-The compiler runs after configuration changes, not during page loads. A compile result includes PAC text, a route explanation map, size and latency metrics, and validation findings. The prior valid configuration remains active if compilation fails.
+编译发生在配置修改后，而不是网页加载时。编译结果包括 PAC 文本、路由解释映射、大小和耗时指标以及校验结果。如果编译失败，之前有效的配置会继续生效。
 
-## Test strategy
+## 测试策略
 
-- Unit tests for parsing, validation, normalization, indexing, and PAC emission.
-- Contract tests that express user-visible behavior independently from reference source code.
-- Browser integration tests for proxy setting application, popup actions, imports, and diagnostics.
-- Load tests using generated rule sets at 100, 1,000, 10,000, and 50,000 rules.
-- Recovery tests for service-worker restarts, malformed imports, failed subscriptions, proxy failures, and loopback traffic.
+- 解析、校验、标准化、索引和 PAC 生成的单元测试。
+- 用独立于参考源码的约定测试表达用户可见行为。
+- 覆盖代理设置应用、弹窗操作、导入和排查日志的浏览器集成测试。
+- 使用 100、1,000、10,000 和 50,000 条规则生成的规则集做负载测试。
+- 覆盖服务工作线程重启、错误导入、订阅刷新失败、代理失败和回环流量的恢复测试。
 
-## Acceptance targets
+## 验收目标
 
-- A 10,000-rule auto-switch profile compiles without blocking the options UI.
-- Normal page navigation does not scan the full rule set in the extension runtime.
-- Diagnostics can explain a failing request without turning routine successful requests into persistent logs.
-- Every supported user action has an automated test or an explicitly documented Chrome-platform limitation.
+- 含 10,000 条规则的自动切换配置可以完成编译，而不会卡住设置界面。
+- 正常网页跳转时，扩展运行时不会扫描完整规则集合。
+- 排查日志可以解释失败请求，但不会把常规成功请求变成持久日志。
+- 每一项已支持的用户操作都有自动化测试，或有明确记录的 Chrome 平台限制。

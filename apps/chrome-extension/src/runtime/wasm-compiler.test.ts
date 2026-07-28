@@ -20,8 +20,6 @@ describe('parseWasmCompilation', () => {
   });
 
   it('rejects a malformed result instead of applying a broken PAC script', () => {
-    expect(() => parseWasmCompilation('{"pac_source":false}')).toThrow(
-      'WASM compiler returned an invalid result'
-    );
+    expect(() => parseWasmCompilation('{"pac_source":false}')).toThrow('WASM 编译器返回了无效结果');
   });
 });

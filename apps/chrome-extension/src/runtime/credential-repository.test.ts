@@ -33,8 +33,6 @@ describe('createCredentialRepository', () => {
       write: vi.fn().mockResolvedValue(undefined)
     });
 
-    await expect(repository.get('credential-edge')).rejects.toThrow(
-      'Stored proxy credentials are invalid'
-    );
+    await expect(repository.get('credential-edge')).rejects.toThrow('保存的代理账号密码无效');
   });
 });
