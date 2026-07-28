@@ -268,7 +268,7 @@ git commit -m "feat: define advanced routing conditions"
 - Test: `packages/contracts/src/config/document.test.ts`
 - Test: `packages/contracts/src/config/validate.test.ts`
 
-- [ ] **Step 1: 为未知引用、虚拟配置循环和内置配置删除写失败测试。**
+- [x] **Step 1: 为未知引用、虚拟配置循环和内置配置删除写失败测试。**
 
 ```ts
 it('拒绝虚拟配置形成的循环', () => {
@@ -289,13 +289,13 @@ it('拒绝虚拟配置形成的循环', () => {
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run packages/contracts/src/config/document.test.ts packages/contracts/src/config/validate.test.ts`
 
 Expected: FAIL，V2 解析器尚不存在。
 
-- [ ] **Step 3: 实现 V2 文档和校验边界。**
+- [x] **Step 3: 实现 V2 文档和校验边界。**
 
 ```ts
 export interface ProfileDocumentV2 {
@@ -320,18 +320,20 @@ export type ProfileDocumentIssueCode =
 
 `validateProfileGraph` 必须用深度优先遍历标出循环；只有 `direct` 和 `system` 可以使用保留 ID；删除前由同一校验器返回所有引用者，供界面决定替换、删除引用或取消。
 
-- [ ] **Step 4: 运行完整 contracts 测试。**
+- [x] **Step 4: 运行完整 contracts 测试。**
 
 Run: `pnpm vitest run packages/contracts/src && pnpm check:ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交 V2 文档。**
+- [x] **Step 5: 提交 V2 文档。**
 
 ```bash
 git add packages/contracts/src
 git commit -m "feat: validate versioned profile documents"
 ```
+
+**执行记录（2026-07-29）：** 先运行文档测试，5 项测试按预期因 `parseProfileDocumentV2` 不存在而失败；实现后覆盖有效文档、未知配置引用、未知代理/来源引用、内置模式缺失和虚拟配置循环。完整测试 26 个文件、71 项测试通过，`pnpm check` 和 `pnpm format:check` 通过。
 
 ### Task 4: 将现有 V1 配置安全迁移到 V2
 

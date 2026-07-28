@@ -6,3 +6,5 @@ export * from './config/conditions.ts';
 export * from './config/condition-validation.ts';
 export * from './config/sources.ts';
 export * from './config/profiles.ts';
+export * from './config/document.ts';
+export * from './config/validate.ts';
