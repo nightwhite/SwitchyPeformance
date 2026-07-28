@@ -13,6 +13,7 @@ export interface ConfigurationServiceDependencies {
 
 export interface ConfigurationService {
   activate(profileId: string): Promise<ConfigurationDocument>;
+  mutate(transform: (current: ConfigurationDocument) => unknown): Promise<ConfigurationDocument>;
   reapply(): Promise<ApplyConfigurationResult>;
   replace(candidate: unknown): Promise<ConfigurationDocument>;
 }
@@ -20,11 +21,13 @@ export interface ConfigurationService {
 export function createConfigurationService(
   dependencies: ConfigurationServiceDependencies
 ): ConfigurationService {
+  let pendingOperation = Promise.resolve();
+
   return {
     async activate(profileId) {
-      const current = await dependencies.configuration.load();
-      return replace({ ...current, activeProfileId: profileId });
+      return mutate((current) => ({ ...current, activeProfileId: profileId }));
     },
+    mutate,
     async reapply() {
       const current = await dependencies.configuration.load();
       return dependencies.apply(current);
@@ -32,8 +35,26 @@ export function createConfigurationService(
     replace
   };
 
-  async function replace(candidate: unknown): Promise<ConfigurationDocument> {
-    const current = await dependencies.configuration.load();
+  function replace(candidate: unknown): Promise<ConfigurationDocument> {
+    return serialize(async () => {
+      const current = await dependencies.configuration.load();
+      return applyAndPersist(current, candidate);
+    });
+  }
+
+  function mutate(
+    transform: (current: ConfigurationDocument) => unknown
+  ): Promise<ConfigurationDocument> {
+    return serialize(async () => {
+      const current = await dependencies.configuration.load();
+      return applyAndPersist(current, transform(current));
+    });
+  }
+
+  async function applyAndPersist(
+    current: ConfigurationDocument,
+    candidate: unknown
+  ): Promise<ConfigurationDocument> {
     const next = parseCandidate(candidate);
     await dependencies.apply(next);
 
@@ -43,6 +64,15 @@ export function createConfigurationService(
       await restoreCurrentConfiguration(current);
       throw error;
     }
+  }
+
+  function serialize<T>(operation: () => Promise<T>): Promise<T> {
+    const result = pendingOperation.then(operation, operation);
+    pendingOperation = result.then(
+      () => undefined,
+      () => undefined
+    );
+    return result;
   }
 
   async function restoreCurrentConfiguration(current: ConfigurationDocument): Promise<void> {

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
+import type {
+  ConfigurationDocument,
+  ProfileDocument,
+  ProfileDocumentV2
+} from '@switchypeformance/contracts';
 
 import { createConfigurationService } from './configuration-service.ts';
 
@@ -60,6 +64,26 @@ describe('createConfigurationService', () => {
     await expect(service.replace(v2Candidate)).resolves.toEqual(v2Candidate);
     expect(apply).toHaveBeenCalledWith(v2Candidate);
     expect(replace).toHaveBeenCalledWith(v2Candidate);
+  });
+
+  it('derives a mutation from the configuration loaded at save time', async () => {
+    const latest = { ...candidate, activeProfileId: 'direct' };
+    const apply = vi.fn().mockResolvedValue({ mode: 'direct' });
+    const replace = vi.fn().mockResolvedValue(candidate);
+    const mutate = vi.fn((document: ConfigurationDocument) => ({
+      ...document,
+      activeProfileId: 'system'
+    }));
+    const service = createConfigurationService({
+      apply,
+      configuration: { load: vi.fn().mockResolvedValue(latest), replace }
+    });
+
+    await expect(service.mutate(mutate)).resolves.toEqual(candidate);
+
+    expect(mutate).toHaveBeenCalledWith(latest);
+    expect(apply).toHaveBeenCalledWith(candidate);
+    expect(replace).toHaveBeenCalledWith(candidate);
   });
 });
 

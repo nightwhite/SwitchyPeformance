@@ -11,12 +11,12 @@ import type {
   BackgroundResponse,
   BackgroundState
 } from '../runtime/messages.ts';
+import type { CurrentRouteStatus } from '../runtime/current-route.ts';
+
+type SuccessfulBackgroundResponse = Extract<BackgroundResponse, { ok: true }>;
 
 export async function requestBackgroundState(message: BackgroundRequest): Promise<BackgroundState> {
   const response = await sendBackgroundCommand(message);
-  if (!response.ok) {
-    throw new Error(response.error);
-  }
   if (!response.state) {
     throw new Error('后台响应没有返回状态');
   }
@@ -25,12 +25,20 @@ export async function requestBackgroundState(message: BackgroundRequest): Promis
 
 export async function sendBackgroundCommand(
   message: BackgroundRequest
-): Promise<BackgroundResponse> {
+): Promise<SuccessfulBackgroundResponse> {
   const response = (await chrome.runtime.sendMessage(message)) as BackgroundResponse;
   if (!response.ok) {
     throw new Error(response.error);
   }
   return response;
+}
+
+export async function requestCurrentRoute(url: string): Promise<CurrentRouteStatus> {
+  const response = await sendBackgroundCommand({ type: 'route.explain', url });
+  if (!response.routeStatus) {
+    throw new Error('后台响应没有返回路由说明');
+  }
+  return response.routeStatus;
 }
 
 export function routeOptions(document: ProfileDocument): readonly {

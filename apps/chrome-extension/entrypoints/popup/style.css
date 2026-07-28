@@ -11,7 +11,7 @@
 
 body {
   margin: 0;
-  min-width: 390px;
+  min-width: 420px;
   background: #f4f5f1;
 }
 
@@ -30,7 +30,8 @@ button:disabled {
 }
 
 .popup-shell {
-  min-height: 506px;
+  width: 420px;
+  min-height: 540px;
   padding: 14px;
 }
 
@@ -142,7 +143,7 @@ button:disabled {
 
 .profile-list {
   overflow: auto;
-  max-height: 168px;
+  max-height: 156px;
   border: 1px solid #d2d9d2;
   background: #ffffff;
 }
@@ -205,7 +206,8 @@ button:disabled {
   font-weight: 600;
 }
 
-.quick-rule {
+.current-site-panel,
+.route-panel {
   padding: 11px;
   background: #ffffff;
   border: 1px solid #d2d9d2;
@@ -222,13 +224,17 @@ button:disabled {
   white-space: nowrap;
 }
 
-.quick-rule-controls {
+.scope-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  margin-bottom: 9px;
+  border: 1px solid #bfc9bf;
+  border-radius: 4px;
 }
 
 select {
+  width: 100%;
   min-width: 0;
   min-height: 32px;
   padding: 0 8px;
@@ -237,6 +243,52 @@ select {
   border: 1px solid #bfc9bf;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.scope-button {
+  min-height: 31px;
+  color: #53605a;
+  background: #ffffff;
+  border: 0;
+  border-right: 1px solid #d5ddd5;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scope-button:last-child {
+  border-right: 0;
+}
+
+.scope-button:hover:not(:disabled) {
+  background: #eef4ef;
+}
+
+.scope-button-active,
+.scope-button-active:hover:not(:disabled) {
+  color: #ffffff;
+  background: #1b7d57;
+}
+
+.rule-preview {
+  overflow: hidden;
+  margin: 0 0 10px;
+  padding: 7px 8px;
+  color: #53605a;
+  background: #f1f4f0;
+  border-left: 2px solid #9aaba0;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-label {
+  display: grid;
+  gap: 5px;
+  margin-top: 9px;
+  color: #59655f;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .command-button {
@@ -255,6 +307,65 @@ select {
 
 .command-button:hover:not(:disabled) {
   background: #0f6647;
+}
+
+.command-button-full {
+  justify-content: center;
+  width: 100%;
+  margin-top: 11px;
+}
+
+.popup-hint {
+  margin: 9px 0 0;
+  color: #6a746e;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.route-details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid #e3e8e2;
+}
+
+.route-details > div {
+  display: grid;
+  min-height: 30px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e3e8e2;
+}
+
+.route-details dt,
+.route-details dd {
+  margin: 0;
+}
+
+.route-details dt {
+  color: #6a746e;
+  font-size: 11px;
+}
+
+.route-details dd {
+  overflow: hidden;
+  color: #24362d;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-warning {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 9px 0 0;
+  color: #9b5e00;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .failure-list {

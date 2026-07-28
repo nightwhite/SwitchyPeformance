@@ -19,6 +19,9 @@ export interface BackgroundSnapshot {
 export interface BackgroundService {
   activateProfile(profileId: string): Promise<ConfigurationDocument>;
   clearDiagnostics(): Promise<void>;
+  mutateConfiguration(
+    transform: (current: ConfigurationDocument) => unknown
+  ): Promise<ConfigurationDocument>;
   recordProxyError(message: string, detail?: string): Promise<void>;
   reapplyCurrent(): Promise<ApplyConfigurationResult>;
   replaceConfiguration(candidate: unknown): Promise<ConfigurationDocument>;
@@ -60,6 +63,9 @@ export function createBackgroundService(
     },
     async clearDiagnostics() {
       await dependencies.diagnostics.clear();
+    },
+    async mutateConfiguration(transform) {
+      return runConfigurationOperation(() => configurationService.mutate(transform));
     },
     async recordProxyError(message, detail) {
       await dependencies.diagnostics.append({

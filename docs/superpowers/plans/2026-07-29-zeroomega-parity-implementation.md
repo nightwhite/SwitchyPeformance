@@ -1095,7 +1095,7 @@ git commit -m "feat: edit pac rule-list virtual and auto-detect profiles"
 - Test: `apps/chrome-extension/src/ui/popup/current-site-rule.test.ts`
 - Test: `apps/chrome-extension/src/ui/popup/current-tab.test.ts`
 
-- [ ] **Step 1: 写出当前页面、当前主机、当前域名三种快捷规则的失败测试。**
+- [x] **Step 1: 写出当前页面、当前主机、当前域名三种快捷规则的失败测试。**
 
 ```ts
 expect(buildCurrentSiteRule('https://sub.example.com/path?q=1', 'domain')).toEqual({
@@ -1106,13 +1106,13 @@ expect(buildCurrentSiteRule('https://sub.example.com/path?q=1', 'host')).toEqual
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/popup/current-site-rule.test.ts apps/chrome-extension/src/ui/popup/current-tab.test.ts`
 
 Expected: FAIL，当前弹窗只能添加一种固定主机规则。
 
-- [ ] **Step 3: 实现弹窗数据和操作。**
+- [x] **Step 3: 实现弹窗数据和操作。**
 
 ```ts
 export type CurrentSiteScope = 'page' | 'host' | 'domain';
@@ -1125,20 +1125,22 @@ export function buildCurrentSiteRule(
 }
 ```
 
-弹窗必须显示当前有效配置、解析后的实际配置、当前站点命中的规则、可选目标、永久添加和临时添加。`chrome://`、扩展页面、文件页面和没有 URL 的标签页禁用相关按钮并写明原因。
+弹窗必须显示当前有效配置、解析后的实际配置、当前站点命中的规则、可选目标和永久添加。临时添加依赖到期和标签页范围模型，由 Task 17 完成后接入同一弹窗命令。`chrome://`、扩展页面、文件页面和没有 URL 的标签页禁用相关按钮并写明原因。
 
-- [ ] **Step 4: 运行弹窗测试和构建。**
+- [x] **Step 4: 运行弹窗测试和构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/popup/current-site-rule.test.ts apps/chrome-extension/src/ui/popup/current-tab.test.ts && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交当前站点工作流。**
+- [x] **Step 5: 提交当前站点工作流。**
 
 ```bash
 git add apps/chrome-extension/entrypoints/popup apps/chrome-extension/src/ui/popup apps/chrome-extension/src/runtime/messages.ts
 git commit -m "feat: add current-site proxy rule workflow"
 ```
+
+**执行记录（2026-07-29）：** 新增当前页、主机和注册主域三种范围；主域采用 MIT 的 `tldts` 公共后缀解析，覆盖 `example.co.uk` 和私有后缀场景，不用“最后两段域名”的不可靠猜法。弹窗只为 HTTP/HTTPS 页面启用操作，内部页面、扩展页面、文件页和没有 URL 的标签页会明确禁用。选择的自动切换配置、规则目标和范围通过 `quick-rule.add` 后台命令原子保存；重复条件更新原规则，不重复插入；非直连的本地地址规则会明确改为 `use-rules`。弹窗显示虚拟配置解析后的实际配置、当前结果和命中规则。主域解析只留在弹窗，后台包从约 1.4 MB 降到约 1.24 MB，总构建包从约 3.01 MB 降到约 2.75 MB。全量测试为 46 个文件、152 项测试通过；`pnpm check`、`pnpm format:check`、`cargo fmt --check` 和 `pnpm build` 通过。
 
 ### Task 17: 实现临时规则和临时规则管理器
 

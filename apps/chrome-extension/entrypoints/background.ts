@@ -8,6 +8,8 @@ import {
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
+import { explainCurrentRoute, type CurrentRouteStatus } from '../src/runtime/current-route.ts';
+import { addCurrentSiteRule } from '../src/runtime/quick-site-rule.ts';
 import {
   DIRECT_QUICK_RULE_MENU_ID,
   profileQuickRuleMenuId,
@@ -186,42 +188,60 @@ async function handleMessage(
     return { ok: false, error: '不支持的后台请求' };
   }
 
-  await dispatch(service, proxyCredentials, message);
+  const routeStatus = await dispatch(service, proxyCredentials, message);
   if (message.type === 'options.open') {
     return { ok: true };
   }
-  return { ok: true, state: await service.snapshot() };
+  return {
+    ok: true,
+    ...(routeStatus === undefined ? {} : { routeStatus }),
+    state: await service.snapshot()
+  };
 }
 
 async function dispatch(
   service: ReturnType<typeof createBackgroundService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   message: BackgroundRequest
-): Promise<void> {
+): Promise<CurrentRouteStatus | undefined> {
   switch (message.type) {
     case 'state.get':
-      return;
+      return undefined;
     case 'profile.activate':
       await service.activateProfile(message.profileId);
-      return;
+      return undefined;
     case 'configuration.replace':
       await service.replaceConfiguration(message.document);
-      return;
+      return undefined;
+    case 'route.explain':
+      return explainCurrentRoute(await chromeConfigurationRepository.load(), message.url);
+    case 'quick-rule.add':
+      await service.mutateConfiguration((document) =>
+        addCurrentSiteRule(document, {
+          automaticProfileId: message.automaticProfileId,
+          condition: message.condition,
+          host: message.host,
+          ruleId: `rule-${crypto.randomUUID()}`,
+          scope: message.scope,
+          target: message.target
+        })
+      );
+      return undefined;
     case 'diagnostics.clear':
       await service.clearDiagnostics();
-      return;
+      return undefined;
     case 'options.open':
       await chrome.runtime.openOptionsPage();
-      return;
+      return undefined;
     case 'proxy.credentials.save':
       await proxyCredentials.save(message.proxyId, message.username, message.password);
-      return;
+      return undefined;
     case 'proxy.credentials.clear':
       await proxyCredentials.clear(message.proxyId);
-      return;
+      return undefined;
     case 'proxy.credentials.delete':
       await chromeCredentialRepository.remove(message.credentialId);
-      return;
+      return undefined;
   }
 }
 
