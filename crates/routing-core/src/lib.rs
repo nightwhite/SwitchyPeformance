@@ -4,8 +4,8 @@ mod matcher;
 mod v2;
 
 pub use matcher::{
-    ConditionMatch, matches_glob, matches_host_suffix, matches_ip_cidr, matches_time_range,
-    matches_weekdays,
+    ConditionMatch, matches_bypass_pattern, matches_glob, matches_host_suffix, matches_ip_cidr,
+    matches_time_range, matches_weekdays,
 };
 pub use v2::{
     V2AutoSwitchProgram, V2DecisionReason, V2IndexedRule, V2ProgramStep, V2RouteDecision,

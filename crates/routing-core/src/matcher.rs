@@ -29,6 +29,16 @@ pub fn matches_weekdays(weekday: u8, days: &[u8]) -> bool {
     weekday <= 6 && days.contains(&weekday)
 }
 
+pub fn matches_bypass_pattern(host: &str, pattern: &str) -> bool {
+    let host = host.trim().to_ascii_lowercase();
+    let pattern = pattern.trim().to_ascii_lowercase();
+    if pattern == "<local>" {
+        return !host.contains('.');
+    }
+
+    matches_glob(&pattern, &host)
+}
+
 pub fn matches_ip_cidr(host: &str, network: &str, prefix_length: u8) -> ConditionMatch {
     let Ok(network) = network.parse::<IpAddr>() else {
         return ConditionMatch::NoMatch;

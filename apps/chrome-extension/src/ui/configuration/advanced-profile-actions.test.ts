@@ -93,6 +93,22 @@ describe('advanced V2 profile actions', () => {
     });
   });
 
+  it('rejects rule-list targets that cannot be represented by a Chrome auto-switch PAC', () => {
+    expect(() =>
+      updateRuleListProfile(document(), 'list', {
+        allowInsecureHttp: false,
+        fallback: { profileId: 'direct' },
+        matchTarget: { profileId: 'pac' },
+        source: {
+          id: 'company-source',
+          name: '公司订阅',
+          format: 'auto-proxy',
+          source: { kind: 'inline', text: '||example.com' }
+        }
+      })
+    ).toThrow('规则列表命中目标不能被 Chrome PAC 路由');
+  });
+
   it('rejects a virtual profile that points back to itself', () => {
     expect(() => updateVirtualProfile(document(), 'alias', { profileId: 'alias' })).toThrow(
       '虚拟配置不能指向自身'

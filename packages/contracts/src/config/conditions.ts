@@ -8,6 +8,7 @@ export const RULE_CONDITION_TYPES = [
   'url-wildcard',
   'url-regex',
   'keyword',
+  'always',
   'bypass',
   'time-range',
   'weekday',
@@ -24,7 +25,8 @@ export type RuleConditionV2 =
   | { type: 'url-wildcard'; pattern: string }
   | { type: 'url-regex'; pattern: string }
   | { type: 'keyword'; value: string }
-  | { type: 'bypass'; value: boolean }
+  | { type: 'always' }
+  | { type: 'bypass'; pattern: string }
   | { type: 'time-range'; startMinute: number; endMinute: number }
   | { type: 'weekday'; days: readonly number[] }
   | { type: 'never' };

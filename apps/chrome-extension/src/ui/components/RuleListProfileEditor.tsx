@@ -62,7 +62,7 @@ export function RuleListProfileEditor({
           <p className="panel-kicker">规则列表配置</p>
           <h2>{profile.name}</h2>
         </div>
-        <span className="mono-chip">待来源编译</span>
+        <span className="mono-chip">切换时编译</span>
       </div>
       <div className="form-grid rule-list-target-grid">
         <label>
@@ -85,6 +85,7 @@ export function RuleListProfileEditor({
           </select>
         </label>
         <ProfileTargetSelect
+          autoSwitchRouteTargetsOnly
           disabled={busy}
           document={document}
           excludeProfileId={profile.id}
@@ -93,6 +94,7 @@ export function RuleListProfileEditor({
           profileId={matchTargetId}
         />
         <ProfileTargetSelect
+          autoSwitchRouteTargetsOnly
           disabled={busy}
           document={document}
           excludeProfileId={profile.id}

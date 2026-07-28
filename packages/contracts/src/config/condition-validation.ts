@@ -41,8 +41,10 @@ export function validateCondition(value: unknown): ConditionValidationResult {
       return validateRegex(value.pattern);
     case 'keyword':
       return isNonEmptyString(value.value) ? valid() : invalid('invalid-keyword');
+    case 'always':
+      return Object.keys(value).length === 1 ? valid() : invalid('invalid-condition');
     case 'bypass':
-      return typeof value.value === 'boolean' ? valid() : invalid('invalid-bypass');
+      return isNonEmptyString(value.pattern) ? valid() : invalid('invalid-bypass');
     case 'time-range':
       return isMinute(value.startMinute) && isMinute(value.endMinute)
         ? valid()
@@ -66,8 +68,7 @@ function validateHostWildcard(value: unknown): ConditionValidationResult {
     return valid();
   }
 
-  const host = pattern.startsWith('*.') ? pattern.slice(2) : pattern;
-  if (host.includes('*') || host.includes('/') || host.includes(':') || !isHostName(host)) {
+  if (!isHostWildcardPattern(pattern)) {
     return invalid('invalid-host-wildcard');
   }
 
@@ -88,7 +89,10 @@ function validateRegex(value: unknown): ConditionValidationResult {
 }
 
 function validateHostLevels(min: unknown, max: unknown): ConditionValidationResult {
-  if (!isPositiveInteger(min) || (max !== undefined && (!isPositiveInteger(max) || max < min))) {
+  if (
+    !isNonNegativeInteger(min) ||
+    (max !== undefined && (!isNonNegativeInteger(max) || max < min))
+  ) {
     return invalid('invalid-host-levels');
   }
 
@@ -121,14 +125,24 @@ function validateUrlWildcard(value: unknown): ConditionValidationResult {
   return valid();
 }
 
-function isHostName(value: string): boolean {
-  if (!value || value.length > 253 || value.includes('..') || /\s/.test(value)) {
+function isHostWildcardPattern(value: string): boolean {
+  if (
+    !value ||
+    value.length > 253 ||
+    value.includes('..') ||
+    /[\s/:]/.test(value) ||
+    value.startsWith('.') ||
+    value.endsWith('.')
+  ) {
     return false;
   }
 
   return value
     .split('.')
-    .every((label) => /^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9])?$/.test(label));
+    .every(
+      (label) =>
+        label.length <= 63 && /^[A-Za-z0-9*?](?:[A-Za-z0-9*?_-]{0,61}[A-Za-z0-9*?])?$/.test(label)
+    );
 }
 
 function ipPrefixLength(value: string): 32 | 128 | undefined {
@@ -198,8 +212,8 @@ function isMinute(value: unknown): value is number {
   return Number.isInteger(value) && typeof value === 'number' && value >= 0 && value < 24 * 60;
 }
 
-function isPositiveInteger(value: unknown): value is number {
-  return Number.isInteger(value) && typeof value === 'number' && value >= 1;
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && typeof value === 'number' && value >= 0;
 }
 
 function isNonEmptyString(value: unknown): value is string {

@@ -111,6 +111,47 @@ describe('V2 配置文档', () => {
     expect(parseProfileDocumentV2(validDocument())).toMatchObject({ ok: true });
   });
 
+  it('把旧布尔绕过条件转换成明确的始终或永不命中条件', () => {
+    expect(api.parseProfileDocumentV2).toBeTypeOf('function');
+    const parseProfileDocumentV2 = api.parseProfileDocumentV2 as (value: unknown) => ParseResult;
+    const document = validDocument();
+    const automatic = document.profiles.find((profile) => profile.id === 'auto-work') as Record<
+      string,
+      unknown
+    >;
+    automatic.rules = [
+      {
+        id: 'old-always',
+        enabled: true,
+        condition: { type: 'bypass', value: true },
+        target: { profileId: 'fixed-work' }
+      },
+      {
+        id: 'old-never',
+        enabled: true,
+        condition: { type: 'bypass', value: false },
+        target: { profileId: 'direct' }
+      }
+    ];
+
+    expect(parseProfileDocumentV2(document)).toMatchObject({
+      ok: true,
+      value: {
+        profiles: [
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          {
+            rules: [
+              { id: 'old-always', condition: { type: 'always' } },
+              { id: 'old-never', condition: { type: 'never' } }
+            ]
+          }
+        ]
+      }
+    });
+  });
+
   it('拒绝引用不存在配置或重复配置的快捷切换顺序', () => {
     expect(api.parseProfileDocumentV2).toBeTypeOf('function');
     const parseProfileDocumentV2 = api.parseProfileDocumentV2 as (value: unknown) => ParseResult;

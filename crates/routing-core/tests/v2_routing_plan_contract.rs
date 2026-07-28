@@ -122,6 +122,176 @@ fn routes_loopback_only_when_the_user_explicitly_allows_rules() {
 }
 
 #[test]
+fn treats_a_host_without_dots_as_host_level_zero() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.loopback_policy = "use-rules".to_owned();
+    profile.rules.insert(
+        0,
+        V2SwitchRule {
+            id: "internal-host".to_owned(),
+            enabled: true,
+            condition: V2RuleCondition::HostLevels {
+                min: 0,
+                max: Some(0),
+            },
+            target: target("proxy"),
+        },
+    );
+
+    let program = compile_v2_auto_switch_program(&configuration)
+        .expect("valid V2 automatic profile should produce a routing program");
+    let decision = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "http://intranet/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+
+    assert_eq!(profile_id(&decision.destination), Some("proxy"));
+    assert_eq!(decision.matched_rule_id.as_deref(), Some("internal-host"));
+}
+
+#[test]
+fn bypass_condition_only_matches_its_declared_pattern() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.loopback_policy = "use-rules".to_owned();
+    profile.rules.insert(
+        0,
+        V2SwitchRule {
+            id: "only-internal-hosts".to_owned(),
+            enabled: true,
+            condition: V2RuleCondition::Bypass {
+                pattern: "<local>".to_owned(),
+            },
+            target: target("proxy"),
+        },
+    );
+
+    let program = compile_v2_auto_switch_program(&configuration)
+        .expect("valid V2 automatic profile should produce a routing program");
+    let internal = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "http://intranet/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+    let external = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "https://unmatched.example/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+
+    assert_eq!(profile_id(&internal.destination), Some("proxy"));
+    assert_eq!(
+        internal.matched_rule_id.as_deref(),
+        Some("only-internal-hosts")
+    );
+    assert_eq!(profile_id(&external.destination), Some("direct"));
+}
+
+#[test]
+fn always_condition_matches_before_following_rules() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.rules.insert(
+        0,
+        V2SwitchRule {
+            id: "all-traffic".to_owned(),
+            enabled: true,
+            condition: V2RuleCondition::Always,
+            target: target("proxy"),
+        },
+    );
+
+    let program = compile_v2_auto_switch_program(&configuration)
+        .expect("valid V2 automatic profile should produce a routing program");
+    let decision = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "https://unmatched.example/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+
+    assert_eq!(profile_id(&decision.destination), Some("proxy"));
+    assert_eq!(decision.matched_rule_id.as_deref(), Some("all-traffic"));
+}
+
+#[test]
+fn host_wildcards_with_an_interior_star_match_without_becoming_exact_hosts() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.rules.insert(
+        0,
+        V2SwitchRule {
+            id: "private-subnet".to_owned(),
+            enabled: true,
+            condition: V2RuleCondition::HostWildcard {
+                pattern: "192.168.10.*".to_owned(),
+            },
+            target: target("proxy"),
+        },
+    );
+
+    let program = compile_v2_auto_switch_program(&configuration)
+        .expect("valid V2 automatic profile should produce a routing program");
+    let matching = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "http://192.168.10.8/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+    let other_subnet = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "http://192.168.11.8/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+
+    assert_eq!(profile_id(&matching.destination), Some("proxy"));
+    assert_eq!(matching.matched_rule_id.as_deref(), Some("private-subnet"));
+    assert_eq!(profile_id(&other_subnet.destination), Some("direct"));
+}
+
+#[test]
 fn keeps_unspecified_local_bind_addresses_direct_by_default() {
     let mut configuration = configuration();
     let Some(V2Profile::AutoSwitch(profile)) = configuration

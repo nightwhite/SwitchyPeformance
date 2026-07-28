@@ -9,6 +9,9 @@ import {
 } from '../src/runtime/chrome-repositories.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
+import { createRuleListService } from '../src/runtime/rule-list-service.ts';
+import { createRoutingApplicationService } from '../src/runtime/routing-application-service.ts';
+import { createRoutingDocumentPipeline } from '../src/runtime/routing-document-pipeline.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
 import { createProfileActivationService } from '../src/runtime/profile-activation-service.ts';
@@ -51,19 +54,31 @@ export default defineBackground(() => {
     repository: chromeTemporaryRuleRepository
   });
   const routingDocuments = createTemporaryRoutingDocumentService({ temporaryRules });
+  const sourceFetcher = createSourceFetcher({ fetch: (url, request) => fetch(url, request) });
   const pacSources = createPacSourceService({
-    fetcher: createSourceFetcher({ fetch: (url, request) => fetch(url, request) }),
+    fetcher: sourceFetcher,
     statuses: chromeSourceStatusRepository
   });
+  const ruleLists = createRuleListService({
+    fetcher: sourceFetcher,
+    statuses: chromeSourceStatusRepository
+  });
+  const routingPipeline = createRoutingDocumentPipeline({
+    pacSources,
+    ruleLists,
+    temporaryRules: routingDocuments
+  });
+  const routingApplication = createRoutingApplicationService({
+    applyEffective: (document) =>
+      applyConfiguration(document, {
+        compileAutoSwitch: compileAutoSwitchWithWasm,
+        setProxySetting: setChromeProxySetting
+      }),
+    explainEffective: explainCurrentRoute,
+    routingDocuments: routingPipeline
+  });
   const service = createBackgroundService({
-    apply: async (document) =>
-      applyConfiguration(
-        await pacSources.resolveForApply(await routingDocuments.resolve(document)),
-        {
-          compileAutoSwitch: compileAutoSwitchWithWasm,
-          setProxySetting: setChromeProxySetting
-        }
-      ),
+    apply: routingApplication.apply,
     configuration: chromeConfigurationRepository,
     diagnostics: chromeDiagnosticsRepository
   });
@@ -179,7 +194,7 @@ export default defineBackground(() => {
           proxyCredentials,
           profileActivation,
           temporaryRules,
-          routingDocuments,
+          routingApplication,
           temporaryRuleLifecycle,
           message
         )
@@ -281,7 +296,7 @@ async function handleMessage(
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
-  routingDocuments: ReturnType<typeof createTemporaryRoutingDocumentService>,
+  routingApplication: ReturnType<typeof createRoutingApplicationService>,
   temporaryRuleLifecycle: ReturnType<typeof createTemporaryRuleLifecycle>,
   message: unknown
 ): Promise<BackgroundResponse> {
@@ -294,7 +309,7 @@ async function handleMessage(
     proxyCredentials,
     profileActivation,
     temporaryRules,
-    routingDocuments,
+    routingApplication,
     message
   );
   await temporaryRuleLifecycle.synchronize();
@@ -317,7 +332,7 @@ async function dispatch(
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
-  routingDocuments: ReturnType<typeof createTemporaryRoutingDocumentService>,
+  routingApplication: ReturnType<typeof createRoutingApplicationService>,
   message: BackgroundRequest
 ): Promise<CurrentRouteStatus | undefined> {
   switch (message.type) {
@@ -330,10 +345,7 @@ async function dispatch(
       await service.replaceConfiguration(message.document);
       return undefined;
     case 'route.explain':
-      return explainCurrentRoute(
-        await routingDocuments.resolve(await chromeConfigurationRepository.load()),
-        message.url
-      );
+      return routingApplication.explain(await chromeConfigurationRepository.load(), message.url);
     case 'quick-rule.add':
       await service.mutateConfiguration((document) =>
         addCurrentSiteRule(document, {

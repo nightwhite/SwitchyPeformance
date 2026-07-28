@@ -1322,7 +1322,7 @@ git commit -m "feat: refresh pac sources safely"
 - Test: `packages/contracts/src/rule-list/parse.test.ts`
 - Test: `apps/chrome-extension/src/runtime/rule-list-service.test.ts`
 
-- [ ] **Step 1: 写出 AutoProxy、Switchy 和无效行报告的失败测试。**
+- [x] **Step 1: 写出 AutoProxy、Switchy 和无效行报告的失败测试。**
 
 ```ts
 const result = parseRuleList('||example.com\n@@||direct.example.com', 'auto-proxy');
@@ -1333,13 +1333,13 @@ expect(result.rules).toEqual([
 expect(result.warnings).toEqual([]);
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run packages/contracts/src/rule-list/parse.test.ts apps/chrome-extension/src/runtime/rule-list-service.test.ts`
 
 Expected: FAIL，规则列表解析器不存在。
 
-- [ ] **Step 3: 实现独立的规则列表格式转换。**
+- [x] **Step 3: 实现独立的规则列表格式转换。**
 
 ```ts
 export type RuleListFormat = 'auto-proxy' | 'switchy';
@@ -1351,15 +1351,17 @@ export interface ParsedRuleList {
 }
 ```
 
-只实现公开文本格式；未支持的语法保留行号、原因和原文长度，不执行任意脚本。解析完成后由 `rule-list-service` 与本地规则合并，保留“本地规则优先、订阅规则随后、兜底最后”的明确顺序。
+只实现公开文本格式；未支持的语法保留行号和原因，不执行任意脚本。解析完成后由 `rule-list-service` 将活动规则列表替换为内存中的自动切换配置，保留“订阅规则按行顺序、兜底最后”的明确顺序；自动切换配置内的订阅绑定将在后续来源管理任务中单独实现。
 
-- [ ] **Step 4: 运行解析与编译回归测试。**
+- [x] **Step 4: 运行解析与编译回归测试。**
 
 Run: `pnpm vitest run packages/contracts/src/rule-list/parse.test.ts apps/chrome-extension/src/runtime/rule-list-service.test.ts && pnpm test`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交规则列表。**
+**执行记录（2026-07-29）：** 支持的 AutoProxy、Base64 文本和 Switchy 条件文本会先转换为受校验的 V2 条件，再仅在内存中替换活动规则列表配置为自动切换配置。远程来源使用 ETag、大小和超时限制；同地址缓存可用于重新应用，新地址永不复用旧缓存。规则来源、PAC 来源和临时规则通过同一有效路由文档流水线供代理应用和路线解释使用，避免两处判定不一致。完整验证通过：`pnpm test`（63 个文件、232 项测试）、`pnpm check`、`pnpm format:check`、`cargo fmt --check` 和 `pnpm build`。
+
+- [x] **Step 5: 提交规则列表。**
 
 ```bash
 git add packages/contracts/src/rule-list apps/chrome-extension/src/runtime/rule-list-service.ts

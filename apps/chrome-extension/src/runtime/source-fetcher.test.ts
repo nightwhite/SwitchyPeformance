@@ -146,6 +146,76 @@ describe('source fetcher', () => {
     const [, request] = fetch.mock.calls[0] ?? [];
     expect(new Headers((request as RequestInit).headers).get('If-None-Match')).toBe('caller-tag');
   });
+
+  it('accepts UTF-8 rule-list downloads served as octet streams without relaxing PAC MIME checks', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        response('||rules.example', { 'content-type': 'application/octet-stream' })
+      );
+    const fetcher = createSourceFetcher({ fetch });
+
+    await expect(
+      fetcher.fetch({
+        contentKind: 'rule-list',
+        headers: [],
+        maxBytes: 1_024,
+        timeoutMs: 500,
+        url: 'https://rules.example/list.txt'
+      })
+    ).resolves.toMatchObject({ kind: 'content', text: '||rules.example' });
+    await expect(
+      fetcher.fetch({
+        headers: [],
+        maxBytes: 1_024,
+        timeoutMs: 500,
+        url: 'https://rules.example/list.txt'
+      })
+    ).rejects.toThrow('PAC 响应不是文本内容');
+  });
+
+  it('rejects non-UTF-8 rule-list downloads even when their MIME type is allowed', async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([0xff, 0xfe]), {
+        headers: { 'content-type': 'application/octet-stream' },
+        status: 200
+      })
+    );
+
+    await expect(
+      createSourceFetcher({ fetch }).fetch({
+        contentKind: 'rule-list',
+        headers: [],
+        maxBytes: 1_024,
+        timeoutMs: 500,
+        url: 'https://rules.example/list.txt'
+      })
+    ).rejects.toThrow('UTF-8');
+  });
+
+  it('uses rule-list labels when validating a rule-list request', async () => {
+    const fetcher = createSourceFetcher({ fetch: vi.fn() });
+
+    await expect(
+      fetcher.fetch({
+        contentKind: 'rule-list',
+        headers: [],
+        maxBytes: 0,
+        timeoutMs: 500,
+        url: 'https://rules.example/list.txt'
+      })
+    ).rejects.toThrow('规则列表最大字节数无效');
+
+    await expect(
+      fetcher.fetch({
+        contentKind: 'rule-list',
+        headers: [],
+        maxBytes: 1_024,
+        timeoutMs: 500,
+        url: 'file:///tmp/list.txt'
+      })
+    ).rejects.toThrow('规则列表来源地址只能使用 HTTP 或 HTTPS');
+  });
 });
 
 function response(text: string, headers: Record<string, string> = {}): Response {

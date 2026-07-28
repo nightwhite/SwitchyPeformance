@@ -1,4 +1,5 @@
 import {
+  isAutoSwitchRouteTargetV2,
   isSourceRequestHeader,
   validateProfileDocumentV2,
   type PacProfileV2,
@@ -45,6 +46,8 @@ export function updateRuleListProfile(
   if (update.source.id !== profile.sourceId) {
     throw new Error('规则列表来源 ID 不能在编辑时替换');
   }
+  assertRuleListRouteTarget(document, update.matchTarget, '规则列表命中目标');
+  assertRuleListRouteTarget(document, update.fallback, '规则列表默认目标');
   const source = normalizeRuleListSource(update.source, update);
   let sourceFound = false;
   const next: ProfileDocumentV2 = {
@@ -196,5 +199,15 @@ function assertValid(document: ProfileDocumentV2): void {
   const issue = validateProfileDocumentV2(document)[0];
   if (issue) {
     throw new Error(`配置无效：${issue.path}`);
+  }
+}
+
+function assertRuleListRouteTarget(
+  document: ProfileDocumentV2,
+  target: ProfileTarget,
+  label: string
+): void {
+  if (!isAutoSwitchRouteTargetV2(document, target.profileId)) {
+    throw new Error(`${label}不能被 Chrome PAC 路由`);
   }
 }

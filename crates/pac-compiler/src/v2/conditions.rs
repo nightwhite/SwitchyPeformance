@@ -25,6 +25,10 @@ impl PacConditionRenderer {
             V2RuleCondition::HostWildcard { pattern } if pattern.trim() == "*" => {
                 Ok("true".to_owned())
             }
+            V2RuleCondition::HostWildcard { pattern } => Ok(format!(
+                "shExpMatch(host,{})",
+                serde_json::to_string(&pattern.to_ascii_lowercase())?
+            )),
             V2RuleCondition::HostRegex { pattern } => self.regex_test(pattern, "host"),
             V2RuleCondition::HostLevels { min, max } => {
                 self.uses_host_levels = true;
@@ -43,7 +47,11 @@ impl PacConditionRenderer {
             V2RuleCondition::Keyword { value } => {
                 Ok(format!("url.indexOf({})>=0", serde_json::to_string(value)?))
             }
-            V2RuleCondition::Bypass { value } => Ok(value.to_string()),
+            V2RuleCondition::Always => Ok("true".to_owned()),
+            V2RuleCondition::Bypass { pattern } => Ok(format!(
+                "_spB(host,[{}])",
+                serde_json::to_string(&pattern.to_ascii_lowercase())?
+            )),
             V2RuleCondition::TimeRange {
                 start_minute,
                 end_minute,
@@ -56,14 +64,13 @@ impl PacConditionRenderer {
                 Ok(format!("_spW({})", serde_json::to_string(days)?))
             }
             V2RuleCondition::Never => Ok("false".to_owned()),
-            V2RuleCondition::HostWildcard { .. } => Err(V2PacCompileError::UnsupportedCondition),
         }
     }
 
     pub(super) fn declarations(&self) -> Result<String, V2PacCompileError> {
         let mut source = String::new();
         if self.uses_host_levels {
-            source.push_str("function _spL(host,min,max){var levels=host?1:0;for(var i=0;i<host.length;i++){if(host.charAt(i)==='.')levels++;}return levels>=min&&(max===null||levels<=max);}\n");
+            source.push_str("function _spL(host,min,max){var levels=0;for(var i=0;i<host.length;i++){if(host.charAt(i)==='.')levels++;}return levels>=min&&(max===null||levels<=max);}\n");
         }
         if self.uses_time_range {
             source.push_str("function _spM(start,end){var now=new Date();var minute=now.getHours()*60+now.getMinutes();return start<=end?minute>=start&&minute<=end:minute>=start||minute<=end;}\n");

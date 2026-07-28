@@ -5,8 +5,9 @@ import {
   type ProfileDocumentV2
 } from '@switchypeformance/contracts';
 
+import { createRemoteTextSourceService } from './remote-text-source-service.ts';
 import type { SourceFetcher } from './source-fetcher.ts';
-import type { SourceStatus, SourceStatusRepository } from './source-status-repository.ts';
+import type { SourceStatusRepository } from './source-status-repository.ts';
 
 const DEFAULT_MAX_PAC_BYTES = 1_024 * 1_024;
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -32,9 +33,14 @@ interface ActiveRemotePac {
 export function createPacSourceService(
   dependencies: PacSourceServiceDependencies
 ): PacSourceService {
-  const clock = dependencies.clock ?? Date.now;
-  const maxBytes = dependencies.maxBytes ?? DEFAULT_MAX_PAC_BYTES;
-  const timeoutMs = dependencies.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const sources = createRemoteTextSourceService({
+    contentKind: 'pac',
+    fetcher: dependencies.fetcher,
+    maxBytes: dependencies.maxBytes ?? DEFAULT_MAX_PAC_BYTES,
+    statuses: dependencies.statuses,
+    timeoutMs: dependencies.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    ...(dependencies.clock === undefined ? {} : { clock: dependencies.clock })
+  });
 
   return {
     async refreshAndResolve(document) {
@@ -42,85 +48,24 @@ export function createPacSourceService(
       if (!activePac) {
         return document;
       }
-      const status = await dependencies.statuses.get(pacSourceStatusId(activePac.profileId));
-      return refreshAndResolve(document, activePac, status);
+      return withInlinePac(
+        document,
+        activePac.profileId,
+        await sources.refresh(remoteSource(activePac))
+      );
     },
     async resolveForApply(document) {
       const activePac = activeRemotePac(document);
       if (!activePac) {
         return document;
       }
-      const status = await dependencies.statuses.get(pacSourceStatusId(activePac.profileId));
-      const cachedText = cachedTextFor(activePac, status);
-      if (cachedText) {
-        return withInlinePac(document, activePac.profileId, cachedText);
-      }
-      return refreshAndResolve(document, activePac, status);
+      return withInlinePac(
+        document,
+        activePac.profileId,
+        await sources.resolveForApply(remoteSource(activePac))
+      );
     }
   };
-
-  async function refreshAndResolve<T extends ConfigurationDocument>(
-    document: T,
-    activePac: ActiveRemotePac,
-    currentStatus: SourceStatus | undefined
-  ): Promise<T> {
-    const sourceId = pacSourceStatusId(activePac.profileId);
-    const cachedText = cachedTextFor(activePac, currentStatus);
-    const etag = currentStatus?.url === activePac.source.url ? currentStatus.etag : undefined;
-
-    try {
-      const result = await dependencies.fetcher.fetch({
-        headers: activePac.source.headers,
-        maxBytes,
-        timeoutMs,
-        url: activePac.source.url,
-        ...(etag === undefined ? {} : { etag })
-      });
-      if (result.kind === 'not-modified') {
-        if (!cachedText) {
-          throw new Error('PAC 服务器返回未修改，但本地没有可用缓存');
-        }
-        await dependencies.statuses.saveNotModified({
-          fetchedAt: clock(),
-          sourceId,
-          ...(result.etag === undefined ? {} : { etag: result.etag })
-        });
-        return withInlinePac(document, activePac.profileId, cachedText);
-      }
-
-      await dependencies.statuses.saveContent({
-        byteLength: result.byteLength,
-        fetchedAt: clock(),
-        sourceId,
-        text: result.text,
-        url: activePac.source.url,
-        ...(result.etag === undefined ? {} : { etag: result.etag }),
-        ...(result.lastModified === undefined ? {} : { lastModified: result.lastModified })
-      });
-      return withInlinePac(document, activePac.profileId, result.text);
-    } catch (error) {
-      await saveFailureWithoutMaskingFetchError({
-        error: errorMessage(error),
-        failedAt: clock(),
-        sourceId,
-        url: activePac.source.url
-      });
-      if (cachedText) {
-        return withInlinePac(document, activePac.profileId, cachedText);
-      }
-      throw error;
-    }
-  }
-
-  async function saveFailureWithoutMaskingFetchError(
-    failure: Parameters<SourceStatusRepository['saveFailure']>[0]
-  ): Promise<void> {
-    try {
-      await dependencies.statuses.saveFailure(failure);
-    } catch {
-      // The original fetch or PAC validation failure is more useful to the caller.
-    }
-  }
 }
 
 export function pacSourceStatusId(profileId: string): string {
@@ -138,11 +83,12 @@ function activeRemotePac(document: ConfigurationDocument): ActiveRemotePac | und
   return { profileId: resolved.profileId, source: resolved.profile.source };
 }
 
-function cachedTextFor(
-  activePac: ActiveRemotePac,
-  status: SourceStatus | undefined
-): string | undefined {
-  return status?.url === activePac.source.url && status.text?.trim() ? status.text : undefined;
+function remoteSource(activePac: ActiveRemotePac) {
+  return {
+    headers: activePac.source.headers,
+    sourceId: pacSourceStatusId(activePac.profileId),
+    url: activePac.source.url
+  };
 }
 
 function withInlinePac<T extends ConfigurationDocument>(
@@ -162,8 +108,4 @@ function withInlinePac<T extends ConfigurationDocument>(
     )
   };
   return resolved as T;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

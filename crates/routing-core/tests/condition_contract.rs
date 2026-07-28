@@ -1,5 +1,6 @@
 use routing_core::{
-    ConditionMatch, matches_host_suffix, matches_ip_cidr, matches_time_range, matches_weekdays,
+    ConditionMatch, matches_bypass_pattern, matches_host_suffix, matches_ip_cidr,
+    matches_time_range, matches_weekdays,
 };
 
 #[test]
@@ -36,4 +37,18 @@ fn literal_ip_cidr_does_not_require_dns_but_hostnames_do() {
         matches_ip_cidr("api.example.com", "10.0.0.0", 8),
         ConditionMatch::RequiresPacDns
     );
+}
+
+#[test]
+fn bypass_patterns_match_only_their_declared_hosts() {
+    assert!(matches_bypass_pattern("intranet", "<local>"));
+    assert!(!matches_bypass_pattern("api.example.com", "<local>"));
+    assert!(matches_bypass_pattern(
+        "api.internal.example",
+        "*.internal.example"
+    ));
+    assert!(!matches_bypass_pattern(
+        "api.example.com",
+        "*.internal.example"
+    ));
 }

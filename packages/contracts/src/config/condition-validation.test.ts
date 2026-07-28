@@ -17,14 +17,18 @@ describe('V2 规则条件验证', () => {
 
     const accepted = [
       { type: 'host-wildcard', pattern: '*.example.com' },
+      { type: 'host-wildcard', pattern: '192.168.10.*' },
+      { type: 'host-wildcard', pattern: '*service?' },
       { type: 'host-regex', pattern: '(^|\\.)example\\.com$' },
       { type: 'host-levels', min: 2, max: 4 },
+      { type: 'host-levels', min: 0, max: 0 },
       { type: 'ip-cidr', address: '10.0.0.0', prefixLength: 8 },
       { type: 'ip-cidr', address: '2001:db8::', prefixLength: 32 },
       { type: 'url-wildcard', pattern: '*://example.com/*' },
       { type: 'url-regex', pattern: '^https://example\\.com/' },
       { type: 'keyword', value: 'example' },
-      { type: 'bypass', value: true },
+      { type: 'always' },
+      { type: 'bypass', pattern: '<local>' },
       { type: 'time-range', startMinute: 22 * 60, endMinute: 2 * 60 },
       { type: 'weekday', days: [1, 2, 3, 4, 5] },
       { type: 'never' }

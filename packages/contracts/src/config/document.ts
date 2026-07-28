@@ -375,12 +375,13 @@ function parseSwitchRule(
   ruleIndex: number,
   issues: ProfileDocumentV2Issue[]
 ): SwitchRuleV2 | undefined {
+  const condition = parseSwitchRuleCondition(isRecord(input) ? input.condition : undefined);
   if (
     !isRecord(input) ||
     !isNonEmptyString(input.id) ||
     typeof input.enabled !== 'boolean' ||
     !isProfileTarget(input.target) ||
-    !validateCondition(input.condition).ok
+    !condition
   ) {
     issues.push({ code: 'invalid-profile', path: `profiles[${profileIndex}].rules[${ruleIndex}]` });
     return undefined;
@@ -389,9 +390,23 @@ function parseSwitchRule(
   return {
     id: input.id.trim(),
     enabled: input.enabled,
-    condition: input.condition as RuleConditionV2,
+    condition,
     target: input.target
   };
+}
+
+function parseSwitchRuleCondition(input: unknown): RuleConditionV2 | undefined {
+  const normalized = normalizeLegacyBooleanBypass(input);
+  const candidate = normalized ?? input;
+  return validateCondition(candidate).ok ? (candidate as RuleConditionV2) : undefined;
+}
+
+function normalizeLegacyBooleanBypass(input: unknown): RuleConditionV2 | undefined {
+  if (!isRecord(input) || input.type !== 'bypass' || typeof input.value !== 'boolean') {
+    return undefined;
+  }
+
+  return input.value ? { type: 'always' } : { type: 'never' };
 }
 
 function parseProxyRoutes(input: unknown): ProxyRoutes | undefined {

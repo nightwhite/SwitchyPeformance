@@ -1,12 +1,15 @@
 import type { SourceRequestHeader } from '@switchypeformance/contracts';
 
 export interface SourceFetchRequest {
+  contentKind?: SourceContentKind;
   etag?: string;
   headers: readonly SourceRequestHeader[];
   maxBytes: number;
   timeoutMs: number;
   url: string;
 }
+
+export type SourceContentKind = 'pac' | 'rule-list';
 
 export type SourceFetchResult =
   | {
@@ -56,11 +59,12 @@ export function createSourceFetcher(dependencies: SourceFetcherDependencies): So
         if (!response.ok) {
           throw new Error(`来源请求失败（HTTP ${response.status}）`);
         }
-        assertPacContentType(response.headers.get('content-type'));
-        assertContentLength(response.headers.get('content-length'), request.maxBytes);
-        const { byteLength, text } = await readBoundedText(response, request.maxBytes);
+        const contentKind = request.contentKind ?? 'pac';
+        assertSourceContentType(response.headers.get('content-type'), contentKind);
+        assertContentLength(response.headers.get('content-length'), request.maxBytes, contentKind);
+        const { byteLength, text } = await readBoundedText(response, request.maxBytes, contentKind);
         if (!text.trim()) {
-          throw new Error('PAC 响应为空');
+          throw new Error(`${sourceLabel(contentKind)}响应为空`);
         }
         return {
           byteLength,
@@ -82,22 +86,30 @@ export function createSourceFetcher(dependencies: SourceFetcherDependencies): So
 }
 
 function validateRequest(request: SourceFetchRequest): void {
+  if (
+    request.contentKind !== undefined &&
+    request.contentKind !== 'pac' &&
+    request.contentKind !== 'rule-list'
+  ) {
+    throw new Error('来源内容类型无效');
+  }
+  const label = sourceLabel(request.contentKind ?? 'pac');
   if (!Number.isInteger(request.maxBytes) || request.maxBytes < 1) {
-    throw new Error('PAC 最大字节数无效');
+    throw new Error(`${label}最大字节数无效`);
   }
   if (!Number.isInteger(request.timeoutMs) || request.timeoutMs < 1) {
-    throw new Error('PAC 超时时间无效');
+    throw new Error(`${label}超时时间无效`);
   }
   try {
     const url = new URL(request.url);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      throw new Error('PAC 来源地址只能使用 HTTP 或 HTTPS');
+      throw new Error(`${label}来源地址只能使用 HTTP 或 HTTPS`);
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes('只能使用')) {
       throw error;
     }
-    throw new Error('PAC 来源地址无效');
+    throw new Error(`${label}来源地址无效`);
   }
 }
 
@@ -115,30 +127,39 @@ function requestHeaders(
   return headers;
 }
 
-function assertPacContentType(contentType: string | null): void {
+function assertSourceContentType(contentType: string | null, contentKind: SourceContentKind): void {
   if (!contentType) {
     return;
   }
   const mime = contentType.split(';', 1)[0]?.trim().toLowerCase();
-  if (mime?.startsWith('text/') || PAC_CONTENT_TYPES.has(mime ?? '')) {
+  if (
+    mime?.startsWith('text/') ||
+    PAC_CONTENT_TYPES.has(mime ?? '') ||
+    (contentKind === 'rule-list' && mime === 'application/octet-stream')
+  ) {
     return;
   }
-  throw new Error('PAC 响应不是文本内容');
+  throw new Error(`${sourceLabel(contentKind)}响应不是文本内容`);
 }
 
-function assertContentLength(contentLength: string | null, maxBytes: number): void {
+function assertContentLength(
+  contentLength: string | null,
+  maxBytes: number,
+  contentKind: SourceContentKind
+): void {
   if (!contentLength) {
     return;
   }
   const length = Number(contentLength);
   if (Number.isFinite(length) && length > maxBytes) {
-    throw new Error(`PAC 响应超过 ${maxBytes} 字节限制`);
+    throw new Error(`${sourceLabel(contentKind)}响应超过 ${maxBytes} 字节限制`);
   }
 }
 
 async function readBoundedText(
   response: Response,
-  maxBytes: number
+  maxBytes: number,
+  contentKind: SourceContentKind
 ): Promise<{ byteLength: number; text: string }> {
   if (!response.body) {
     return { byteLength: 0, text: '' };
@@ -156,7 +177,7 @@ async function readBoundedText(
       byteLength += result.value.byteLength;
       if (byteLength > maxBytes) {
         await reader.cancel();
-        throw new Error(`PAC 响应超过 ${maxBytes} 字节限制`);
+        throw new Error(`${sourceLabel(contentKind)}响应超过 ${maxBytes} 字节限制`);
       }
       chunks.push(result.value);
     }
@@ -170,7 +191,15 @@ async function readBoundedText(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return { byteLength, text: new TextDecoder().decode(bytes) };
+  try {
+    return { byteLength, text: new TextDecoder('utf-8', { fatal: true }).decode(bytes) };
+  } catch {
+    throw new Error(`${sourceLabel(contentKind)}响应不是 UTF-8 文本`);
+  }
+}
+
+function sourceLabel(contentKind: SourceContentKind): string {
+  return contentKind === 'pac' ? 'PAC ' : '规则列表';
 }
 
 function optionalEtag(response: Response): Pick<SourceFetchResult, 'etag'> {

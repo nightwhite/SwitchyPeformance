@@ -16,6 +16,7 @@ describe('V2 规则和来源公共契约', () => {
       'url-wildcard',
       'url-regex',
       'keyword',
+      'always',
       'bypass',
       'time-range',
       'weekday',

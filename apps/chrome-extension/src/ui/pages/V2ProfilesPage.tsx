@@ -212,7 +212,6 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
               profile.kind === 'auto-detect' ||
               profile.kind === 'rule-list' ||
               profile.kind === 'virtual';
-            const ruleListPending = profile.kind === 'rule-list';
             return (
               <div className="table-row profile-table-row" key={profile.id}>
                 {isEditing ? (
@@ -255,9 +254,8 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
                 <span className="table-actions profile-actions">
                   <button
                     className="outline-button"
-                    disabled={busy || active || ruleListPending}
+                    disabled={busy || active}
                     onClick={() => void onActivate(profile.id)}
-                    title={ruleListPending ? '规则列表等待来源编译' : undefined}
                     type="button"
                   >
                     切换

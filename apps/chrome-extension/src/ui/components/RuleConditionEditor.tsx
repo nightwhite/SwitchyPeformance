@@ -25,6 +25,7 @@ const CONDITION_TYPES: readonly RuleConditionType[] = [
   'url-wildcard',
   'url-regex',
   'keyword',
+  'always',
   'bypass',
   'time-range',
   'weekday',
@@ -100,7 +101,7 @@ function ConditionFields({ condition, disabled, onChange }: RuleConditionEditorP
             <input
               disabled={disabled}
               inputMode="numeric"
-              min="1"
+              min="0"
               onChange={(event) => {
                 const max = event.target.value ? Number(event.target.value) : undefined;
                 const { max: _max, ...withoutMax } = condition;
@@ -162,19 +163,13 @@ function ConditionFields({ condition, disabled, onChange }: RuleConditionEditorP
       );
     case 'bypass':
       return (
-        <label className="condition-fields">
-          匹配结果
-          <select
-            disabled={disabled}
-            onChange={(event) =>
-              onChange({ type: condition.type, value: event.target.value === 'true' })
-            }
-            value={String(condition.value)}
-          >
-            <option value="true">始终命中</option>
-            <option value="false">永不命中</option>
-          </select>
-        </label>
+        <TextConditionField
+          disabled={disabled}
+          label="绕过模式"
+          onChange={(pattern) => onChange({ type: condition.type, pattern })}
+          placeholder="&lt;local&gt; 或 *.internal.example"
+          value={condition.pattern}
+        />
       );
     case 'time-range':
       return (
@@ -237,6 +232,8 @@ function ConditionFields({ condition, disabled, onChange }: RuleConditionEditorP
       );
     case 'never':
       return <p className="inline-notice">此规则永远不会命中，可用于暂存规则。</p>;
+    case 'always':
+      return <p className="inline-notice">此规则会命中所有请求，后续规则不会执行。</p>;
   }
 }
 

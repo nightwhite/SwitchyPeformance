@@ -176,6 +176,12 @@ fn emits_precompiled_advanced_conditions() {
             },
         ),
         rule(
+            "host-glob",
+            V2RuleCondition::HostWildcard {
+                pattern: "192.168.10.*".to_owned(),
+            },
+        ),
+        rule(
             "host-levels",
             V2RuleCondition::HostLevels {
                 min: 2,
@@ -220,18 +226,29 @@ fn emits_precompiled_advanced_conditions() {
                 days: vec![1, 2, 3, 4, 5],
             },
         ),
+        rule(
+            "bypass-pattern",
+            V2RuleCondition::Bypass {
+                pattern: "<local>".to_owned(),
+            },
+        ),
+        rule("always", V2RuleCondition::Always),
     ];
 
     let pac = compile_v2_auto_switch_pac(&configuration)
         .expect("advanced V2 conditions should compile into PAC source");
 
     assert!(pac.contains("new RegExp("));
+    assert!(pac.contains("var levels=0"));
+    assert!(pac.contains("shExpMatch(host,\"192.168.10.*\")"));
     assert!(pac.contains("_spL(host,2,4)"));
     assert!(pac.contains("isInNet(host,\"10.0.0.0\",\"255.0.0.0\")"));
     assert!(pac.contains("shExpMatch(url,\"*://api.example.com/*\")"));
     assert!(pac.contains("url.indexOf(\"example-keyword\")>=0"));
     assert!(pac.contains("_spM(1320,120)"));
     assert!(pac.contains("_spW([1,2,3,4,5])"));
+    assert!(pac.contains("_spB(host,[\"<local>\"])"));
+    assert!(pac.contains("if(true)"));
 }
 
 fn configuration() -> V2Configuration {

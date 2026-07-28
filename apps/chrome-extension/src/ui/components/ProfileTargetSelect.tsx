@@ -1,6 +1,7 @@
-import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
+import { isAutoSwitchRouteTargetV2, type ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 interface ProfileTargetSelectProps {
+  autoSwitchRouteTargetsOnly?: boolean;
   disabled: boolean;
   document: ProfileDocumentV2;
   excludeProfileId?: string;
@@ -10,6 +11,7 @@ interface ProfileTargetSelectProps {
 }
 
 export function ProfileTargetSelect({
+  autoSwitchRouteTargetsOnly = false,
   disabled,
   document,
   excludeProfileId,
@@ -17,7 +19,11 @@ export function ProfileTargetSelect({
   onChange,
   profileId
 }: ProfileTargetSelectProps) {
-  const targets = document.profiles.filter((profile) => profile.id !== excludeProfileId);
+  const targets = document.profiles.filter(
+    (profile) =>
+      profile.id !== excludeProfileId &&
+      (!autoSwitchRouteTargetsOnly || isAutoSwitchRouteTargetV2(document, profile.id))
+  );
   const hasCurrentTarget = targets.some((profile) => profile.id === profileId);
 
   return (

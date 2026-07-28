@@ -19,6 +19,7 @@ describe('rule condition drafts', () => {
       'url-wildcard',
       'url-regex',
       'keyword',
+      'always',
       'bypass',
       'time-range',
       'weekday',

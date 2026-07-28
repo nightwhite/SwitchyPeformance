@@ -8,8 +8,8 @@ use thiserror::Error;
 use url::Url;
 
 use crate::{
-    ConditionMatch, matches_glob, matches_host_suffix, matches_ip_cidr, matches_time_range,
-    matches_weekdays,
+    ConditionMatch, matches_bypass_pattern, matches_glob, matches_host_suffix, matches_ip_cidr,
+    matches_time_range, matches_weekdays,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -260,7 +260,10 @@ fn evaluate_condition(
     minute_of_day: u16,
 ) -> V2ConditionEvaluation {
     match condition {
-        V2RuleCondition::HostWildcard { pattern } => evaluation(pattern.trim() == "*"),
+        V2RuleCondition::HostWildcard { pattern } => evaluation(matches_glob(
+            &pattern.to_ascii_lowercase(),
+            host.unwrap_or_default(),
+        )),
         V2RuleCondition::HostRegex { pattern } => {
             regex_evaluation(pattern, host.unwrap_or_default())
         }
@@ -295,7 +298,10 @@ fn evaluate_condition(
             outcome: outcome(raw_url.contains(value)),
             warnings: vec![V2RouteWarning::PacUrlMayBeSanitized],
         },
-        V2RuleCondition::Bypass { value } => evaluation(*value),
+        V2RuleCondition::Always => evaluation(true),
+        V2RuleCondition::Bypass { pattern } => {
+            evaluation(host.is_some_and(|value| matches_bypass_pattern(value, pattern)))
+        }
         V2RuleCondition::TimeRange {
             start_minute,
             end_minute,
@@ -335,10 +341,7 @@ fn outcome(matches: bool) -> V2ConditionOutcome {
 }
 
 fn host_level_count(host: &str) -> u16 {
-    if host.is_empty() {
-        return 0;
-    }
-    1 + host.bytes().filter(|value| *value == b'.').count() as u16
+    host.bytes().filter(|value| *value == b'.').count() as u16
 }
 
 fn extend_unique(target: &mut Vec<V2RouteWarning>, additions: Vec<V2RouteWarning>) {
@@ -406,9 +409,15 @@ fn indexable_host_pattern(condition: &V2RuleCondition) -> Option<(HostPatternKin
         return None;
     }
 
-    let kind = if pattern.starts_with("*.") {
+    let kind = if let Some(suffix) = pattern.strip_prefix("*.") {
+        if suffix.is_empty() || suffix.contains(['*', '?']) {
+            return None;
+        }
         HostPatternKind::Suffix
     } else {
+        if pattern.contains(['*', '?']) {
+            return None;
+        }
         HostPatternKind::Exact
     };
     Some((kind, normalize_host_pattern(pattern)))

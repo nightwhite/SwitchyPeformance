@@ -40,8 +40,10 @@ export function conditionLabel(condition: RuleConditionV2): string {
       return `网址：${condition.pattern}`;
     case 'keyword':
       return `关键字：${condition.value}`;
+    case 'always':
+      return '始终匹配';
     case 'bypass':
-      return condition.value ? '始终匹配' : '永不匹配';
+      return `绕过：${condition.pattern}`;
     case 'time-range':
       return `时段：${formatMinute(condition.startMinute)}-${formatMinute(condition.endMinute)}`;
     case 'weekday':

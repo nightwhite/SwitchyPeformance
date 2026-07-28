@@ -16,8 +16,10 @@ export function defaultRuleCondition(type: RuleConditionType): RuleConditionV2 {
       return { type, pattern: '^https://example\\.com/' };
     case 'keyword':
       return { type, value: 'example' };
+    case 'always':
+      return { type };
     case 'bypass':
-      return { type, value: true };
+      return { type, pattern: '<local>' };
     case 'time-range':
       return { type, startMinute: 9 * 60, endMinute: 17 * 60 };
     case 'weekday':
@@ -43,8 +45,10 @@ export function ruleConditionTypeLabel(type: RuleConditionType): string {
       return '网址正则';
     case 'keyword':
       return '网址关键字';
-    case 'bypass':
+    case 'always':
       return '始终命中';
+    case 'bypass':
+      return '绕过模式';
     case 'time-range':
       return '时间范围';
     case 'weekday':
