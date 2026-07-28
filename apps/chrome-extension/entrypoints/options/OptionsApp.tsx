@@ -25,7 +25,6 @@ import {
 import type {
   AutoSwitchProfile,
   ProfileDocument,
-  ProfileDocumentV2,
   ProxyEndpoint,
   Rule
 } from '@switchypeformance/contracts';
@@ -49,8 +48,9 @@ import {
 } from '../../src/ui/configuration-actions.ts';
 import { calculateVirtualWindow } from '../../src/ui/rule-virtualizer.ts';
 import type { BackgroundState } from '../../src/runtime/messages.ts';
-import { explainRouteWithWasm, explainV2RouteWithWasm } from '../../src/runtime/wasm-runtime.ts';
-import type { RouteExplanation, V2RouteExplanation } from '../../src/runtime/route-explainer.ts';
+import { explainRouteWithWasm } from '../../src/runtime/wasm-runtime.ts';
+import type { RouteExplanation } from '../../src/runtime/route-explainer.ts';
+import { V2OptionsApp } from '../../src/ui/pages/V2OptionsApp.tsx';
 
 type Page = 'overview' | 'proxies' | 'automatic' | 'diagnostics' | 'data' | 'settings';
 
@@ -127,10 +127,11 @@ export function OptionsApp() {
   const document = state.configuration;
   if (document.schemaVersion === 2) {
     return (
-      <VersionTwoOptions
+      <V2OptionsApp
         busy={busy}
         document={document}
         error={error}
+        state={state}
         onActivate={async (profileId) => {
           setBusy(true);
           setError(undefined);
@@ -143,6 +144,8 @@ export function OptionsApp() {
           }
         }}
         onRefresh={refresh}
+        onReplace={saveConfiguration}
+        onState={setState}
       />
     );
   }
@@ -274,204 +277,6 @@ export function OptionsApp() {
         </div>
       </section>
     </main>
-  );
-}
-
-function VersionTwoOptions({
-  busy,
-  document,
-  error,
-  onActivate,
-  onRefresh
-}: {
-  busy: boolean;
-  document: ProfileDocumentV2;
-  error: string | undefined;
-  onActivate(profileId: string): Promise<void>;
-  onRefresh(): Promise<void>;
-}) {
-  return (
-    <main className="options-app">
-      <aside className="side-rail">
-        <div className="rail-brand">
-          <span className="rail-mark">
-            <ZapMark />
-          </span>
-          <span>
-            <strong>SwitchyPeformance</strong>
-            <small>Chrome 代理路由</small>
-          </span>
-        </div>
-        <div className="rail-status">
-          <span className={error ? 'rail-dot rail-dot-error' : 'rail-dot'} />
-          <span>{error ? '需要处理' : 'V2 配置已加载'}</span>
-        </div>
-      </aside>
-      <section className="workspace">
-        <header className="workspace-header">
-          <div>
-            <p>运行状态</p>
-            <h1>V2 代理配置</h1>
-          </div>
-          <div className="header-actions">
-            <button
-              className="outline-button"
-              disabled={busy}
-              onClick={() => void onRefresh()}
-              type="button"
-            >
-              <RefreshCw size={16} />
-              刷新
-            </button>
-          </div>
-        </header>
-        {error ? (
-          <div className="error-strip">
-            <AlertTriangle size={17} />
-            {error}
-          </div>
-        ) : null}
-        <div className="workspace-content">
-          <section className="control-band">
-            <div className="control-signal">
-              <span className="signal-dot" />
-              <span>当前模式</span>
-            </div>
-            <strong>
-              {document.profiles.find((profile) => profile.id === document.activeProfileId)?.name ??
-                '未知配置'}
-            </strong>
-            <ShieldCheck size={28} aria-hidden="true" />
-          </section>
-          <section className="metric-grid" aria-label="V2 配置指标">
-            <Metric value={document.proxyServers.length} label="代理服务器" />
-            <Metric
-              value={document.profiles.filter((profile) => profile.kind === 'auto-switch').length}
-              label="自动切换配置"
-            />
-            <Metric
-              value={document.profiles.reduce(
-                (count, profile) =>
-                  profile.kind === 'auto-switch' ? count + profile.rules.length : count,
-                0
-              )}
-              label="自动切换规则"
-            />
-          </section>
-          <section className="page-panel table-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">配置切换</p>
-                <h2>选择当前代理配置</h2>
-              </div>
-            </div>
-            <div className="data-table">
-              <div className="table-row table-head">
-                <span>名称</span>
-                <span>类型</span>
-                <span>状态</span>
-                <span>操作</span>
-              </div>
-              {document.profiles.map((profile) => {
-                const active = profile.id === document.activeProfileId;
-                return (
-                  <div className="table-row" key={profile.id}>
-                    <strong>{profile.name}</strong>
-                    <span className="mono-chip">{profileKindLabel(profile.kind)}</span>
-                    <span>{active ? '当前使用' : '未启用'}</span>
-                    <span className="table-actions">
-                      <button
-                        className="outline-button"
-                        disabled={busy || active}
-                        onClick={() => void onActivate(profile.id)}
-                        type="button"
-                      >
-                        切换
-                      </button>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-          <VersionTwoRouteInspector document={document} />
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function VersionTwoRouteInspector({ document }: { document: ProfileDocumentV2 }) {
-  const [inspectionUrl, setInspectionUrl] = useState('');
-  const [inspection, setInspection] = useState<V2RouteExplanation>();
-  const [inspectionBusy, setInspectionBusy] = useState(false);
-  const [inspectionError, setInspectionError] = useState<string>();
-
-  async function inspectRoute(): Promise<void> {
-    try {
-      const url = new URL(inspectionUrl.trim()).toString();
-      setInspectionBusy(true);
-      setInspectionError(undefined);
-      setInspection(await explainV2RouteWithWasm(document, url));
-    } catch (cause) {
-      setInspection(undefined);
-      setInspectionError(messageFor(cause));
-    } finally {
-      setInspectionBusy(false);
-    }
-  }
-
-  return (
-    <section className="page-panel route-inspector">
-      <div className="panel-heading">
-        <div>
-          <p className="panel-kicker">路由排查</p>
-          <h2>检查网址</h2>
-        </div>
-        <Search size={20} />
-      </div>
-      <div className="inspection-form">
-        <label>
-          网址
-          <input
-            inputMode="url"
-            onChange={(event) => setInspectionUrl(event.target.value)}
-            placeholder="https://example.com"
-            value={inspectionUrl}
-          />
-        </label>
-        <button
-          className="primary-button form-command"
-          disabled={inspectionBusy || !inspectionUrl.trim()}
-          onClick={() => void inspectRoute()}
-          type="button"
-        >
-          <Search size={16} />
-          检查路由
-        </button>
-      </div>
-      {inspectionError ? <p className="inline-error">{inspectionError}</p> : null}
-      {inspection ? (
-        <div
-          className={
-            inspection.definitive
-              ? 'inspection-result inspection-result-v2'
-              : 'inspection-result inspection-result-v2 inspection-result-warning'
-          }
-        >
-          <span className="mono-chip">{v2RouteDescription(document, inspection)}</span>
-          <span>{v2RuleDescription(inspection)}</span>
-          <span>{v2ReasonDescription(inspection.reason)}</span>
-          <span>
-            {inspection.metrics.indexedRuleCount} 条快速规则 / {inspection.metrics.complexRuleCount}{' '}
-            条复杂规则
-          </span>
-          {inspection.warnings.length > 0 ? (
-            <span>{inspection.warnings.map(v2WarningDescription).join('；')}</span>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -1561,27 +1366,6 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-function profileKindLabel(kind: ProfileDocumentV2['profiles'][number]['kind']): string {
-  switch (kind) {
-    case 'direct':
-      return '直连';
-    case 'system':
-      return '系统';
-    case 'fixed-proxy':
-      return '固定代理';
-    case 'pac':
-      return 'PAC';
-    case 'auto-detect':
-      return '自动检测';
-    case 'auto-switch':
-      return '自动切换';
-    case 'rule-list':
-      return '规则列表';
-    case 'virtual':
-      return '虚拟配置';
-  }
-}
-
 function ZapMark() {
   return <Globe2 size={20} strokeWidth={2.5} />;
 }
@@ -1622,68 +1406,6 @@ function routeDescription(document: ProfileDocument, explanation: RouteExplanati
   }
   const proxy = document.proxies.find((candidate) => candidate.id === route.proxyId);
   return proxy ? `代理：${proxy.name}` : `代理：${route.proxyId}`;
-}
-
-function v2RouteDescription(document: ProfileDocumentV2, explanation: V2RouteExplanation): string {
-  if (!explanation.routeProfileId) {
-    return '浏览器强制直连';
-  }
-  const routeProfile = document.profiles.find(
-    (profile) => profile.id === explanation.routeProfileId
-  );
-  const resolvedProfile = document.profiles.find(
-    (profile) => profile.id === explanation.resolvedRouteProfileId
-  );
-  const routeName = routeProfile?.name ?? explanation.routeProfileId;
-  const resolvedName = resolvedProfile?.name ?? explanation.resolvedRouteProfileId;
-  if (resolvedName && resolvedName !== routeName) {
-    return `${routeName} -> ${resolvedName}`;
-  }
-  return `${profileKindLabel(explanation.routeKind)}：${routeName}`;
-}
-
-function v2RuleDescription(explanation: V2RouteExplanation): string {
-  if (explanation.matchedRuleId) {
-    return `命中规则 ${explanation.matchedRuleId}`;
-  }
-  if (explanation.pendingRuleId) {
-    return `待 DNS 判断：${explanation.pendingRuleId}`;
-  }
-  return '配置兜底';
-}
-
-function v2ReasonDescription(reason: V2RouteExplanation['reason']): string {
-  switch (reason) {
-    case 'fixed-profile':
-      return '固定配置';
-    case 'indexed-rule':
-      return '快速主机规则';
-    case 'complex-rule':
-      return '复杂条件规则';
-    case 'browser-loopback-direct':
-      return '本地地址强制直连';
-    case 'profile-default':
-      return '配置兜底';
-    case 'requires-pac-dns':
-      return '等待 PAC/DNS 判断';
-  }
-}
-
-function v2WarningDescription(warning: V2RouteExplanation['warnings'][number]): string {
-  switch (warning) {
-    case 'requires-pac-dns':
-      return '域名 IP 网段需要 Chrome 的 PAC/DNS 判断';
-    case 'pac-url-may-be-sanitized':
-      return 'HTTPS 网址路径在 PAC 中可能被浏览器裁剪';
-    case 'unsupported-regex':
-      return '该正则无法在本地排查器中复现';
-    case 'chrome-loopback-direct':
-      return 'localhost 和 127.* 由浏览器强制直连';
-    case 'unsupported-auto-switch-target':
-      return '该规则目标不能直接编译为自动切换 PAC';
-    case 'rule-list-not-applied':
-      return '规则列表尚未编译为 Chrome PAC';
-  }
 }
 
 function diagnosticScopeLabel(scope: BackgroundState['diagnostics'][number]['scope']): string {

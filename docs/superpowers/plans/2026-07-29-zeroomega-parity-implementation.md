@@ -776,7 +776,7 @@ git commit -m "feat: expose v2 route explanations"
 - Modify: `apps/chrome-extension/entrypoints/options/style.css`
 - Test: `apps/chrome-extension/src/ui/options-routes.test.ts`
 
-- [ ] **Step 1: 写出 hash 路由和窄屏不裁切的失败测试。**
+- [x] **Step 1: 写出 hash 路由和窄屏不裁切的失败测试。**
 
 ```ts
 expect(pageFromHash('#/profiles')).toBe('profiles');
@@ -784,13 +784,13 @@ expect(pageFromHash('#/unknown')).toBe('overview');
 expect(optionsViewportStyle()).toMatchObject({ minWidth: '760px', overflowX: 'auto' });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/options-routes.test.ts`
 
 Expected: FAIL，当前页面路由和样式集中在单个组件中。
 
-- [ ] **Step 3: 拆分页面并保留完整宽度。**
+- [x] **Step 3: 拆分页面并保留完整宽度。**
 
 ```tsx
 export const OPTION_PAGES = [
@@ -811,7 +811,7 @@ export function OptionsApp() {
 
 设置页的工作区最小宽度为 760px；当窗口更窄时显示横向滚动条，不能把内容压缩成截图中无法操作的细条。所有用户可见文本为中文，图标按钮必须有 `title` 和可访问名称。
 
-- [ ] **Step 4: 运行界面测试与生产构建。**
+- [x] **Step 4: 运行界面测试与生产构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/options-routes.test.ts && pnpm build`
 
@@ -823,6 +823,8 @@ Expected: PASS。
 git add apps/chrome-extension/entrypoints/options apps/chrome-extension/src/ui/pages
 git commit -m "refactor: split options pages by responsibility"
 ```
+
+**执行记录（2026-07-29）：** 新增独立 V2 路由模块、V2 概览页和 V2 设置壳，入口不再承载 V2 配置页面。V2 设置页使用 `#/profiles`、`#/proxy-servers`、`#/rules` 等明确路由，最小工作区宽度为 760px；窄窗口横向滚动而非压扁内容。规则页已经使用虚拟窗口展示 50,000 条数据。`pnpm test` 通过 34 个测试文件、101 项测试，`pnpm check`、`pnpm format:check`、`pnpm build` 均通过。
 
 ### Task 12: 实现配置新增、重命名、复制、排序和安全删除
 
