@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+mod v2;
+
+pub use v2::{V2PacCompileError, compile_v2_auto_switch_pac};
+
 use std::collections::BTreeMap;
 
 use config_model::{

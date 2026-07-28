@@ -1,9 +1,14 @@
 #![forbid(unsafe_code)]
 
 mod matcher;
+mod v2;
 
 pub use matcher::{
     ConditionMatch, matches_host_suffix, matches_ip_cidr, matches_time_range, matches_weekdays,
+};
+pub use v2::{
+    V2AutoSwitchProgram, V2IndexedRule, V2ProgramStep, V2RoutingCompileError, V2RoutingMetrics,
+    compile_v2_auto_switch_program,
 };
 
 use std::{cmp::Ordering, collections::BTreeMap, net::IpAddr, str::FromStr};
