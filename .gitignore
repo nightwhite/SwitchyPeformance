@@ -1,4 +1,5 @@
 .reference/
+.worktrees/
 node_modules/
 .output/
 .wxt/
