@@ -15,6 +15,9 @@ export default defineConfig({
       'webRequest',
       'webRequestAuthProvider'
     ],
-    host_permissions: ['<all_urls>']
+    host_permissions: ['<all_urls>'],
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    }
   }
 });
