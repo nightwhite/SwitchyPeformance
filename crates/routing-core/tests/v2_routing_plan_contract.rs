@@ -202,10 +202,12 @@ fn warns_when_a_javascript_only_regex_cannot_be_reproduced_locally() {
 
     assert_eq!(profile_id(&decision.destination), Some("direct"));
     assert_eq!(decision.reason, V2DecisionReason::ProfileDefault);
-    assert!(decision
-        .warnings
-        .iter()
-        .any(|warning| warning.as_str() == "unsupported-regex"));
+    assert!(
+        decision
+            .warnings
+            .iter()
+            .any(|warning| warning.as_str() == "unsupported-regex")
+    );
 }
 
 fn configuration() -> V2Configuration {

@@ -5,6 +5,8 @@ use config_model::{
 };
 use pac_compiler::compile_v2_auto_switch_pac;
 
+const LARGE_RULE_COUNT: usize = 50_000;
+
 #[test]
 fn emits_a_v2_proxy_directive_with_direct_failover() {
     let pac =
@@ -49,7 +51,7 @@ fn emits_target_proxy_bypass_patterns() {
 }
 
 #[test]
-fn compacts_repeated_proxy_routes_for_large_host_rule_sets() {
+fn compacts_repeated_proxy_routes_for_fifty_thousand_host_rules() {
     let mut configuration = configuration();
     let Some(V2Profile::AutoSwitch(profile)) = configuration
         .profiles
@@ -58,7 +60,7 @@ fn compacts_repeated_proxy_routes_for_large_host_rule_sets() {
     else {
         panic!("test configuration must contain the automatic profile");
     };
-    profile.rules = (0..10_000)
+    profile.rules = (0..LARGE_RULE_COUNT)
         .map(|index| V2SwitchRule {
             id: format!("rule-{index}"),
             enabled: true,
@@ -74,7 +76,11 @@ fn compacts_repeated_proxy_routes_for_large_host_rule_sets() {
 
     assert!(pac.contains("var _spT=["));
     assert_eq!(pac.match_indices("SOCKS5 socks.example:1080").count(), 1);
-    assert!(pac.len() < 900_000, "PAC source should stay compact");
+    assert!(
+        pac.len() < 1_800_000,
+        "PAC source should stay compact; actual size: {} bytes",
+        pac.len()
+    );
 }
 
 #[test]

@@ -5,10 +5,10 @@ use config_model::{
 use pac_compiler::compile_auto_switch_pac;
 use routing_core::RoutingPlan;
 
-const RULE_COUNT: usize = 10_000;
+const RULE_COUNT: usize = 50_000;
 
 #[test]
-fn compiles_a_large_host_rule_set_into_one_indexed_pac_block() {
+fn compiles_fifty_thousand_host_rules_into_one_indexed_pac_block() {
     let configuration = Configuration {
         schema_version: 1,
         active_profile_id: "auto".to_owned(),
@@ -48,5 +48,9 @@ fn compiles_a_large_host_rule_set_into_one_indexed_pac_block() {
     assert_eq!(plan.metrics().index_block_count, 1);
     assert!(source.contains("var _spS0="));
     assert!(!source.contains("for (var rule"));
-    assert!(source.len() < 1_500_000, "PAC output should stay compact");
+    assert!(
+        source.len() < 3_400_000,
+        "PAC output should stay compact; actual size: {} bytes",
+        source.len()
+    );
 }

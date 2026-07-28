@@ -624,11 +624,13 @@ fn pac_proxy_token(server: &ProxyServer) -> String {
 
 生成器必须输出内联索引和按顺序的后备条件；禁止把原始规则列表 JSON 塞入 PAC 后在请求时循环解析。输出包括 `compile_ms`、`pac_bytes`、`indexed_rule_count`、`complex_rule_count` 和 `dns_sensitive_rule_count`。
 
-- [ ] **Step 4: 执行正常与大规则测试。**
+- [x] **Step 4: 执行正常与大规则测试。**
 
 Run: `cargo test -p pac-compiler --test v2_pac_contract --test large_rule_contract && cargo fmt --check`
 
 Expected: PASS，50,000 条测试只验证编译和 PAC 大小，不将浏览器加载时间伪装为测量结果。
+
+**执行记录（2026-07-29）：** V1 与 V2 均提升到 50,000 条主机规则并通过。当前固定测试数据下，V1 PAC 源码为 3,278,238 字节，V2 PAC 源码为 1,729,012 字节；两组测试均确认没有把原始规则数组塞进网页请求时的逐条循环。数字只代表保存时的 PAC 生成与产物大小，不代表 Chrome 页面加载时延。
 
 - [x] **Step 5: 提交 PAC 编译器。**
 
@@ -747,7 +749,7 @@ Run: `pnpm build:wasm && pnpm test`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交路由解释。**
+- [x] **Step 5: 提交路由解释。**
 
 ```bash
 git add crates/routing-wasm apps/chrome-extension/src/runtime
