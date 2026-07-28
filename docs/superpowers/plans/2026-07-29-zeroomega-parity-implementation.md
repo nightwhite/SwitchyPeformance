@@ -707,7 +707,7 @@ git commit -m "feat: apply all v2 profile modes in chrome"
 - Test: `crates/routing-wasm/tests/wasm_contract.rs`
 - Test: `apps/chrome-extension/src/runtime/route-explainer.test.ts`
 
-- [ ] **Step 1: 写出解释结果必须包含命中配置、规则和性能数据的失败测试。**
+- [x] **Step 1: 写出解释结果必须包含命中配置、规则和性能数据的失败测试。**
 
 ```ts
 expect(explainRoute(compiled, 'https://x.com/i/api/1.1')).toMatchObject({
@@ -719,13 +719,13 @@ expect(explainRoute(compiled, 'https://x.com/i/api/1.1')).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/route-explainer.test.ts && cargo test -p routing-wasm --test wasm_contract`
 
 Expected: FAIL，当前解释结果没有 V2 解析路径和完整指标。
 
-- [ ] **Step 3: 实现稳定的解释数据。**
+- [x] **Step 3: 实现稳定的解释数据。**
 
 ```ts
 export interface RouteExplanation {
@@ -741,7 +741,7 @@ export interface RouteExplanation {
 
 错误和警告使用结构化代码，由界面翻译成中文；不要把 Rust 错误字符串直接展示给用户。
 
-- [ ] **Step 4: 构建 WASM 并运行全量测试。**
+- [x] **Step 4: 构建 WASM 并运行全量测试。**
 
 Run: `pnpm build:wasm && pnpm test`
 
@@ -753,6 +753,8 @@ Expected: PASS。
 git add crates/routing-wasm apps/chrome-extension/src/runtime
 git commit -m "feat: expose v2 route explanations"
 ```
+
+**执行记录（2026-07-29）：** 先新增 Rust/WASM、TypeScript 解析和本地时间传递的失败测试；实现后 V2 解释会返回激活配置、虚拟配置解析结果、规则命中或待 PAC/DNS 判断状态、目标配置类型、结构化警告和索引指标。`pnpm test` 通过 33 个测试文件、98 项测试，`pnpm check`、`pnpm format:check`、`pnpm build` 均通过。Chrome 自动化通道仍不能访问扩展页面，因此真实界面回归保持未完成。
 
 ## M2：配置管理、编辑器和完整规则界面
 

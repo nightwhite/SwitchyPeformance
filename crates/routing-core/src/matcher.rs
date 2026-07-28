@@ -60,6 +60,40 @@ pub fn matches_ip_cidr(host: &str, network: &str, prefix_length: u8) -> Conditio
     }
 }
 
+pub fn matches_glob(pattern: &str, value: &str) -> bool {
+    let pattern: Vec<char> = pattern.chars().collect();
+    let value: Vec<char> = value.chars().collect();
+    let mut pattern_index = 0;
+    let mut value_index = 0;
+    let mut star_index = None;
+    let mut retry_value_index = 0;
+
+    while value_index < value.len() {
+        if pattern_index < pattern.len()
+            && (pattern[pattern_index] == '?' || pattern[pattern_index] == value[value_index])
+        {
+            pattern_index += 1;
+            value_index += 1;
+        } else if pattern_index < pattern.len() && pattern[pattern_index] == '*' {
+            star_index = Some(pattern_index);
+            pattern_index += 1;
+            retry_value_index = value_index;
+        } else if let Some(star) = star_index {
+            pattern_index = star + 1;
+            retry_value_index += 1;
+            value_index = retry_value_index;
+        } else {
+            return false;
+        }
+    }
+
+    while pattern_index < pattern.len() && pattern[pattern_index] == '*' {
+        pattern_index += 1;
+    }
+
+    pattern_index == pattern.len()
+}
+
 fn normalize_host(value: &str) -> String {
     value
         .trim()

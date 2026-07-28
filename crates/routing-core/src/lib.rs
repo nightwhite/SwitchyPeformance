@@ -4,11 +4,13 @@ mod matcher;
 mod v2;
 
 pub use matcher::{
-    ConditionMatch, matches_host_suffix, matches_ip_cidr, matches_time_range, matches_weekdays,
+    ConditionMatch, matches_glob, matches_host_suffix, matches_ip_cidr, matches_time_range,
+    matches_weekdays,
 };
 pub use v2::{
-    V2AutoSwitchProgram, V2IndexedRule, V2ProgramStep, V2RoutingCompileError, V2RoutingMetrics,
-    compile_v2_auto_switch_program,
+    V2AutoSwitchProgram, V2DecisionReason, V2IndexedRule, V2ProgramStep, V2RouteDecision,
+    V2RouteDestination, V2RouteRequest, V2RouteWarning, V2RoutingCompileError, V2RoutingMetrics,
+    compile_v2_auto_switch_program, route_v2_auto_switch,
 };
 
 use std::{cmp::Ordering, collections::BTreeMap, net::IpAddr, str::FromStr};
@@ -384,43 +386,9 @@ fn is_loopback_host(host: &str) -> bool {
 
 fn matches_complex_rule(condition: &RuleCondition, raw_url: &str) -> bool {
     match condition {
-        RuleCondition::UrlGlob(pattern) => glob_matches(pattern, raw_url),
+        RuleCondition::UrlGlob(pattern) => matches_glob(pattern, raw_url),
         RuleCondition::HostEquals(_) | RuleCondition::HostSuffix(_) => false,
     }
-}
-
-fn glob_matches(pattern: &str, value: &str) -> bool {
-    let pattern: Vec<char> = pattern.chars().collect();
-    let value: Vec<char> = value.chars().collect();
-    let mut pattern_index = 0;
-    let mut value_index = 0;
-    let mut star_index = None;
-    let mut retry_value_index = 0;
-
-    while value_index < value.len() {
-        if pattern_index < pattern.len()
-            && (pattern[pattern_index] == '?' || pattern[pattern_index] == value[value_index])
-        {
-            pattern_index += 1;
-            value_index += 1;
-        } else if pattern_index < pattern.len() && pattern[pattern_index] == '*' {
-            star_index = Some(pattern_index);
-            pattern_index += 1;
-            retry_value_index = value_index;
-        } else if let Some(star) = star_index {
-            pattern_index = star + 1;
-            retry_value_index += 1;
-            value_index = retry_value_index;
-        } else {
-            return false;
-        }
-    }
-
-    while pattern_index < pattern.len() && pattern[pattern_index] == '*' {
-        pattern_index += 1;
-    }
-
-    pattern_index == pattern.len()
 }
 
 #[derive(Debug, Error)]

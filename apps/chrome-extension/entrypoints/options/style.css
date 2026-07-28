@@ -586,6 +586,9 @@ select:focus {
   color: #456054;
   font-size: 12px;
 }
+.inspection-result-warning {
+  color: #9b5a17;
+}
 .diagnostic-event {
   display: grid;
   grid-template-columns: 165px 108px minmax(0, 1fr) 34px;

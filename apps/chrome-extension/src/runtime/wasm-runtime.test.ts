@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
-import { createAutoSwitchCompiler, createRouteExplainer } from './wasm-runtime.ts';
+import {
+  createAutoSwitchCompiler,
+  createRouteExplainer,
+  createV2RouteExplainer
+} from './wasm-runtime.ts';
 
 const document: ProfileDocument = {
   activeProfileId: 'auto',
@@ -137,5 +141,86 @@ describe('createAutoSwitchCompiler', () => {
 
     expect(loadModule).toHaveBeenCalledTimes(1);
     expect(explainRouteJson).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes browser-local time to V2 route inspection and preserves uncertainty', async () => {
+    const explainV2RouteJson = vi.fn().mockReturnValue(
+      JSON.stringify({
+        activeProfileId: 'auto',
+        activeResolvedProfileId: 'auto',
+        routeProfileId: 'proxy',
+        resolvedRouteProfileId: 'proxy',
+        routeKind: 'fixed-proxy',
+        matchedRuleId: null,
+        pendingRuleId: 'private-network',
+        reason: 'requires-pac-dns',
+        definitive: false,
+        warnings: ['requires-pac-dns'],
+        metrics: {
+          indexedRuleCount: 861,
+          complexRuleCount: 1,
+          indexBlockCount: 2,
+          dnsSensitiveRuleCount: 1
+        }
+      })
+    );
+    const loadModule = vi.fn().mockResolvedValue({
+      explainRouteJson: vi.fn(),
+      explainV2RouteJson
+    });
+    const clock = vi.fn().mockReturnValue({
+      getDay: () => 3,
+      getHours: () => 9,
+      getMinutes: () => 45
+    } as Date);
+    const explain = createV2RouteExplainer(loadModule, { clock });
+    const v2Document: ProfileDocumentV2 = {
+      schemaVersion: 2,
+      activeProfileId: 'auto',
+      profiles: [
+        { id: 'direct', kind: 'direct', name: '直连' },
+        { id: 'system', kind: 'system', name: '系统代理' },
+        {
+          id: 'proxy',
+          kind: 'fixed-proxy',
+          name: '代理',
+          routes: { fallbackProxyId: 'edge' },
+          bypassList: []
+        },
+        {
+          id: 'auto',
+          kind: 'auto-switch',
+          name: '自动切换',
+          fallback: { profileId: 'direct' },
+          loopbackPolicy: 'direct',
+          proxyFailurePolicy: 'direct',
+          rules: [],
+          ruleSourceIds: []
+        }
+      ],
+      proxyServers: [
+        { id: 'edge', name: '边缘代理', scheme: 'socks5', host: '127.0.0.1', port: 1080 }
+      ],
+      ruleSources: [],
+      settings: {
+        startupProfileId: 'auto',
+        reloadAfterProfileChange: false,
+        ruleInsertPosition: 'last',
+        networkMonitor: { enabled: false }
+      }
+    };
+
+    await expect(explain(v2Document, 'https://private.example.test/')).resolves.toMatchObject({
+      definitive: false,
+      pendingRuleId: 'private-network',
+      reason: 'requires-pac-dns'
+    });
+
+    expect(explainV2RouteJson).toHaveBeenCalledWith(
+      expect.stringContaining('"schemaVersion":2'),
+      'https://private.example.test/',
+      3,
+      585
+    );
   });
 });
