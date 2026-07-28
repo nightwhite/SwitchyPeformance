@@ -83,6 +83,57 @@ describe('V2 profile actions', () => {
     ]);
     expect(() => moveProfile(created, 'automatic-home', 'direct')).toThrow('不能排到内置配置之前');
   });
+
+  it('creates an editable rule-list source together with a rule-list profile', () => {
+    const created = createProfile(document(), {
+      id: 'company-list',
+      kind: 'rule-list',
+      name: '公司规则列表'
+    });
+
+    expect(created.profiles.at(-1)).toMatchObject({
+      id: 'company-list',
+      kind: 'rule-list',
+      sourceId: 'rule-source-company-list',
+      matchTarget: { profileId: 'direct' },
+      fallback: { profileId: 'direct' }
+    });
+    expect(created.ruleSources).toContainEqual({
+      id: 'rule-source-company-list',
+      name: '公司规则列表 来源',
+      format: 'auto-proxy',
+      source: { kind: 'inline', text: '' }
+    });
+  });
+
+  it('copies a rule list together with an isolated copy of its source', () => {
+    const original = documentWithRuleList();
+    const copied = cloneProfile(original, 'company-list', {
+      id: 'company-list-copy',
+      name: '公司规则列表副本',
+      ruleId: (index) => `copy-rule-${index}`
+    });
+
+    expect(copied.profiles.find((profile) => profile.id === 'company-list-copy')).toMatchObject({
+      kind: 'rule-list',
+      sourceId: 'rule-source-company-list-copy'
+    });
+    expect(copied.ruleSources).toContainEqual({
+      id: 'rule-source-company-list-copy',
+      name: '公司来源 副本',
+      format: 'auto-proxy',
+      source: { kind: 'inline', text: '*.company.example' }
+    });
+  });
+
+  it('removes an orphaned rule-list source with its last profile reference', () => {
+    const deleted = replaceAndDeleteProfile(documentWithRuleList(), 'company-list', 'direct');
+
+    expect(deleted.profiles.some((profile) => profile.id === 'company-list')).toBe(false);
+    expect(deleted.ruleSources.some((source) => source.id === 'rule-source-company-list')).toBe(
+      false
+    );
+  });
 });
 
 function document(): ProfileDocumentV2 {
@@ -133,5 +184,31 @@ function document(): ProfileDocumentV2 {
       ruleInsertPosition: 'last',
       networkMonitor: { enabled: false }
     }
+  };
+}
+
+function documentWithRuleList(): ProfileDocumentV2 {
+  const base = document();
+  return {
+    ...base,
+    profiles: [
+      ...base.profiles,
+      {
+        id: 'company-list',
+        kind: 'rule-list',
+        name: '公司规则列表',
+        sourceId: 'rule-source-company-list',
+        matchTarget: { profileId: 'proxy-us' },
+        fallback: { profileId: 'direct' }
+      }
+    ],
+    ruleSources: [
+      {
+        id: 'rule-source-company-list',
+        name: '公司来源',
+        format: 'auto-proxy',
+        source: { kind: 'inline', text: '*.company.example' }
+      }
+    ]
   };
 }

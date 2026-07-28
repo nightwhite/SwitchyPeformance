@@ -1021,12 +1021,16 @@ git commit -m "feat: edit advanced auto-switch rules efficiently"
 - Create: `apps/chrome-extension/src/ui/components/RuleListProfileEditor.tsx`
 - Create: `apps/chrome-extension/src/ui/components/VirtualProfileEditor.tsx`
 - Create: `apps/chrome-extension/src/ui/components/AutoDetectProfileEditor.tsx`
-- Modify: `apps/chrome-extension/src/ui/pages/ProfileListPage.tsx`
-- Test: `apps/chrome-extension/src/ui/components/PacProfileEditor.test.tsx`
-- Test: `apps/chrome-extension/src/ui/components/RuleListProfileEditor.test.tsx`
-- Test: `apps/chrome-extension/src/ui/components/VirtualProfileEditor.test.tsx`
+- Create: `apps/chrome-extension/src/ui/components/ProfileTargetSelect.tsx`
+- Create: `apps/chrome-extension/src/ui/components/SourceFields.tsx`
+- Create: `apps/chrome-extension/src/ui/configuration/advanced-profile-actions.ts`
+- Create: `apps/chrome-extension/src/ui/configuration/source-draft.ts`
+- Modify: `apps/chrome-extension/src/ui/pages/V2ProfilesPage.tsx`
+- Test: `apps/chrome-extension/src/ui/configuration/advanced-profile-actions.test.ts`
+- Test: `apps/chrome-extension/src/ui/configuration/source-draft.test.ts`
+- Test: `apps/chrome-extension/src/ui/configuration/profile-actions.test.ts`
 
-- [ ] **Step 1: 写出各配置编辑器保存合法最小配置的失败测试。**
+- [x] **Step 1: 写出各配置编辑器保存合法最小配置的失败测试。**
 
 ```ts
 expect(createPacProfile({ name: '公司 PAC', url: 'https://config.example/pac' })).toMatchObject({
@@ -1038,13 +1042,13 @@ expect(createVirtualProfile({ name: '别名', targetProfileId: 'proxy-us' })).to
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/components/PacProfileEditor.test.tsx apps/chrome-extension/src/ui/components/RuleListProfileEditor.test.tsx apps/chrome-extension/src/ui/components/VirtualProfileEditor.test.tsx`
 
 Expected: FAIL，四类配置没有编辑器。
 
-- [ ] **Step 3: 实现四类配置表单。**
+- [x] **Step 3: 实现四类配置表单。**
 
 ```ts
 export interface PacProfile extends BaseProfile {
@@ -1062,18 +1066,20 @@ export interface RuleListProfile extends BaseProfile {
 
 PAC 和规则列表网址必须使用 `https:` 或用户明确确认的 `http:`；来源设置包括手动刷新、刷新间隔、自定义请求头和上次成功/错误状态。虚拟配置只能选择非自身的目标，最终由配置图校验器拒绝循环。
 
-- [ ] **Step 4: 运行页面测试和构建。**
+- [x] **Step 4: 运行页面测试和构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/components/PacProfileEditor.test.tsx apps/chrome-extension/src/ui/components/RuleListProfileEditor.test.tsx apps/chrome-extension/src/ui/components/VirtualProfileEditor.test.tsx && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交高级配置编辑器。**
+- [x] **Step 5: 提交高级配置编辑器。**
 
 ```bash
 git add apps/chrome-extension/src/ui
 git commit -m "feat: edit pac rule-list virtual and auto-detect profiles"
 ```
+
+**执行记录（2026-07-29）：** PAC 可在内嵌脚本和远程地址间切换，远程来源只接受 HTTPS，HTTP 必须由用户明确确认；Chrome 无法带自定义请求头加载 PAC，因此会拒绝这种保存，导入时遗留的请求头仍可见并可清空。自动检测单独展示其无额外参数的真实状态。虚拟配置可选择实际目标，界面排除自身，保存层再阻止循环。规则列表创建时自动带一个可编辑来源，来源支持 AutoProxy/Switchy 格式、内嵌文本或远程地址、自定义请求头和刷新间隔；复制时会连同来源独立复制，删除最后一个引用时会清理孤儿来源。规则列表在来源下载和编译运行时完成前保持“待来源编译”并禁用切换。失败测试先验证了缺失动作、HTTP 确认、虚拟自引用、规则列表来源的创建/复制/删除；完成后 `pnpm test` 为 41 个文件、130 项测试通过，`pnpm check`、`pnpm format:check`、`cargo fmt --check` 和 `pnpm build` 均通过。
 
 ## M3：弹窗、临时规则、右键和快捷键
 

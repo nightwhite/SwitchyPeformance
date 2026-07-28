@@ -1,9 +1,18 @@
-import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
-import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
+import type { ProfileDocumentV2, ProfileTarget } from '@switchypeformance/contracts';
 
 import { createId } from '../background-client.ts';
+import type {
+  PacProfileUpdate,
+  RuleListProfileUpdate
+} from '../configuration/advanced-profile-actions.ts';
+import {
+  updatePacProfile,
+  updateRuleListProfile,
+  updateVirtualProfile
+} from '../configuration/advanced-profile-actions.ts';
 import {
   CREATABLE_PROFILE_KINDS,
   cloneProfile,
@@ -16,7 +25,11 @@ import {
 } from '../configuration/profile-actions.ts';
 import { toUserFacingMessage } from '../error-message.ts';
 import { profileKindLabel } from '../v2-labels.ts';
+import { AutoDetectProfileEditor } from '../components/AutoDetectProfileEditor.tsx';
+import { PacProfileEditor } from '../components/PacProfileEditor.tsx';
 import { ProfileDeleteDialog } from '../components/ProfileDeleteDialog.tsx';
+import { RuleListProfileEditor } from '../components/RuleListProfileEditor.tsx';
+import { VirtualProfileEditor } from '../components/VirtualProfileEditor.tsx';
 
 interface V2ProfilesPageProps {
   busy: boolean;
@@ -30,19 +43,40 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
   const [createName, setCreateName] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string }>();
   const [deletingProfileId, setDeletingProfileId] = useState<string>();
+  const [advancedProfileId, setAdvancedProfileId] = useState<string>();
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const deletingPlan = deletingProfileId
     ? planProfileDeletion(document, deletingProfileId)
     : undefined;
+  const advancedProfile = advancedProfileId
+    ? document.profiles.find((profile) => profile.id === advancedProfileId)
+    : undefined;
+  const advancedSource =
+    advancedProfile?.kind === 'rule-list'
+      ? document.ruleSources.find((source) => source.id === advancedProfile.sourceId)
+      : undefined;
 
   async function apply(action: () => ProfileDocumentV2): Promise<boolean> {
     try {
       setError(undefined);
+      setNotice(undefined);
       await onReplace(action());
       return true;
     } catch (cause) {
       setError(toUserFacingMessage(cause));
       return false;
+    }
+  }
+
+  async function applyEditor(action: () => ProfileDocumentV2): Promise<void> {
+    try {
+      setError(undefined);
+      setNotice(undefined);
+      await onReplace(action());
+    } catch (cause) {
+      setError(toUserFacingMessage(cause));
+      throw cause;
     }
   }
 
@@ -73,6 +107,30 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
     ) {
       setDeletingProfileId(undefined);
     }
+  }
+
+  async function savePac(update: PacProfileUpdate): Promise<void> {
+    if (!advancedProfile || advancedProfile.kind !== 'pac') {
+      return;
+    }
+    await applyEditor(() => updatePacProfile(document, advancedProfile.id, update));
+    setNotice(`已更新 ${advancedProfile.name}。`);
+  }
+
+  async function saveRuleList(update: RuleListProfileUpdate): Promise<void> {
+    if (!advancedProfile || advancedProfile.kind !== 'rule-list') {
+      return;
+    }
+    await applyEditor(() => updateRuleListProfile(document, advancedProfile.id, update));
+    setNotice(`已更新 ${advancedProfile.name}。`);
+  }
+
+  async function saveVirtual(target: ProfileTarget): Promise<void> {
+    if (!advancedProfile || advancedProfile.kind !== 'virtual') {
+      return;
+    }
+    await applyEditor(() => updateVirtualProfile(document, advancedProfile.id, target));
+    setNotice(`已更新 ${advancedProfile.name}。`);
   }
 
   function profileAtOffset(profileId: string, offset: number): string | undefined {
@@ -126,6 +184,11 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
         </div>
         {error ? <p className="inline-error">{error}</p> : null}
       </section>
+      {notice ? (
+        <p className="inline-notice profile-page-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       <section className="page-panel table-panel">
         <div className="panel-heading">
           <div>
@@ -144,6 +207,12 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
             const active = profile.id === document.activeProfileId;
             const builtIn = profile.id === 'direct' || profile.id === 'system';
             const isEditing = editing?.id === profile.id;
+            const canEditAdvanced =
+              profile.kind === 'pac' ||
+              profile.kind === 'auto-detect' ||
+              profile.kind === 'rule-list' ||
+              profile.kind === 'virtual';
+            const ruleListPending = profile.kind === 'rule-list';
             return (
               <div className="table-row profile-table-row" key={profile.id}>
                 {isEditing ? (
@@ -186,14 +255,31 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
                 <span className="table-actions profile-actions">
                   <button
                     className="outline-button"
-                    disabled={busy || active}
+                    disabled={busy || active || ruleListPending}
                     onClick={() => void onActivate(profile.id)}
+                    title={ruleListPending ? '规则列表等待来源编译' : undefined}
                     type="button"
                   >
                     切换
                   </button>
                   {!builtIn ? (
                     <>
+                      {canEditAdvanced ? (
+                        <button
+                          aria-label={`编辑 ${profile.name} 的配置`}
+                          className="icon-action"
+                          disabled={busy}
+                          onClick={() =>
+                            setAdvancedProfileId((current) =>
+                              current === profile.id ? undefined : profile.id
+                            )
+                          }
+                          title="编辑配置"
+                          type="button"
+                        >
+                          <Settings2 size={16} />
+                        </button>
+                      ) : null}
                       <button
                         aria-label={`重命名 ${profile.name}`}
                         className="icon-action"
@@ -268,6 +354,39 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
           })}
         </div>
       </section>
+      {advancedProfile?.kind === 'pac' ? (
+        <PacProfileEditor
+          busy={busy}
+          key={advancedProfile.id}
+          onSave={savePac}
+          profile={advancedProfile}
+        />
+      ) : null}
+      {advancedProfile?.kind === 'auto-detect' ? (
+        <AutoDetectProfileEditor profile={advancedProfile} />
+      ) : null}
+      {advancedProfile?.kind === 'rule-list' && advancedSource ? (
+        <RuleListProfileEditor
+          busy={busy}
+          document={document}
+          key={advancedProfile.id}
+          onSave={saveRuleList}
+          profile={advancedProfile}
+          source={advancedSource}
+        />
+      ) : null}
+      {advancedProfile?.kind === 'rule-list' && !advancedSource ? (
+        <p className="inline-error profile-page-notice">规则列表引用的来源不存在。</p>
+      ) : null}
+      {advancedProfile?.kind === 'virtual' ? (
+        <VirtualProfileEditor
+          busy={busy}
+          document={document}
+          key={advancedProfile.id}
+          onSave={saveVirtual}
+          profile={advancedProfile}
+        />
+      ) : null}
       {deletingProfileId && deletingPlan ? (
         <ProfileDeleteDialog
           busy={busy}
