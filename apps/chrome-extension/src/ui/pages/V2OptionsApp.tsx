@@ -1,6 +1,8 @@
 import {
   Activity,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
   CircleGauge,
   Clock3,
@@ -33,6 +35,7 @@ import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
 import { V2RulesPage } from './V2RulesPage.tsx';
 import { TemporaryRulesPage } from './TemporaryRulesPage.tsx';
+import { moveShortcutProfile, shortcutProfileOrder } from './v2-shortcut-order.ts';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
@@ -413,6 +416,10 @@ function V2SettingsPage({
   onReplace(document: ConfigurationDocument): Promise<BackgroundState>;
 }) {
   const [error, setError] = useState<string>();
+  const shortcutOrder = shortcutProfileOrder(
+    document.profiles.map((profile) => profile.id),
+    document.settings.shortcutProfileIds
+  );
 
   async function updateSettings(patch: Partial<ProfileDocumentV2['settings']>): Promise<void> {
     try {
@@ -421,6 +428,12 @@ function V2SettingsPage({
     } catch (cause) {
       setError(toUserFacingMessage(cause));
     }
+  }
+
+  async function moveShortcut(profileId: string, direction: 'down' | 'up'): Promise<void> {
+    await updateSettings({
+      shortcutProfileIds: moveShortcutProfile(shortcutOrder, profileId, direction)
+    });
   }
 
   return (
@@ -478,6 +491,50 @@ function V2SettingsPage({
           <span>记录网络诊断事件</span>
         </label>
       </div>
+      <section aria-label="快捷切换顺序" className="shortcut-order">
+        <div className="shortcut-order-heading">
+          <div>
+            <p className="panel-kicker">快捷切换</p>
+            <h2>配置循环顺序</h2>
+          </div>
+        </div>
+        <ol className="shortcut-order-list">
+          {shortcutOrder.map((profileId, index) => {
+            const profile = document.profiles.find((candidate) => candidate.id === profileId);
+            if (!profile) {
+              return null;
+            }
+            return (
+              <li className="shortcut-order-row" key={profile.id}>
+                <span className="shortcut-order-index">{index + 1}</span>
+                <span className="shortcut-order-name">{profile.name}</span>
+                <span className="shortcut-order-actions">
+                  <button
+                    aria-label={`将 ${profile.name} 上移`}
+                    className="icon-button"
+                    disabled={busy || index === 0}
+                    onClick={() => void moveShortcut(profile.id, 'up')}
+                    title="上移"
+                    type="button"
+                  >
+                    <ArrowUp size={15} />
+                  </button>
+                  <button
+                    aria-label={`将 ${profile.name} 下移`}
+                    className="icon-button"
+                    disabled={busy || index === shortcutOrder.length - 1}
+                    onClick={() => void moveShortcut(profile.id, 'down')}
+                    title="下移"
+                    type="button"
+                  >
+                    <ArrowDown size={15} />
+                  </button>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
       {error ? <p className="inline-error">{error}</p> : null}
     </section>
   );

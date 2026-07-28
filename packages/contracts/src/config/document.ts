@@ -33,6 +33,7 @@ export interface RuntimeSettingsV2 {
   reloadAfterProfileChange: boolean;
   ruleInsertPosition: 'first' | 'last';
   networkMonitor: { enabled: boolean };
+  shortcutProfileIds?: readonly string[];
 }
 
 export interface ProfileDocumentV2 {
@@ -56,6 +57,8 @@ export type ProfileDocumentV2IssueCode =
   | 'missing-builtin-profile'
   | 'unknown-active-profile'
   | 'unknown-startup-profile'
+  | 'unknown-shortcut-profile'
+  | 'duplicate-shortcut-profile'
   | 'unknown-profile-reference'
   | 'unknown-proxy-reference'
   | 'unknown-source-reference'
@@ -74,7 +77,8 @@ export function defaultRuntimeSettings(): RuntimeSettingsV2 {
     startupProfileId: 'direct',
     reloadAfterProfileChange: false,
     ruleInsertPosition: 'last',
-    networkMonitor: { enabled: false }
+    networkMonitor: { enabled: false },
+    shortcutProfileIds: []
   };
 }
 
@@ -414,13 +418,17 @@ function parseRuntimeSettings(
   input: unknown,
   issues: ProfileDocumentV2Issue[]
 ): RuntimeSettingsV2 | undefined {
+  const shortcutProfileIds = parseOptionalStringArray(
+    isRecord(input) ? input.shortcutProfileIds : undefined
+  );
   if (
     !isRecord(input) ||
     !isNonEmptyString(input.startupProfileId) ||
     typeof input.reloadAfterProfileChange !== 'boolean' ||
     !isRuleInsertPosition(input.ruleInsertPosition) ||
     !isRecord(input.networkMonitor) ||
-    typeof input.networkMonitor.enabled !== 'boolean'
+    typeof input.networkMonitor.enabled !== 'boolean' ||
+    shortcutProfileIds === null
   ) {
     issues.push({ code: 'invalid-settings', path: 'settings' });
     return undefined;
@@ -430,7 +438,8 @@ function parseRuntimeSettings(
     startupProfileId: input.startupProfileId.trim(),
     reloadAfterProfileChange: input.reloadAfterProfileChange,
     ruleInsertPosition: input.ruleInsertPosition,
-    networkMonitor: { enabled: input.networkMonitor.enabled }
+    networkMonitor: { enabled: input.networkMonitor.enabled },
+    ...(shortcutProfileIds === undefined ? {} : { shortcutProfileIds })
   };
 }
 
@@ -460,6 +469,13 @@ function readStringArray(value: unknown): readonly string[] | undefined {
   return Array.isArray(value) && value.every(isNonEmptyString)
     ? value.map((entry) => entry.trim())
     : undefined;
+}
+
+function parseOptionalStringArray(value: unknown): readonly string[] | undefined | null {
+  if (value === undefined) {
+    return undefined;
+  }
+  return readStringArray(value) ?? null;
 }
 
 function normalizeOptionalId(value: unknown): string | undefined | null {

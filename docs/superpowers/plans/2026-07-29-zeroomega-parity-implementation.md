@@ -1203,14 +1203,15 @@ git commit -m "feat: manage expiring temporary routing rules"
 **Files:**
 
 - Create: `apps/chrome-extension/src/runtime/shortcut-service.ts`
+- Create: `apps/chrome-extension/src/runtime/profile-activation-service.ts`
 - Modify: `apps/chrome-extension/src/runtime/quick-rule-context-menu.ts`
 - Modify: `apps/chrome-extension/entrypoints/background.ts`
-- Modify: `apps/chrome-extension/src/runtime/messages.ts`
-- Modify: `apps/chrome-extension/src/ui/pages/SettingsPage.tsx`
+- Modify: `apps/chrome-extension/wxt.config.ts`
+- Modify: `apps/chrome-extension/src/ui/pages/V2OptionsApp.tsx`
 - Test: `apps/chrome-extension/src/runtime/shortcut-service.test.ts`
 - Test: `apps/chrome-extension/src/runtime/quick-rule-context-menu.test.ts`
 
-- [ ] **Step 1: 写出网页、链接、图片和框架右键规则目标的失败测试。**
+- [x] **Step 1: 写出网页、链接、图片和框架右键规则目标的失败测试。**
 
 ```ts
 expect(
@@ -1219,17 +1220,17 @@ expect(
 expect(nextProfileId(['direct', 'system', 'work'], 'system')).toBe('work');
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/shortcut-service.test.ts apps/chrome-extension/src/runtime/quick-rule-context-menu.test.ts`
 
 Expected: FAIL，当前只支持部分页面右键规则。
 
-- [ ] **Step 3: 实现菜单和设置。**
+- [x] **Step 3: 实现菜单和设置。**
 
 ```ts
-export interface ShortcutSettings {
-  cycleProfileIds: readonly string[];
+export interface RuntimeSettingsV2 {
+  shortcutProfileIds?: readonly string[];
   reloadAfterProfileChange: boolean;
   ruleInsertPosition: 'first' | 'last';
 }
@@ -1237,18 +1238,20 @@ export interface ShortcutSettings {
 
 为页面、选中链接、图片、音视频和框架建立菜单；目标 URL 解析失败时禁用操作。设置页控制切换后是否刷新当前标签页、规则插入开头或末尾以及快捷循环顺序。
 
-- [ ] **Step 4: 运行菜单、快捷键和构建测试。**
+- [x] **Step 4: 运行菜单、快捷键和构建测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/shortcut-service.test.ts apps/chrome-extension/src/runtime/quick-rule-context-menu.test.ts && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交快捷操作。**
+- [x] **Step 5: 提交快捷操作。**
 
 ```bash
-git add apps/chrome-extension/src/runtime apps/chrome-extension/src/ui/pages/SettingsPage.tsx apps/chrome-extension/entrypoints/background.ts
+git add apps/chrome-extension/src/runtime apps/chrome-extension/src/ui/pages/V2OptionsApp.tsx apps/chrome-extension/entrypoints
 git commit -m "feat: add shortcut and context-menu controls"
 ```
+
+**执行记录（2026-07-29）：** 右键菜单已覆盖网页、框架、链接、图片、视频和音频，并只允许有主机名的 HTTP/HTTPS 地址写入规则；媒体、链接、框架和页面按明确优先级选择，非法地址会被跳过。扩展清单声明 `Alt+Shift+Right` 切换到下一个配置，V1 按配置顺序循环，V2 支持保存排序，未列出的新增或导入配置会自动补到循环末尾。切换配置后的刷新只对 HTTP/HTTPS 标签页生效，刷新失败只记录诊断，不回滚已成功的代理切换。设置页可用上移/下移按钮调整顺序，删除配置会同步移除失效快捷引用。提交前完整验证通过：55 个 Vitest 文件、191 项测试、`cargo test --workspace`、`pnpm check:ts`、`pnpm format:check`、`cargo fmt --check` 和生产构建全部通过。
 
 ## M4：PAC、规则列表和安全刷新
 

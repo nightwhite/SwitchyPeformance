@@ -97,6 +97,37 @@ describe('V2 配置文档', () => {
       ]
     });
   });
+
+  it('读取自定义快捷切换顺序，同时兼容没有该字段的旧 V2 配置', () => {
+    expect(api.parseProfileDocumentV2).toBeTypeOf('function');
+    const parseProfileDocumentV2 = api.parseProfileDocumentV2 as (value: unknown) => ParseResult;
+    const customized = validDocument();
+    customized.settings.shortcutProfileIds = ['fixed-work', 'direct'];
+
+    expect(parseProfileDocumentV2(customized)).toMatchObject({
+      ok: true,
+      value: { settings: { shortcutProfileIds: ['fixed-work', 'direct'] } }
+    });
+    expect(parseProfileDocumentV2(validDocument())).toMatchObject({ ok: true });
+  });
+
+  it('拒绝引用不存在配置或重复配置的快捷切换顺序', () => {
+    expect(api.parseProfileDocumentV2).toBeTypeOf('function');
+    const parseProfileDocumentV2 = api.parseProfileDocumentV2 as (value: unknown) => ParseResult;
+    const unknown = validDocument();
+    unknown.settings.shortcutProfileIds = ['missing-profile'];
+    const duplicate = validDocument();
+    duplicate.settings.shortcutProfileIds = ['direct', 'direct'];
+
+    expect(parseProfileDocumentV2(unknown)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([{ code: 'unknown-shortcut-profile', path: 'settings' }])
+    });
+    expect(parseProfileDocumentV2(duplicate)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([{ code: 'duplicate-shortcut-profile', path: 'settings' }])
+    });
+  });
 });
 
 function validDocument(): {

@@ -28,6 +28,7 @@ export function validateProfileDocumentV2(
     'unknown-startup-profile',
     issues
   );
+  validateShortcutProfileIds(document.settings.shortcutProfileIds, profileIds, issues);
 
   for (const [index, profile] of document.profiles.entries()) {
     validateProfileReferences(profile, index, profileIds, proxyIds, sourceIds, issues);
@@ -145,6 +146,28 @@ function validateProfileReference(
 ): void {
   if (!profileIds.has(profileId)) {
     issues.push({ code, path });
+  }
+}
+
+function validateShortcutProfileIds(
+  shortcutProfileIds: readonly string[] | undefined,
+  profileIds: ReadonlySet<string>,
+  issues: ProfileDocumentV2Issue[]
+): void {
+  if (!shortcutProfileIds) {
+    return;
+  }
+
+  const seen = new Set<string>();
+  for (const profileId of shortcutProfileIds) {
+    if (seen.has(profileId)) {
+      issues.push({ code: 'duplicate-shortcut-profile', path: 'settings' });
+      continue;
+    }
+    seen.add(profileId);
+    if (!profileIds.has(profileId)) {
+      issues.push({ code: 'unknown-shortcut-profile', path: 'settings' });
+    }
   }
 }
 

@@ -81,7 +81,14 @@ export function replaceAndDeleteProfile(
       startupProfileId:
         document.settings.startupProfileId === profileId
           ? replacementProfileId
-          : document.settings.startupProfileId
+          : document.settings.startupProfileId,
+      ...(document.settings.shortcutProfileIds === undefined
+        ? {}
+        : {
+            shortcutProfileIds: document.settings.shortcutProfileIds.filter(
+              (shortcutProfileId) => shortcutProfileId !== profileId
+            )
+          })
     }
   };
   assertValidProfileDocument(next);

@@ -9,6 +9,7 @@ import {
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
+import { createProfileActivationService } from '../src/runtime/profile-activation-service.ts';
 import { explainCurrentRoute, type CurrentRouteStatus } from '../src/runtime/current-route.ts';
 import { addCurrentSiteRule } from '../src/runtime/quick-site-rule.ts';
 import { TEMPORARY_RULE_EXPIRY_ALARM } from '../src/runtime/temporary-rule-alarm.ts';
@@ -20,10 +21,13 @@ import {
 import { createTemporaryRoutingDocumentService } from '../src/runtime/temporary-routing-document.ts';
 import {
   DIRECT_QUICK_RULE_MENU_ID,
+  contextTargetFromClick,
   profileQuickRuleMenuId,
   proxyQuickRuleMenuId,
+  quickRuleMenuContexts,
   quickRuleTargetFromMenuId
 } from '../src/runtime/quick-rule-context-menu.ts';
+import { nextProfileId, profileCycleIds } from '../src/runtime/shortcut-service.ts';
 import { setChromeProxySetting } from '../src/runtime/chrome-proxy.ts';
 import {
   isBackgroundRequest,
@@ -52,6 +56,21 @@ export default defineBackground(() => {
       }),
     configuration: chromeConfigurationRepository,
     diagnostics: chromeDiagnosticsRepository
+  });
+  const profileActivation = createProfileActivationService({
+    activate: (profileId) => service.activateProfile(profileId),
+    async queryActiveTab() {
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      return tab;
+    },
+    reloadTab: (tabId) => chrome.tabs.reload(tabId),
+    reportRefreshFailure: (message, detail) =>
+      chromeDiagnosticsRepository.append({
+        detail,
+        level: 'error',
+        message,
+        scope: 'runtime'
+      })
   });
   const temporaryRuleLifecycle = createTemporaryRuleLifecycle({
     alarms: chrome.alarms,
@@ -122,10 +141,24 @@ export default defineBackground(() => {
   );
   chrome.contextMenus.onClicked.addListener((info) => {
     const target = quickRuleTargetFromMenuId(String(info.menuItemId));
-    if (!target) {
+    const clickTarget = contextTargetFromClick(info);
+    if (!target || !clickTarget) {
       return;
     }
-    void addContextMenuRule(service, info.pageUrl ?? info.frameUrl, target);
+    void addContextMenuRule(service, clickTarget.url, clickTarget.source, target);
+  });
+  chrome.commands.onCommand.addListener((command, tab) => {
+    if (command !== 'switch-profile-next') {
+      return;
+    }
+    void activateNextProfile(tab).catch((error: unknown) => {
+      void chromeDiagnosticsRepository.append({
+        detail: errorMessage(error),
+        level: 'error',
+        message: '快捷切换配置失败',
+        scope: 'runtime'
+      });
+    });
   });
   chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
     void temporaryRuleLifecycle
@@ -134,6 +167,7 @@ export default defineBackground(() => {
         handleMessage(
           service,
           proxyCredentials,
+          profileActivation,
           temporaryRules,
           routingDocuments,
           temporaryRuleLifecycle,
@@ -155,16 +189,16 @@ export default defineBackground(() => {
       await chrome.contextMenus.removeAll();
       const document = await chromeConfigurationRepository.load();
       chrome.contextMenus.create({
-        contexts: ['page'],
+        contexts: [...quickRuleMenuContexts],
         id: DIRECT_QUICK_RULE_MENU_ID,
-        title: '将此网站通过以下方式访问：直连'
+        title: '将此网址加入自动切换：直连'
       });
       if (document.schemaVersion === 1) {
         for (const proxy of document.proxies) {
           chrome.contextMenus.create({
-            contexts: ['page'],
+            contexts: [...quickRuleMenuContexts],
             id: proxyQuickRuleMenuId(proxy.id),
-            title: `将此网站通过以下方式访问：${proxy.name}`
+            title: `将此网址加入自动切换：${proxy.name}`
           });
         }
       } else {
@@ -173,9 +207,9 @@ export default defineBackground(() => {
             continue;
           }
           chrome.contextMenus.create({
-            contexts: ['page'],
+            contexts: [...quickRuleMenuContexts],
             id: profileQuickRuleMenuId(profile.id),
-            title: `将此网站通过以下方式访问：${profile.name}`
+            title: `将此网址加入自动切换：${profile.name}`
           });
         }
       }
@@ -191,10 +225,11 @@ export default defineBackground(() => {
 
   async function addContextMenuRule(
     service: ReturnType<typeof createBackgroundService>,
-    rawUrl: string | undefined,
+    rawUrl: string,
+    source: 'frame' | 'link' | 'media' | 'page',
     target: ReturnType<typeof quickRuleTargetFromMenuId>
   ): Promise<void> {
-    if (!rawUrl || !target) {
+    if (!target) {
       return;
     }
     try {
@@ -202,6 +237,13 @@ export default defineBackground(() => {
       const document = await chromeConfigurationRepository.load();
       await service.replaceConfiguration(addQuickRule(document, host, target));
       await rebuildQuickRuleMenus();
+      await chromeDiagnosticsRepository.append({
+        detail: `右键目标：${quickRuleSourceLabel(source)}`,
+        level: 'info',
+        message: '已添加自动切换规则',
+        scope: 'configuration',
+        target: rawUrl
+      });
     } catch (error) {
       await chromeDiagnosticsRepository.append({
         detail: errorMessage(error),
@@ -211,11 +253,23 @@ export default defineBackground(() => {
       });
     }
   }
+
+  async function activateNextProfile(
+    tab: { id?: number | undefined; url?: string | undefined } | undefined
+  ): Promise<void> {
+    const document = await chromeConfigurationRepository.load();
+    const nextProfile = nextProfileId(profileCycleIds(document), document.activeProfileId);
+    if (!nextProfile || nextProfile === document.activeProfileId) {
+      return;
+    }
+    await profileActivation.activate(nextProfile, tab);
+  }
 });
 
 async function handleMessage(
   service: ReturnType<typeof createBackgroundService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
+  profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
   routingDocuments: ReturnType<typeof createTemporaryRoutingDocumentService>,
   temporaryRuleLifecycle: ReturnType<typeof createTemporaryRuleLifecycle>,
@@ -228,6 +282,7 @@ async function handleMessage(
   const routeStatus = await dispatch(
     service,
     proxyCredentials,
+    profileActivation,
     temporaryRules,
     routingDocuments,
     message
@@ -250,6 +305,7 @@ async function handleMessage(
 async function dispatch(
   service: ReturnType<typeof createBackgroundService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
+  profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
   routingDocuments: ReturnType<typeof createTemporaryRoutingDocumentService>,
   message: BackgroundRequest
@@ -258,7 +314,7 @@ async function dispatch(
     case 'state.get':
       return undefined;
     case 'profile.activate':
-      await service.activateProfile(message.profileId);
+      await profileActivation.activate(message.profileId);
       return undefined;
     case 'configuration.replace':
       await service.replaceConfiguration(message.document);
@@ -323,6 +379,19 @@ async function dispatch(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function quickRuleSourceLabel(source: 'frame' | 'link' | 'media' | 'page'): string {
+  switch (source) {
+    case 'link':
+      return '链接';
+    case 'media':
+      return '媒体资源';
+    case 'frame':
+      return '框架';
+    case 'page':
+      return '网页';
+  }
 }
 
 function messageChangesProxyList(message: unknown): boolean {

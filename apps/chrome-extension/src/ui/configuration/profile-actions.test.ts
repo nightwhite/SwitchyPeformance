@@ -41,6 +41,15 @@ describe('V2 profile actions', () => {
     expect(alias).toMatchObject({ kind: 'virtual', target: { profileId: 'direct' } });
   });
 
+  it('removes a deleted profile from the saved shortcut cycle', () => {
+    const source = document();
+    source.settings = { ...source.settings, shortcutProfileIds: ['proxy-us', 'direct'] };
+
+    const result = replaceAndDeleteProfile(source, 'proxy-us', 'direct');
+
+    expect(result.settings.shortcutProfileIds).toEqual(['direct']);
+  });
+
   it('protects built-in profiles and produces isolated copies', () => {
     expect(() => renameProfile(document(), 'direct', '新的直连')).toThrow('内置配置不能重命名');
 

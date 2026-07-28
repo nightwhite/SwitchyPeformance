@@ -898,6 +898,83 @@ textarea {
   gap: 20px;
   align-items: center;
 }
+.v2-settings-panel {
+  align-items: flex-start;
+  flex-direction: column;
+}
+.v2-settings-panel .form-grid {
+  width: min(100%, 460px);
+}
+.shortcut-order {
+  display: grid;
+  width: min(100%, 560px);
+  gap: 8px;
+}
+.shortcut-order-heading {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+.shortcut-order-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #d7ddd6;
+  border-radius: 4px;
+}
+.shortcut-order-row {
+  display: grid;
+  min-height: 44px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 7px;
+  border-bottom: 1px solid #e3e8e3;
+}
+.shortcut-order-row:last-child {
+  border-bottom: 0;
+}
+.shortcut-order-index {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: #527061;
+  background: #edf3ee;
+  border-radius: 4px;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+.shortcut-order-name {
+  overflow: hidden;
+  color: #25362c;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shortcut-order-actions {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.shortcut-order-actions .icon-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: #315443;
+  background: #ffffff;
+  border: 1px solid #c6d0c7;
+  border-radius: 4px;
+}
+.shortcut-order-actions .icon-button:hover:not(:disabled) {
+  background: #edf3ee;
+}
 .temporary-rule-summary {
   display: flex;
   justify-content: space-between;

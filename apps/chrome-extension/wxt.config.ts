@@ -16,6 +16,14 @@ export default defineConfig({
       'webRequestAuthProvider'
     ],
     host_permissions: ['<all_urls>'],
+    commands: {
+      'switch-profile-next': {
+        description: '切换到下一个代理配置',
+        suggested_key: {
+          default: 'Alt+Shift+Right'
+        }
+      }
+    },
     content_security_policy: {
       extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
     }
