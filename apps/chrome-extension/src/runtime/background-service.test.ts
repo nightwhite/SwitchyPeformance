@@ -59,6 +59,7 @@ describe('createBackgroundService', () => {
         metrics: {
           complexRuleCount: 0,
           compileDurationMs: 12.5,
+          dnsSensitiveRuleCount: 1,
           indexBlockCount: 1,
           pacByteLength: 42_000,
           simpleRuleCount: 861
@@ -72,7 +73,8 @@ describe('createBackgroundService', () => {
 
     expect(diagnostics.append).toHaveBeenCalledWith({
       level: 'info',
-      message: '已应用自动切换：861 条索引规则，0 条复杂规则；42000 字节；12.5 毫秒。',
+      message:
+        '已应用自动切换：861 条索引规则，0 条复杂规则，1 条可能触发 DNS 的规则；42000 字节；12.5 毫秒。',
       scope: 'configuration'
     });
   });

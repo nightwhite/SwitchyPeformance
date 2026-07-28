@@ -134,3 +134,64 @@ fn explains_any_url_with_the_matching_rule_instead_of_a_fixed_diagnostic_host() 
     assert_eq!(explanation["route"]["kind"], "proxy");
     assert_eq!(explanation["route"]["proxyId"], "edge");
 }
+
+#[test]
+fn compiles_a_v2_auto_switch_document_through_the_wasm_boundary() {
+    let configuration = r#"
+    {
+      "schemaVersion": 2,
+      "activeProfileId": "auto",
+      "profiles": [
+        { "kind": "direct", "id": "direct", "name": "直连" },
+        { "kind": "system", "id": "system", "name": "系统" },
+        {
+          "kind": "fixed-proxy",
+          "id": "proxy",
+          "name": "代理",
+          "routes": { "fallbackProxyId": "edge" },
+          "bypassList": []
+        },
+        {
+          "kind": "auto-switch",
+          "id": "auto",
+          "name": "自动切换",
+          "fallback": { "profileId": "direct" },
+          "loopbackPolicy": "direct",
+          "proxyFailurePolicy": "direct",
+          "rules": [
+            {
+              "id": "x-rule",
+              "enabled": true,
+              "condition": { "type": "host-wildcard", "pattern": "*.x.test" },
+              "target": { "profileId": "proxy" }
+            }
+          ],
+          "ruleSourceIds": []
+        }
+      ],
+      "proxyServers": [
+        {
+          "id": "edge",
+          "name": "边缘代理",
+          "scheme": "socks5",
+          "host": "127.0.0.1",
+          "port": 1080
+        }
+      ],
+      "ruleSources": [],
+      "settings": {
+        "startupProfileId": "auto",
+        "reloadAfterProfileChange": false,
+        "ruleInsertPosition": "last",
+        "networkMonitor": { "enabled": false }
+      }
+    }
+    "#;
+
+    let result = compile_configuration_json(configuration)
+        .expect("the V2 browser document should compile through WASM");
+
+    assert!(result.pac_source.contains("SOCKS5 127.0.0.1:1080"));
+    assert_eq!(result.simple_rule_count, 1);
+    assert_eq!(result.dns_sensitive_rule_count, 0);
+}

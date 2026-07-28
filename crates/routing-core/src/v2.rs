@@ -10,6 +10,7 @@ pub struct V2RoutingMetrics {
     pub indexed_rule_count: usize,
     pub complex_rule_count: usize,
     pub index_block_count: usize,
+    pub dns_sensitive_rule_count: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -85,6 +86,9 @@ fn compile_auto_switch(profile: &V2AutoSwitchProfile) -> V2AutoSwitchProgram {
         flush_index(&mut steps, &mut index, &mut metrics);
         if matches!(rule.condition, V2RuleCondition::Never) {
             continue;
+        }
+        if matches!(rule.condition, V2RuleCondition::IpCidr { .. }) {
+            metrics.dns_sensitive_rule_count += 1;
         }
         metrics.complex_rule_count += 1;
         steps.push(V2ProgramStep::Complex {

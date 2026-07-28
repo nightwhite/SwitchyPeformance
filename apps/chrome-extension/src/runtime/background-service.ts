@@ -106,8 +106,15 @@ function appliedConfigurationMessage(result: ApplyConfigurationResult): string {
     return `已应用${proxyModeLabel(result.mode)}代理配置`;
   }
   const { metrics } = result;
+  const ruleDetails = [
+    `${metrics.simpleRuleCount} 条索引规则`,
+    `${metrics.complexRuleCount} 条复杂规则`,
+    ...(metrics.dnsSensitiveRuleCount > 0
+      ? [`${metrics.dnsSensitiveRuleCount} 条可能触发 DNS 的规则`]
+      : [])
+  ];
   const details = [
-    `${metrics.simpleRuleCount} 条索引规则，${metrics.complexRuleCount} 条复杂规则`,
+    ruleDetails.join('，'),
     ...(metrics.pacByteLength === undefined ? [] : [`${metrics.pacByteLength} 字节`]),
     ...(metrics.compileDurationMs === undefined ? [] : [`${metrics.compileDurationMs} 毫秒`])
   ];

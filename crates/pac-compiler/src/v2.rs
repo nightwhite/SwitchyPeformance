@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use config_model::{V2Configuration, V2Profile, V2ProxyServer, V2RouteTarget, V2RuleCondition};
+use config_model::{V2Configuration, V2Profile, V2ProxyServer, V2RouteTarget};
 use routing_core::{
     V2AutoSwitchProgram, V2IndexedRule, V2ProgramStep, V2RoutingCompileError,
     compile_v2_auto_switch_program,
@@ -8,10 +8,21 @@ use routing_core::{
 use serde_json::{Value, json};
 use thiserror::Error;
 
+mod conditions;
+
+use conditions::PacConditionRenderer;
+
 pub fn compile_v2_auto_switch_pac(
     configuration: &V2Configuration,
 ) -> Result<String, V2PacCompileError> {
     let program = compile_v2_auto_switch_program(configuration)?;
+    compile_v2_auto_switch_pac_from_program(configuration, &program)
+}
+
+pub fn compile_v2_auto_switch_pac_from_program(
+    configuration: &V2Configuration,
+    program: &V2AutoSwitchProgram,
+) -> Result<String, V2PacCompileError> {
     let profiles = configuration
         .profiles
         .iter()
@@ -22,7 +33,7 @@ pub fn compile_v2_auto_switch_pac(
         .iter()
         .map(|proxy| (proxy.id.as_str(), proxy))
         .collect::<BTreeMap<_, _>>();
-    render_auto_switch(&program, &profiles, &proxies)
+    render_auto_switch(program, &profiles, &proxies)
 }
 
 fn render_auto_switch(
@@ -34,6 +45,7 @@ fn render_auto_switch(
         "function _spV(h,e,s){var b=e[h]||null;var v=h;while(true){var c=s[v];if(c&&(!b||c[0]<b[0]))b=c;var d=v.indexOf('.');if(d<0)break;v=v.slice(d+1);}return b;}\nfunction _spB(host,patterns){for(var i=0;i<patterns.length;i++){var pattern=patterns[i];if(pattern==='<local>'&&host.indexOf('.')<0)return true;if(pattern!=='<local>'&&shExpMatch(host,pattern))return true;}return false;}\nfunction _spR(url,host,route){if(typeof route==='string')return route;if(route.b&&_spB(host,route.b))return 'DIRECT';var i=url.indexOf(':');var scheme=i<0?'':url.slice(0,i).toLowerCase();if(scheme==='http'&&route.h)return route.h;if(scheme==='https'&&route.s)return route.s;if(scheme==='ftp'&&route.f)return route.f;return route.d;}\n",
     );
     let mut body = String::new();
+    let mut conditions = PacConditionRenderer::default();
     let mut routes = RouteTable::default();
     let mut index_number = 0;
     for step in &program.steps {
@@ -86,7 +98,7 @@ fn render_auto_switch(
                     &mut BTreeSet::new(),
                 )?)?;
                 body.push_str("if(");
-                body.push_str(&render_complex_condition(condition)?);
+                body.push_str(&conditions.render(condition)?);
                 body.push_str(")return _spR(url,host,_spT[");
                 body.push_str(&route.to_string());
                 body.push_str("]);\n");
@@ -101,16 +113,15 @@ fn render_auto_switch(
         &mut BTreeSet::new(),
     )?)?;
     let routes = serde_json::to_string(&routes.entries)?;
+    source.push_str(&conditions.declarations()?);
     source.push_str("var _spT=");
     source.push_str(&routes);
     source.push_str(";var _spF=");
     source.push_str(&fallback.to_string());
     source.push_str(";\nfunction FindProxyForURL(url,host){host=(host||'').toLowerCase();\n");
-    if program.loopback_policy == "direct" {
-        source.push_str(
-            "if(host==='localhost'||host.slice(-10)==='.localhost'||host==='::1'||host==='[::1]'||host.indexOf('127.')===0)return 'DIRECT';\n",
-        );
-    }
+    source.push_str(
+        "if(host==='localhost'||host.slice(-10)==='.localhost'||host==='::1'||host==='[::1]'||host.indexOf('127.')===0)return 'DIRECT';\n",
+    );
     source.push_str(&body);
     source.push_str("return _spR(url,host,_spT[_spF]);\n}\n");
     Ok(source)
@@ -135,17 +146,6 @@ fn render_index(
         entries.insert(rule.pattern.clone(), json!([rule.ordinal, route]));
     }
     Ok(serde_json::to_string(&entries)?)
-}
-
-fn render_complex_condition(condition: &V2RuleCondition) -> Result<String, V2PacCompileError> {
-    match condition {
-        V2RuleCondition::HostWildcard { pattern } if pattern.trim() == "*" => Ok("true".to_owned()),
-        V2RuleCondition::UrlWildcard { pattern } => Ok(format!(
-            "shExpMatch(url,{})",
-            serde_json::to_string(pattern)?
-        )),
-        _ => Err(V2PacCompileError::UnsupportedCondition),
-    }
 }
 
 #[derive(Default)]
@@ -289,6 +289,8 @@ pub enum V2PacCompileError {
     VirtualProfileCycle(String),
     #[error("自动切换暂不支持该条件")]
     UnsupportedCondition,
+    #[error("IP 网段无效：{address}/{prefix_length}")]
+    InvalidIpCidr { address: String, prefix_length: u8 },
     #[error("代理协议无效：{0}")]
     InvalidProxyScheme(String),
     #[error("PAC JSON 序列化失败：{0}")]

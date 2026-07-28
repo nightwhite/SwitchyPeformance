@@ -48,7 +48,12 @@ describe('applyConfiguration', () => {
   it('compiles PAC once before applying an auto-switch profile', async () => {
     const compileAutoSwitch = vi.fn().mockResolvedValue({
       pacSource: 'function FindProxyForURL(){return "DIRECT";}',
-      metrics: { complexRuleCount: 0, indexBlockCount: 1, simpleRuleCount: 4 }
+      metrics: {
+        complexRuleCount: 0,
+        dnsSensitiveRuleCount: 0,
+        indexBlockCount: 1,
+        simpleRuleCount: 4
+      }
     });
     const setProxySetting = vi.fn().mockResolvedValue(undefined);
 
@@ -67,7 +72,12 @@ describe('applyConfiguration', () => {
       }
     });
     expect(result).toEqual({
-      metrics: { complexRuleCount: 0, indexBlockCount: 1, simpleRuleCount: 4 },
+      metrics: {
+        complexRuleCount: 0,
+        dnsSensitiveRuleCount: 0,
+        indexBlockCount: 1,
+        simpleRuleCount: 4
+      },
       mode: 'pac_script'
     });
   });

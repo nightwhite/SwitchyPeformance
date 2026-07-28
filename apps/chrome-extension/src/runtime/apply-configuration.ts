@@ -6,6 +6,7 @@ export interface CompilationMetrics {
   simpleRuleCount: number;
   complexRuleCount: number;
   indexBlockCount: number;
+  dnsSensitiveRuleCount: number;
   compileDurationMs?: number;
   pacByteLength?: number;
 }

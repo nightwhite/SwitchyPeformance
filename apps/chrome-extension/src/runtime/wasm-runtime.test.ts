@@ -27,6 +27,7 @@ describe('createAutoSwitchCompiler', () => {
     const compileAutoSwitchJson = vi.fn().mockReturnValue(
       JSON.stringify({
         complex_rule_count: 0,
+        dns_sensitive_rule_count: 0,
         index_block_count: 0,
         pac_source: 'function FindProxyForURL(){return "DIRECT";}',
         simple_rule_count: 0
@@ -50,6 +51,7 @@ describe('createAutoSwitchCompiler', () => {
     const compileAutoSwitchJson = vi.fn().mockReturnValue(
       JSON.stringify({
         complex_rule_count: 0,
+        dns_sensitive_rule_count: 0,
         index_block_count: 1,
         pac_source: 'function FindProxyForURL(){return "DIRECT";}',
         simple_rule_count: 861

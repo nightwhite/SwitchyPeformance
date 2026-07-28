@@ -22,6 +22,32 @@ fn keeps_a_complex_rule_ahead_of_later_indexed_host_rules() {
     ));
 }
 
+#[test]
+fn reports_ip_network_rules_as_dns_sensitive() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.rules.push(V2SwitchRule {
+        id: "private-network".to_owned(),
+        enabled: true,
+        condition: V2RuleCondition::IpCidr {
+            address: "10.0.0.0".to_owned(),
+            prefix_length: 8,
+        },
+        target: target("proxy"),
+    });
+
+    let program = compile_v2_auto_switch_program(&configuration)
+        .expect("valid V2 automatic profile should produce a routing program");
+
+    assert_eq!(program.metrics.dns_sensitive_rule_count, 1);
+}
+
 fn configuration() -> V2Configuration {
     V2Configuration {
         schema_version: 2,

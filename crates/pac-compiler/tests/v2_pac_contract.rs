@@ -121,6 +121,102 @@ fn preserves_a_url_rule_before_a_later_host_index() {
     );
 }
 
+#[test]
+fn keeps_loopback_direct_even_when_rules_are_requested() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.loopback_policy = "use-rules".to_owned();
+
+    let pac = compile_v2_auto_switch_pac(&configuration)
+        .expect("Chrome PAC should always keep loopback traffic direct");
+
+    assert!(pac.contains("host==='localhost'"));
+    assert!(pac.contains("host.indexOf('127.')===0"));
+    assert!(pac.contains("host==='::1'"));
+}
+
+#[test]
+fn emits_precompiled_advanced_conditions() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.rules = vec![
+        rule(
+            "host-regex",
+            V2RuleCondition::HostRegex {
+                pattern: r"(^|\.)example\.com$".to_owned(),
+            },
+        ),
+        rule(
+            "host-levels",
+            V2RuleCondition::HostLevels {
+                min: 2,
+                max: Some(4),
+            },
+        ),
+        rule(
+            "ip-cidr",
+            V2RuleCondition::IpCidr {
+                address: "10.0.0.0".to_owned(),
+                prefix_length: 8,
+            },
+        ),
+        rule(
+            "url-wildcard",
+            V2RuleCondition::UrlWildcard {
+                pattern: "*://api.example.com/*".to_owned(),
+            },
+        ),
+        rule(
+            "url-regex",
+            V2RuleCondition::UrlRegex {
+                pattern: "^https://api\\.example\\.com/".to_owned(),
+            },
+        ),
+        rule(
+            "keyword",
+            V2RuleCondition::Keyword {
+                value: "example-keyword".to_owned(),
+            },
+        ),
+        rule(
+            "time-range",
+            V2RuleCondition::TimeRange {
+                start_minute: 22 * 60,
+                end_minute: 2 * 60,
+            },
+        ),
+        rule(
+            "weekday",
+            V2RuleCondition::Weekday {
+                days: vec![1, 2, 3, 4, 5],
+            },
+        ),
+    ];
+
+    let pac = compile_v2_auto_switch_pac(&configuration)
+        .expect("advanced V2 conditions should compile into PAC source");
+
+    assert!(pac.contains("new RegExp("));
+    assert!(pac.contains("_spL(host,2,4)"));
+    assert!(pac.contains("isInNet(host,\"10.0.0.0\",\"255.0.0.0\")"));
+    assert!(pac.contains("shExpMatch(url,\"*://api.example.com/*\")"));
+    assert!(pac.contains("url.indexOf(\"example-keyword\")>=0"));
+    assert!(pac.contains("_spM(1320,120)"));
+    assert!(pac.contains("_spW([1,2,3,4,5])"));
+}
+
 fn configuration() -> V2Configuration {
     V2Configuration {
         schema_version: 2,
@@ -209,5 +305,14 @@ fn configuration() -> V2Configuration {
 fn target(profile_id: &str) -> V2RouteTarget {
     V2RouteTarget {
         profile_id: profile_id.to_owned(),
+    }
+}
+
+fn rule(id: &str, condition: V2RuleCondition) -> V2SwitchRule {
+    V2SwitchRule {
+        id: id.to_owned(),
+        enabled: true,
+        condition,
+        target: target("proxy"),
     }
 }

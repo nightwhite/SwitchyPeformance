@@ -8,13 +8,19 @@ describe('parseWasmCompilation', () => {
       parseWasmCompilation(
         JSON.stringify({
           complex_rule_count: 3,
+          dns_sensitive_rule_count: 2,
           index_block_count: 2,
           pac_source: 'function FindProxyForURL(){return "DIRECT";}',
           simple_rule_count: 120
         })
       )
     ).toEqual({
-      metrics: { complexRuleCount: 3, indexBlockCount: 2, simpleRuleCount: 120 },
+      metrics: {
+        complexRuleCount: 3,
+        dnsSensitiveRuleCount: 2,
+        indexBlockCount: 2,
+        simpleRuleCount: 120
+      },
       pacSource: 'function FindProxyForURL(){return "DIRECT";}'
     });
   });

@@ -5,6 +5,7 @@ interface WasmCompilationWireResult {
   simple_rule_count: unknown;
   complex_rule_count: unknown;
   index_block_count: unknown;
+  dns_sensitive_rule_count: unknown;
 }
 
 export function parseWasmCompilation(rawResult: string): AutoSwitchCompilation {
@@ -24,7 +25,8 @@ export function parseWasmCompilation(rawResult: string): AutoSwitchCompilation {
     metrics: {
       simpleRuleCount: parsed.simple_rule_count,
       complexRuleCount: parsed.complex_rule_count,
-      indexBlockCount: parsed.index_block_count
+      indexBlockCount: parsed.index_block_count,
+      dnsSensitiveRuleCount: parsed.dns_sensitive_rule_count
     }
   };
 }
@@ -34,6 +36,7 @@ function isWasmCompilationWireResult(input: unknown): input is WasmCompilationWi
   simple_rule_count: number;
   complex_rule_count: number;
   index_block_count: number;
+  dns_sensitive_rule_count: number;
 } {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     return false;
@@ -44,7 +47,8 @@ function isWasmCompilationWireResult(input: unknown): input is WasmCompilationWi
     typeof result.pac_source === 'string' &&
     isNonNegativeInteger(result.simple_rule_count) &&
     isNonNegativeInteger(result.complex_rule_count) &&
-    isNonNegativeInteger(result.index_block_count)
+    isNonNegativeInteger(result.index_block_count) &&
+    isNonNegativeInteger(result.dns_sensitive_rule_count)
   );
 }
 
