@@ -8,3 +8,4 @@ export * from './config/sources.ts';
 export * from './config/profiles.ts';
 export * from './config/document.ts';
 export * from './config/validate.ts';
+export * from './migrations/v1-to-v2.ts';

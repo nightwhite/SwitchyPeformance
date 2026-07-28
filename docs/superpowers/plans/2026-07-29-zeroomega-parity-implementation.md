@@ -345,7 +345,7 @@ git commit -m "feat: validate versioned profile documents"
 - Test: `packages/contracts/src/migrations/v1-to-v2.test.ts`
 - Test: `packages/contracts/src/legacy-import.test.ts`
 
-- [ ] **Step 1: 写出 V1 自动切换和固定代理迁移失败测试。**
+- [x] **Step 1: 写出 V1 自动切换和固定代理迁移失败测试。**
 
 ```ts
 it('将 V1 的代理目标迁移为固定配置目标，且保留规则顺序', () => {
@@ -357,13 +357,13 @@ it('将 V1 的代理目标迁移为固定配置目标，且保留规则顺序', 
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run packages/contracts/src/migrations/v1-to-v2.test.ts`
 
 Expected: FAIL，`migrateV1Document` 尚未存在。
 
-- [ ] **Step 3: 实现不丢失数据的迁移报告。**
+- [x] **Step 3: 实现不丢失数据的迁移报告。**
 
 ```ts
 export interface MigrationResult {
@@ -379,18 +379,20 @@ export function migrateV1Document(input: ProfileDocument): MigrationResult {
 
 旧备份中无法精确表达的字段不得静默猜测：写入中文警告，导入预览必须显示。账号密码继续不从旧备份读取，避免把未知来源的密钥写入本地。
 
-- [ ] **Step 4: 运行迁移和原有导入测试。**
+- [x] **Step 4: 运行迁移和原有导入测试。**
 
 Run: `pnpm vitest run packages/contracts/src/migrations/v1-to-v2.test.ts packages/contracts/src/legacy-import.test.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交迁移。**
+- [x] **Step 5: 提交迁移。**
 
 ```bash
 git add packages/contracts/src
 git commit -m "feat: migrate v1 configurations to v2"
 ```
+
+**执行记录（2026-07-29）：** 先运行迁移测试，1 项测试按预期因 `migrateV1Document` 不存在而失败；实现后保留固定代理、规则顺序、旧代理凭据 ID 和自动切换目标，且导出结果不含密码。完整测试 27 个文件、72 项测试通过，`pnpm check` 和 `pnpm format:check` 通过。
 
 ### Task 5: 后台配置保存变为原子事务
 
