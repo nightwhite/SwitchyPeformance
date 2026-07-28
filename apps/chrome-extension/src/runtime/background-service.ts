@@ -129,5 +129,7 @@ function proxyModeLabel(mode: Exclude<ApplyConfigurationResult['mode'], 'pac_scr
       return '系统';
     case 'fixed_servers':
       return '固定服务器';
+    case 'auto_detect':
+      return '自动检测';
   }
 }

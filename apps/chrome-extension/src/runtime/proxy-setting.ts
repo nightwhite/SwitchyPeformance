@@ -1,20 +1,14 @@
 import type { ProfileDocument, ProxyEndpoint } from '@switchypeformance/contracts';
 
 export type ChromeProxySetting =
-  | { mode: 'direct' | 'system' }
+  | { mode: 'direct' | 'system' | 'auto_detect' }
   | {
       mode: 'fixed_servers';
-      rules: {
-        bypassList: readonly string[];
-        singleProxy: ChromeProxyServer;
-      };
+      rules: ChromeProxyRules;
     }
   | {
       mode: 'pac_script';
-      pacScript: {
-        data: string;
-        mandatory: true;
-      };
+      pacScript: ChromePacScript;
     };
 
 export interface ChromeProxyServer {
@@ -22,6 +16,17 @@ export interface ChromeProxyServer {
   host: string;
   port: number;
 }
+
+export interface ChromeProxyRules {
+  bypassList: readonly string[];
+  singleProxy?: ChromeProxyServer;
+  proxyForHttp?: ChromeProxyServer;
+  proxyForHttps?: ChromeProxyServer;
+  proxyForFtp?: ChromeProxyServer;
+  fallbackProxy?: ChromeProxyServer;
+}
+
+export type ChromePacScript = { data: string; mandatory: true } | { url: string; mandatory: true };
 
 const DEFAULT_LOOPBACK_BYPASSES = ['<local>', 'localhost', '127.0.0.1', '[::1]'] as const;
 
@@ -74,6 +79,6 @@ function fixedProxySetting(proxyId: string, proxies: readonly ProxyEndpoint[]): 
   };
 }
 
-function uniqueBypassList(extraBypasses: readonly string[] | undefined): readonly string[] {
+export function uniqueBypassList(extraBypasses: readonly string[] | undefined): readonly string[] {
   return [...new Set([...DEFAULT_LOOPBACK_BYPASSES, ...(extraBypasses ?? [])])];
 }
