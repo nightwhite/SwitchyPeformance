@@ -1,4 +1,5 @@
 export * from './profile-document.ts';
+export * from './configuration-document.ts';
 export * from './legacy-import.ts';
 export * from './quick-rule.ts';
 export * from './config/targets.ts';
@@ -7,5 +8,6 @@ export * from './config/condition-validation.ts';
 export * from './config/sources.ts';
 export * from './config/profiles.ts';
 export * from './config/document.ts';
+export * from './config/profile-resolution.ts';
 export * from './config/validate.ts';
 export * from './migrations/v1-to-v2.ts';

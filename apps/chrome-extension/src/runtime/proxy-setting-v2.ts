@@ -1,9 +1,5 @@
-import type {
-  PacSource,
-  ProfileDocumentV2,
-  ProfileV2,
-  ProxyServer
-} from '@switchypeformance/contracts';
+import type { PacSource, ProfileDocumentV2, ProxyServer } from '@switchypeformance/contracts';
+import { resolveProfileV2 } from '@switchypeformance/contracts';
 
 import {
   type ChromeProxyServer,
@@ -15,33 +11,16 @@ export function buildChromeProxySettingV2(
   document: ProfileDocumentV2,
   autoSwitchPac?: string
 ): ChromeProxySetting {
-  const profilesById = new Map(document.profiles.map((profile) => [profile.id, profile]));
   const proxiesById = new Map(document.proxyServers.map((proxy) => [proxy.id, proxy]));
-  return buildProfileSetting(
-    document.activeProfileId,
-    profilesById,
-    proxiesById,
-    autoSwitchPac,
-    new Set()
-  );
+  const { profile } = resolveProfileV2(document);
+  return buildProfileSetting(profile, proxiesById, autoSwitchPac);
 }
 
 function buildProfileSetting(
-  profileId: string,
-  profilesById: ReadonlyMap<string, ProfileV2>,
+  profile: ReturnType<typeof resolveProfileV2>['profile'],
   proxiesById: ReadonlyMap<string, ProxyServer>,
-  autoSwitchPac: string | undefined,
-  resolvingProfileIds: ReadonlySet<string>
+  autoSwitchPac: string | undefined
 ): ChromeProxySetting {
-  if (resolvingProfileIds.has(profileId)) {
-    throw new Error(`虚拟配置存在循环引用：${profileId}`);
-  }
-
-  const profile = profilesById.get(profileId);
-  if (!profile) {
-    throw new Error(`当前配置不存在：${profileId}`);
-  }
-
   switch (profile.kind) {
     case 'direct':
       return { mode: 'direct' };
@@ -57,19 +36,11 @@ function buildProfileSetting(
       return autoSwitchSetting(autoSwitchPac);
     case 'rule-list':
       throw new Error('规则列表配置尚未编译为 PAC，不能直接应用到 Chrome');
-    case 'virtual':
-      return buildProfileSetting(
-        profile.target.profileId,
-        profilesById,
-        proxiesById,
-        autoSwitchPac,
-        new Set([...resolvingProfileIds, profileId])
-      );
   }
 }
 
 function fixedProxySetting(
-  profile: Extract<ProfileV2, { kind: 'fixed-proxy' }>,
+  profile: Extract<ReturnType<typeof resolveProfileV2>['profile'], { kind: 'fixed-proxy' }>,
   proxiesById: ReadonlyMap<string, ProxyServer>
 ): ChromeProxySetting {
   return {

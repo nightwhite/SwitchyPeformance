@@ -1,4 +1,4 @@
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ConfigurationDocument, ProfileDocument } from '@switchypeformance/contracts';
 
 import type { AutoSwitchCompilation } from './apply-configuration.ts';
 import { parseRouteExplanation, type RouteExplanation } from './route-explainer.ts';
@@ -35,7 +35,7 @@ export function createRouteExplainer(
 export function createAutoSwitchCompiler(
   loadModule: LoadWasmCompiler,
   options: AutoSwitchCompilerOptions = {}
-): (document: ProfileDocument) => Promise<AutoSwitchCompilation> {
+): (document: ConfigurationDocument) => Promise<AutoSwitchCompilation> {
   let modulePromise: Promise<LoadedWasmCompiler> | undefined;
   const now = options.now ?? performance.now.bind(performance);
 

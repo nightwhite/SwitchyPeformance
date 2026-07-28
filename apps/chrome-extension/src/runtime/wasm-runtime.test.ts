@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import { createAutoSwitchCompiler, createRouteExplainer } from './wasm-runtime.ts';
 
@@ -68,6 +68,52 @@ describe('createAutoSwitchCompiler', () => {
       compileDurationMs: 12.5,
       pacByteLength: 44,
       simpleRuleCount: 861
+    });
+  });
+
+  it('forwards a V2 document without converting it back into the old format', async () => {
+    const compileAutoSwitchJson = vi.fn().mockReturnValue(
+      JSON.stringify({
+        complex_rule_count: 0,
+        dns_sensitive_rule_count: 0,
+        index_block_count: 0,
+        pac_source: 'function FindProxyForURL(){return "DIRECT";}',
+        simple_rule_count: 0
+      })
+    );
+    const compile = createAutoSwitchCompiler(vi.fn().mockResolvedValue({ compileAutoSwitchJson }));
+    const v2Document: ProfileDocumentV2 = {
+      schemaVersion: 2,
+      activeProfileId: 'auto',
+      profiles: [
+        { id: 'direct', kind: 'direct', name: '直连' },
+        { id: 'system', kind: 'system', name: '系统代理' },
+        {
+          id: 'auto',
+          kind: 'auto-switch',
+          name: '自动切换',
+          fallback: { profileId: 'direct' },
+          loopbackPolicy: 'direct',
+          proxyFailurePolicy: 'direct',
+          rules: [],
+          ruleSourceIds: []
+        }
+      ],
+      proxyServers: [],
+      ruleSources: [],
+      settings: {
+        startupProfileId: 'auto',
+        reloadAfterProfileChange: false,
+        ruleInsertPosition: 'last',
+        networkMonitor: { enabled: false }
+      }
+    };
+
+    await compile(v2Document);
+
+    expect(JSON.parse(compileAutoSwitchJson.mock.calls[0]?.[0] ?? '{}')).toMatchObject({
+      schemaVersion: 2,
+      activeProfileId: 'auto'
     });
   });
 
