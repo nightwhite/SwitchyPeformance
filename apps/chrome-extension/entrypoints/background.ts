@@ -4,9 +4,11 @@ import {
   chromeCredentialRepository,
   chromeConfigurationRepository,
   chromeDiagnosticsRepository,
+  chromeSourceStatusRepository,
   chromeTemporaryRuleRepository
 } from '../src/runtime/chrome-repositories.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
+import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
 import { createProfileActivationService } from '../src/runtime/profile-activation-service.ts';
@@ -28,6 +30,7 @@ import {
   quickRuleTargetFromMenuId
 } from '../src/runtime/quick-rule-context-menu.ts';
 import { nextProfileId, profileCycleIds } from '../src/runtime/shortcut-service.ts';
+import { createSourceFetcher } from '../src/runtime/source-fetcher.ts';
 import { setChromeProxySetting } from '../src/runtime/chrome-proxy.ts';
 import {
   isBackgroundRequest,
@@ -48,12 +51,19 @@ export default defineBackground(() => {
     repository: chromeTemporaryRuleRepository
   });
   const routingDocuments = createTemporaryRoutingDocumentService({ temporaryRules });
+  const pacSources = createPacSourceService({
+    fetcher: createSourceFetcher({ fetch: (url, request) => fetch(url, request) }),
+    statuses: chromeSourceStatusRepository
+  });
   const service = createBackgroundService({
     apply: async (document) =>
-      applyConfiguration(await routingDocuments.resolve(document), {
-        compileAutoSwitch: compileAutoSwitchWithWasm,
-        setProxySetting: setChromeProxySetting
-      }),
+      applyConfiguration(
+        await pacSources.resolveForApply(await routingDocuments.resolve(document)),
+        {
+          compileAutoSwitch: compileAutoSwitchWithWasm,
+          setProxySetting: setChromeProxySetting
+        }
+      ),
     configuration: chromeConfigurationRepository,
     diagnostics: chromeDiagnosticsRepository
   });

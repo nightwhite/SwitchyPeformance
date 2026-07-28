@@ -42,7 +42,7 @@ export function PacProfileEditor({ busy, onSave, profile }: PacProfileEditorProp
         inlineLabel="PAC 脚本"
         onAllowInsecureHttpChange={setAllowInsecureHttp}
         onChange={setSource}
-        showHeaders={source.headersText.trim().length > 0}
+        showHeaders
         showRefresh={false}
         value={source}
       />

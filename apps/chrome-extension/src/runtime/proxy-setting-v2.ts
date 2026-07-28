@@ -80,14 +80,7 @@ function pacSetting(source: PacSource): ChromeProxySetting {
     };
   }
 
-  if (source.headers.length > 0) {
-    throw new Error('PAC 地址不能附带自定义请求头；请改用内嵌 PAC 或移除请求头');
-  }
-
-  return {
-    mode: 'pac_script',
-    pacScript: { url: source.url, mandatory: true }
-  };
+  throw new Error('远程 PAC 必须先下载到本地缓存后才能应用');
 }
 
 function autoSwitchSetting(autoSwitchPac: string | undefined): ChromeProxySetting {

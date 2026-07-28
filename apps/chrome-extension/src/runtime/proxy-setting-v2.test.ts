@@ -62,7 +62,7 @@ describe('buildChromeProxySettingV2', () => {
     expect(buildChromeProxySettingV2(automaticDocument)).toEqual({ mode: 'auto_detect' });
   });
 
-  it('uses a PAC URL when it does not need custom request headers', () => {
+  it('requires a remote PAC to be resolved into cached inline text before Chrome application', () => {
     const document = documentWith({
       id: 'pac-url',
       kind: 'pac',
@@ -75,26 +75,7 @@ describe('buildChromeProxySettingV2', () => {
       }
     });
 
-    expect(buildChromeProxySettingV2(document)).toEqual({
-      mode: 'pac_script',
-      pacScript: { url: 'https://example.test/proxy.pac', mandatory: true }
-    });
-  });
-
-  it('rejects PAC URLs that require custom request headers', () => {
-    const document = documentWith({
-      id: 'authenticated-pac',
-      kind: 'pac',
-      name: '受保护 PAC',
-      source: {
-        kind: 'url',
-        url: 'https://example.test/proxy.pac',
-        headers: [{ name: 'Authorization', value: 'Bearer secret' }],
-        refresh: { enabled: true, refreshMinutes: 60 }
-      }
-    });
-
-    expect(() => buildChromeProxySettingV2(document)).toThrow('PAC 地址不能附带自定义请求头');
+    expect(() => buildChromeProxySettingV2(document)).toThrow('缓存');
   });
 
   it('rejects virtual profile cycles instead of recursing forever', () => {

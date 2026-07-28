@@ -1266,7 +1266,7 @@ git commit -m "feat: add shortcut and context-menu controls"
 - Test: `apps/chrome-extension/src/runtime/source-fetcher.test.ts`
 - Test: `apps/chrome-extension/src/runtime/pac-source-service.test.ts`
 
-- [ ] **Step 1: 写出 ETag、请求头、超时和更新失败时保留旧 PAC 的失败测试。**
+- [x] **Step 1: 写出 ETag、请求头、超时和更新失败时保留旧 PAC 的失败测试。**
 
 ```ts
 await service.refresh('pac-company');
@@ -1278,13 +1278,13 @@ expect(fetcher.fetch).toHaveBeenCalledWith(
 expect(repository.readActivePac('pac-company')).toBe(previousPac);
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/source-fetcher.test.ts apps/chrome-extension/src/runtime/pac-source-service.test.ts`
 
 Expected: FAIL，PAC 来源服务不存在。
 
-- [ ] **Step 3: 实现受限制的来源获取。**
+- [x] **Step 3: 实现受限制的来源获取。**
 
 ```ts
 export interface FetchRuleSourceRequest {
@@ -1298,13 +1298,13 @@ export interface FetchRuleSourceRequest {
 
 使用 `AbortController` 超时，限制响应字节数，拒绝非文本 PAC，保存 ETag 和最后成功版本。抓取或校验失败时保留已应用 PAC，记录一条来源错误而不是把浏览器切为失效配置。
 
-- [ ] **Step 4: 运行测试与构建。**
+- [x] **Step 4: 运行测试与构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/source-fetcher.test.ts apps/chrome-extension/src/runtime/pac-source-service.test.ts && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交 PAC 刷新。**
+- [x] **Step 5: 提交 PAC 刷新。**
 
 ```bash
 git add apps/chrome-extension/src/runtime

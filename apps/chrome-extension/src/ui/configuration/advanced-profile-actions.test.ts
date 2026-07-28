@@ -37,6 +37,26 @@ describe('advanced V2 profile actions', () => {
     ).toThrow('HTTP');
   });
 
+  it('preserves custom request headers for a remote PAC fetched by the extension', () => {
+    const updated = updatePacProfile(document(), 'pac', {
+      allowInsecureHttp: false,
+      source: {
+        kind: 'url',
+        url: 'https://config.example/private.pac',
+        headers: [{ name: 'Authorization', value: 'Bearer local-token' }],
+        refresh: { enabled: true, refreshMinutes: 60 }
+      }
+    });
+
+    expect(profile(updated, 'pac')).toMatchObject({
+      source: {
+        kind: 'url',
+        url: 'https://config.example/private.pac',
+        headers: [{ name: 'Authorization', value: 'Bearer local-token' }]
+      }
+    });
+  });
+
   it('updates a rule list source and its route targets as one valid document', () => {
     const updated = updateRuleListProfile(document(), 'list', {
       allowInsecureHttp: false,

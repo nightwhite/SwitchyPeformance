@@ -83,9 +83,6 @@ export function updateVirtualProfile(
 
 function normalizePacSource(source: PacSource, options: SourceSaveOptions): PacSource {
   const normalized = normalizeSource(source, options);
-  if (normalized.kind === 'url' && normalized.headers.length > 0) {
-    throw new Error('Chrome PAC 地址不能附带自定义请求头');
-  }
   if (normalized.kind === 'inline' && !normalized.text) {
     throw new Error('请填写 PAC 脚本内容');
   }
