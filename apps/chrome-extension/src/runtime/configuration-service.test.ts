@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import { createConfigurationService } from './configuration-service.ts';
 
@@ -47,4 +47,37 @@ describe('createConfigurationService', () => {
     expect(apply).toHaveBeenNthCalledWith(2, current);
     expect(replace).toHaveBeenCalledWith(candidate);
   });
+
+  it('applies a V2 candidate before making it persistent', async () => {
+    const v2Candidate = v2Document();
+    const apply = vi.fn().mockResolvedValue({ mode: 'direct' });
+    const replace = vi.fn().mockResolvedValue(v2Candidate);
+    const service = createConfigurationService({
+      apply,
+      configuration: { load: vi.fn().mockResolvedValue(current), replace }
+    });
+
+    await expect(service.replace(v2Candidate)).resolves.toEqual(v2Candidate);
+    expect(apply).toHaveBeenCalledWith(v2Candidate);
+    expect(replace).toHaveBeenCalledWith(v2Candidate);
+  });
 });
+
+function v2Document(): ProfileDocumentV2 {
+  return {
+    schemaVersion: 2,
+    activeProfileId: 'direct',
+    profiles: [
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' }
+    ],
+    proxyServers: [],
+    ruleSources: [],
+    settings: {
+      startupProfileId: 'direct',
+      reloadAfterProfileChange: false,
+      ruleInsertPosition: 'last',
+      networkMonitor: { enabled: false }
+    }
+  };
+}

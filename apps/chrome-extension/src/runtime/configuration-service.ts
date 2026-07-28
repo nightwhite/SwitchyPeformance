@@ -1,17 +1,20 @@
-import { parseProfileDocument, type ProfileDocument } from '@switchypeformance/contracts';
+import {
+  parseConfigurationDocument,
+  type ConfigurationDocument
+} from '@switchypeformance/contracts';
 
 import type { ApplyConfigurationResult } from './apply-configuration.ts';
 import type { ConfigurationRepository } from './configuration-repository.ts';
 
 export interface ConfigurationServiceDependencies {
-  apply(document: ProfileDocument): Promise<ApplyConfigurationResult>;
+  apply(document: ConfigurationDocument): Promise<ApplyConfigurationResult>;
   configuration: ConfigurationRepository;
 }
 
 export interface ConfigurationService {
-  activate(profileId: string): Promise<ProfileDocument>;
+  activate(profileId: string): Promise<ConfigurationDocument>;
   reapply(): Promise<ApplyConfigurationResult>;
-  replace(candidate: unknown): Promise<ProfileDocument>;
+  replace(candidate: unknown): Promise<ConfigurationDocument>;
 }
 
 export function createConfigurationService(
@@ -29,7 +32,7 @@ export function createConfigurationService(
     replace
   };
 
-  async function replace(candidate: unknown): Promise<ProfileDocument> {
+  async function replace(candidate: unknown): Promise<ConfigurationDocument> {
     const current = await dependencies.configuration.load();
     const next = parseCandidate(candidate);
     await dependencies.apply(next);
@@ -42,7 +45,7 @@ export function createConfigurationService(
     }
   }
 
-  async function restoreCurrentConfiguration(current: ProfileDocument): Promise<void> {
+  async function restoreCurrentConfiguration(current: ConfigurationDocument): Promise<void> {
     try {
       await dependencies.apply(current);
     } catch {
@@ -51,8 +54,8 @@ export function createConfigurationService(
   }
 }
 
-function parseCandidate(candidate: unknown): ProfileDocument {
-  const result = parseProfileDocument(candidate);
+function parseCandidate(candidate: unknown): ConfigurationDocument {
+  const result = parseConfigurationDocument(candidate);
   if (!result.ok) {
     throw new Error('配置无效');
   }

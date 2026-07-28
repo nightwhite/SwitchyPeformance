@@ -466,7 +466,7 @@ git commit -m "feat: apply configuration changes atomically"
 - Modify: `crates/routing-core/src/lib.rs`
 - Test: `crates/routing-core/tests/condition_contract.rs`
 
-- [ ] **Step 1: 写出主机、网址、时间、星期和 IP/CIDR 的 Rust 失败测试。**
+- [x] **Step 1: 写出主机、网址、时间、星期和 IP/CIDR 的 Rust 失败测试。**
 
 ```rust
 #[test]
@@ -484,13 +484,13 @@ fn time_range_wraps_across_midnight() {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `cargo test -p routing-core --test condition_contract`
 
 Expected: FAIL，匹配模块尚不存在。
 
-- [ ] **Step 3: 实现纯函数匹配器。**
+- [x] **Step 3: 实现纯函数匹配器。**
 
 ```rust
 pub struct RouteRequest<'a> {
@@ -509,13 +509,13 @@ pub enum ConditionMatch {
 
 主机、网址、关键字、时段和星期都在纯 Rust 中确定；IP/CIDR 在输入是字面 IP 时立即判断。对域名 IP/CIDR，返回 `RequiresPacDns`，由 PAC 生成器只在该条规则被执行到时产生 `isInNet`，并把风险回传到解释结果。
 
-- [ ] **Step 4: 运行 Rust 格式与测试。**
+- [x] **Step 4: 运行 Rust 格式与测试。**
 
 Run: `cargo fmt --check && cargo test -p routing-core --test condition_contract`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交 Rust 条件核心。**
+- [x] **Step 5: 提交 Rust 条件核心。**
 
 ```bash
 git add crates/config-model crates/routing-core
@@ -531,7 +531,7 @@ git commit -m "feat: add rust condition matcher"
 - Modify: `crates/routing-core/src/lib.rs`
 - Test: `crates/routing-core/tests/routing_plan_contract.rs`
 
-- [ ] **Step 1: 写出规则顺序和索引不会改变结果的失败测试。**
+- [x] **Step 1: 写出规则顺序和索引不会改变结果的失败测试。**
 
 ```rust
 #[test]
@@ -547,13 +547,13 @@ fn complex_rule_before_indexed_rule_keeps_its_priority() {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `cargo test -p routing-core --test routing_plan_contract`
 
 Expected: FAIL，`compile_plan` 尚未建立索引。
 
-- [ ] **Step 3: 实现不改变顺序的索引策略。**
+- [x] **Step 3: 实现不改变顺序的索引策略。**
 
 ```rust
 pub struct CompiledRoutingPlan {
@@ -566,13 +566,13 @@ pub struct CompiledRoutingPlan {
 
 每个索引只缩小候选集合，最终按原始规则序号比较；不能因为规则可索引就越过排在前面的复杂规则。该约束保证高性能和用户配置语义同时成立。
 
-- [ ] **Step 4: 运行路由核心测试。**
+- [x] **Step 4: 运行路由核心测试。**
 
 Run: `cargo test -p routing-core && cargo fmt --check`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交路由计划。**
+- [x] **Step 5: 提交路由计划。**
 
 ```bash
 git add crates/routing-core
@@ -589,7 +589,7 @@ git commit -m "feat: compile ordered indexed routing plans"
 - Test: `crates/pac-compiler/tests/v2_pac_contract.rs`
 - Test: `crates/pac-compiler/tests/large_rule_contract.rs`
 
-- [ ] **Step 1: 写出代理映射和失败兜底的失败测试。**
+- [x] **Step 1: 写出代理映射和失败兜底的失败测试。**
 
 ```rust
 #[test]
@@ -602,13 +602,13 @@ fn emits_protocol_specific_proxy_chain_and_direct_fallback() {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `cargo test -p pac-compiler --test v2_pac_contract`
 
 Expected: FAIL，V2 配置和多协议输出尚未支持。
 
-- [ ] **Step 3: 生成可预测的 PAC。**
+- [x] **Step 3: 生成可预测的 PAC。**
 
 ```rust
 fn pac_proxy_token(server: &ProxyServer) -> String {
@@ -630,7 +630,7 @@ Run: `cargo test -p pac-compiler --test v2_pac_contract --test large_rule_contra
 
 Expected: PASS，50,000 条测试只验证编译和 PAC 大小，不将浏览器加载时间伪装为测量结果。
 
-- [ ] **Step 5: 提交 PAC 编译器。**
+- [x] **Step 5: 提交 PAC 编译器。**
 
 ```bash
 git add crates/pac-compiler
@@ -647,7 +647,7 @@ git commit -m "feat: compile v2 profiles into optimized pac"
 - Test: `apps/chrome-extension/src/runtime/proxy-setting-v2.test.ts`
 - Test: `apps/chrome-extension/src/runtime/profile-resolution.test.ts`
 
-- [ ] **Step 1: 写出各配置类型对应 Chrome 模式的失败测试。**
+- [x] **Step 1: 写出各配置类型对应 Chrome 模式的失败测试。**
 
 ```ts
 expect(proxySettingFor(document, 'direct')).toEqual({ mode: 'direct' });
@@ -660,13 +660,13 @@ expect(proxySettingFor(document, 'fixed')).toMatchObject({
 expect(proxySettingFor(document, 'pac')).toMatchObject({ mode: 'pac_script' });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/proxy-setting-v2.test.ts apps/chrome-extension/src/runtime/profile-resolution.test.ts`
 
 Expected: FAIL，当前只支持单一固定代理和四种配置。
 
-- [ ] **Step 3: 实现配置解析与 Chrome 映射。**
+- [x] **Step 3: 实现配置解析与 Chrome 映射。**
 
 ```ts
 export function resolveProfileTarget(document: ProfileDocumentV2, target: ProfileTarget): Profile {
@@ -684,13 +684,13 @@ export function proxySettingFor(
 
 PAC 网址使用 `pac_url`；脚本与自动切换使用 `pac_script`；虚拟配置只在解析阶段存在，不能直接传给 Chrome。固定代理绕过列表始终加上本机回环地址，除非用户在“高级设置”明确开启回环规则覆盖。
 
-- [ ] **Step 4: 运行代理设置回归测试。**
+- [x] **Step 4: 运行代理设置回归测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/proxy-setting*.test.ts apps/chrome-extension/src/runtime/profile-resolution.test.ts && pnpm check`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交 Chrome 映射。**
+- [x] **Step 5: 提交 Chrome 映射。**
 
 ```bash
 git add apps/chrome-extension/src/runtime

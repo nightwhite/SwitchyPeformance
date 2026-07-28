@@ -1,4 +1,4 @@
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ConfigurationDocument } from '@switchypeformance/contracts';
 
 import type { CredentialRepository } from './credential-repository.ts';
 import type { ConfigurationRepository } from './configuration-repository.ts';
@@ -60,9 +60,13 @@ export function createProxyAuthenticationHandler(
   };
 }
 
-function findChallengeProxy(document: ProfileDocument, challenge: ProxyAuthenticationChallenge) {
+function findChallengeProxy(
+  document: ConfigurationDocument,
+  challenge: ProxyAuthenticationChallenge
+) {
   const challengeHost = normalizeHost(challenge.challenger.host);
-  return document.proxies.find(
+  const proxies = document.schemaVersion === 1 ? document.proxies : document.proxyServers;
+  return proxies.find(
     (proxy) =>
       normalizeHost(proxy.host) === challengeHost && proxy.port === challenge.challenger.port
   );

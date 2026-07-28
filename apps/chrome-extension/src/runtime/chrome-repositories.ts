@@ -1,4 +1,8 @@
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type {
+  ConfigurationDocument,
+  ProfileDocument,
+  ProfileDocumentV2
+} from '@switchypeformance/contracts';
 
 import { createConfigurationRepository } from './configuration-repository.ts';
 import { createCredentialRepository } from './credential-repository.ts';
@@ -14,8 +18,7 @@ export const chromeConfigurationRepository = createConfigurationRepository({
     return stored[CONFIGURATION_KEY];
   },
   async write(document) {
-    const { credentials: _credentials, ...serializable } = document;
-    await chrome.storage.local.set({ [CONFIGURATION_KEY]: serializable });
+    await chrome.storage.local.set({ [CONFIGURATION_KEY]: serializableConfiguration(document) });
   }
 });
 
@@ -40,8 +43,11 @@ export const chromeCredentialRepository = createCredentialRepository({
 });
 
 export function serializableConfiguration(
-  document: ProfileDocument
-): Omit<ProfileDocument, 'credentials'> {
+  document: ConfigurationDocument
+): Omit<ProfileDocument, 'credentials'> | ProfileDocumentV2 {
+  if (document.schemaVersion === 2) {
+    return document;
+  }
   const { credentials: _credentials, ...serializable } = document;
   return serializable;
 }

@@ -1,4 +1,4 @@
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ConfigurationDocument } from '@switchypeformance/contracts';
 
 import type { ApplyConfigurationResult } from './apply-configuration.ts';
 import type { ConfigurationRepository } from './configuration-repository.ts';
@@ -6,22 +6,22 @@ import { createConfigurationService } from './configuration-service.ts';
 import type { DiagnosticEvent, DiagnosticsRepository } from './diagnostics-repository.ts';
 
 export interface BackgroundServiceDependencies {
-  apply(document: ProfileDocument): Promise<ApplyConfigurationResult>;
+  apply(document: ConfigurationDocument): Promise<ApplyConfigurationResult>;
   configuration: ConfigurationRepository;
   diagnostics: Pick<DiagnosticsRepository, 'append' | 'clear' | 'list'>;
 }
 
 export interface BackgroundSnapshot {
-  configuration: ProfileDocument;
+  configuration: ConfigurationDocument;
   diagnostics: readonly DiagnosticEvent[];
 }
 
 export interface BackgroundService {
-  activateProfile(profileId: string): Promise<ProfileDocument>;
+  activateProfile(profileId: string): Promise<ConfigurationDocument>;
   clearDiagnostics(): Promise<void>;
   recordProxyError(message: string, detail?: string): Promise<void>;
   reapplyCurrent(): Promise<ApplyConfigurationResult>;
-  replaceConfiguration(candidate: unknown): Promise<ProfileDocument>;
+  replaceConfiguration(candidate: unknown): Promise<ConfigurationDocument>;
   snapshot(): Promise<BackgroundSnapshot>;
 }
 
@@ -29,7 +29,7 @@ export function createBackgroundService(
   dependencies: BackgroundServiceDependencies
 ): BackgroundService {
   async function applyWithDiagnostics(
-    document: ProfileDocument
+    document: ConfigurationDocument
   ): Promise<ApplyConfigurationResult> {
     const result = await dependencies.apply(document);
     await dependencies.diagnostics.append({

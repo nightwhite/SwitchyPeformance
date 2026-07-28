@@ -13,6 +13,7 @@ import {
 } from '../src/runtime/proxy-credential-binding.ts';
 import {
   DIRECT_QUICK_RULE_MENU_ID,
+  profileQuickRuleMenuId,
   proxyQuickRuleMenuId,
   quickRuleTargetFromMenuId
 } from '../src/runtime/quick-rule-context-menu.ts';
@@ -23,7 +24,13 @@ import {
   type BackgroundResponse
 } from '../src/runtime/messages.ts';
 import { compileAutoSwitchWithWasm } from '../src/runtime/wasm-runtime.ts';
-import { addHostRuleToAutoSwitch } from '@switchypeformance/contracts';
+import {
+  addHostRuleToAutoSwitch,
+  addHostRuleToAutoSwitchV2,
+  resolveProfileV2,
+  type ConfigurationDocument,
+  type ProfileDocumentV2
+} from '@switchypeformance/contracts';
 
 export default defineBackground(() => {
   const service = createBackgroundService({
@@ -113,12 +120,25 @@ export default defineBackground(() => {
         id: DIRECT_QUICK_RULE_MENU_ID,
         title: '将此网站通过以下方式访问：直连'
       });
-      for (const proxy of document.proxies) {
-        chrome.contextMenus.create({
-          contexts: ['page'],
-          id: proxyQuickRuleMenuId(proxy.id),
-          title: `将此网站通过以下方式访问：${proxy.name}`
-        });
+      if (document.schemaVersion === 1) {
+        for (const proxy of document.proxies) {
+          chrome.contextMenus.create({
+            contexts: ['page'],
+            id: proxyQuickRuleMenuId(proxy.id),
+            title: `将此网站通过以下方式访问：${proxy.name}`
+          });
+        }
+      } else {
+        for (const profile of document.profiles) {
+          if (profile.kind !== 'fixed-proxy') {
+            continue;
+          }
+          chrome.contextMenus.create({
+            contexts: ['page'],
+            id: profileQuickRuleMenuId(profile.id),
+            title: `将此网站通过以下方式访问：${profile.name}`
+          });
+        }
       }
     } catch (error) {
       await chromeDiagnosticsRepository.append({
@@ -141,21 +161,7 @@ export default defineBackground(() => {
     try {
       const host = new URL(rawUrl).hostname;
       const document = await chromeConfigurationRepository.load();
-      const automatic =
-        document.profiles.find(
-          (profile) => profile.kind === 'auto-switch' && profile.id === document.activeProfileId
-        ) ?? document.profiles.find((profile) => profile.kind === 'auto-switch');
-      if (!automatic || automatic.kind !== 'auto-switch') {
-        throw new Error('自动切换配置不存在');
-      }
-      await service.replaceConfiguration(
-        addHostRuleToAutoSwitch(document, {
-          host,
-          profileId: automatic.id,
-          ruleId: `rule-${crypto.randomUUID()}`,
-          target
-        })
-      );
+      await service.replaceConfiguration(addQuickRule(document, host, target));
       await rebuildQuickRuleMenus();
     } catch (error) {
       await chromeDiagnosticsRepository.append({
@@ -219,7 +225,7 @@ async function saveProxyCredentials(
   message: Extract<BackgroundRequest, { type: 'proxy.credentials.save' }>
 ): Promise<void> {
   const document = await chromeConfigurationRepository.load();
-  const proxy = document.proxies.find((candidate) => candidate.id === message.proxyId);
+  const proxy = proxyById(document, message.proxyId);
   if (!proxy) {
     throw new Error('代理不存在');
   }
@@ -229,7 +235,11 @@ async function saveProxyCredentials(
     username: message.username,
     password: message.password
   });
-  await service.replaceConfiguration(bindProxyCredential(document, proxy.id, credentialId));
+  await service.replaceConfiguration(
+    document.schemaVersion === 1
+      ? bindProxyCredential(document, proxy.id, credentialId)
+      : bindProxyCredential(document, proxy.id, credentialId)
+  );
 }
 
 async function clearProxyCredentials(
@@ -237,11 +247,15 @@ async function clearProxyCredentials(
   proxyId: string
 ): Promise<void> {
   const document = await chromeConfigurationRepository.load();
-  const proxy = document.proxies.find((candidate) => candidate.id === proxyId);
+  const proxy = proxyById(document, proxyId);
   if (!proxy) {
     throw new Error('代理不存在');
   }
-  await service.replaceConfiguration(clearProxyCredential(document, proxy.id));
+  await service.replaceConfiguration(
+    document.schemaVersion === 1
+      ? clearProxyCredential(document, proxy.id)
+      : clearProxyCredential(document, proxy.id)
+  );
   if (proxy.credentialId) {
     await chromeCredentialRepository.remove(proxy.credentialId);
   }
@@ -258,4 +272,83 @@ function messageChangesProxyList(message: unknown): boolean {
     !Array.isArray(message) &&
     (message as { type?: unknown }).type === 'configuration.replace'
   );
+}
+
+function addQuickRule(
+  document: ConfigurationDocument,
+  host: string,
+  target: NonNullable<ReturnType<typeof quickRuleTargetFromMenuId>>
+): ConfigurationDocument {
+  const ruleId = `rule-${crypto.randomUUID()}`;
+  if (document.schemaVersion === 1) {
+    if (target.kind === 'profile') {
+      throw new Error('旧配置不能把规则目标设为 V2 配置');
+    }
+    const automatic = v1AutomaticProfile(document);
+    return addHostRuleToAutoSwitch(document, {
+      host,
+      profileId: automatic.id,
+      ruleId,
+      target
+    });
+  }
+
+  const automatic = v2AutomaticProfile(document);
+  const profileId =
+    target.kind === 'direct'
+      ? 'direct'
+      : target.kind === 'system'
+        ? 'system'
+        : target.kind === 'profile'
+          ? target.profileId
+          : fixedProfileIdForLegacyProxy(document, target.proxyId);
+  return addHostRuleToAutoSwitchV2(document, {
+    host,
+    profileId: automatic.id,
+    ruleId,
+    target: { profileId }
+  });
+}
+
+function v1AutomaticProfile(document: Extract<ConfigurationDocument, { schemaVersion: 1 }>) {
+  const active = document.profiles.find(
+    (profile) => profile.kind === 'auto-switch' && profile.id === document.activeProfileId
+  );
+  const automatic = active ?? document.profiles.find((profile) => profile.kind === 'auto-switch');
+  if (!automatic || automatic.kind !== 'auto-switch') {
+    throw new Error('自动切换配置不存在');
+  }
+  return automatic;
+}
+
+function v2AutomaticProfile(document: ProfileDocumentV2) {
+  const active = resolveProfileV2(document).profile;
+  const automatic =
+    active.kind === 'auto-switch'
+      ? active
+      : document.profiles.find((profile) => profile.kind === 'auto-switch');
+  if (!automatic || automatic.kind !== 'auto-switch') {
+    throw new Error('自动切换配置不存在');
+  }
+  return automatic;
+}
+
+function fixedProfileIdForLegacyProxy(document: ProfileDocumentV2, proxyId: string): string {
+  const profile = document.profiles.find(
+    (candidate) =>
+      candidate.kind === 'fixed-proxy' &&
+      (candidate.routes.fallbackProxyId === proxyId ||
+        candidate.routes.httpProxyId === proxyId ||
+        candidate.routes.httpsProxyId === proxyId ||
+        candidate.routes.ftpProxyId === proxyId)
+  );
+  if (!profile) {
+    throw new Error('V2 快捷规则需要选择固定代理配置');
+  }
+  return profile.id;
+}
+
+function proxyById(document: ConfigurationDocument, proxyId: string) {
+  const proxies = document.schemaVersion === 1 ? document.proxies : document.proxyServers;
+  return proxies.find((candidate) => candidate.id === proxyId);
 }

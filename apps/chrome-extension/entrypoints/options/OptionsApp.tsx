@@ -25,6 +25,7 @@ import {
 import type {
   AutoSwitchProfile,
   ProfileDocument,
+  ProfileDocumentV2,
   ProxyEndpoint,
   Rule
 } from '@switchypeformance/contracts';
@@ -123,6 +124,29 @@ export function OptionsApp() {
     return <main className="options-loading">正在加载 SwitchyPeformance...</main>;
   }
 
+  const document = state.configuration;
+  if (document.schemaVersion === 2) {
+    return (
+      <VersionTwoOptions
+        busy={busy}
+        document={document}
+        error={error}
+        onActivate={async (profileId) => {
+          setBusy(true);
+          setError(undefined);
+          try {
+            setState(await requestBackgroundState({ type: 'profile.activate', profileId }));
+          } catch (cause) {
+            setError(messageFor(cause));
+          } finally {
+            setBusy(false);
+          }
+        }}
+        onRefresh={refresh}
+      />
+    );
+  }
+
   const copy = PAGE_COPY[page];
   return (
     <main className="options-app">
@@ -214,34 +238,168 @@ export function OptionsApp() {
 
         <div className="workspace-content">
           {page === 'overview' ? (
-            <OverviewPanel state={state} activeName={activeProfile?.name} onNavigate={navigate} />
+            <OverviewPanel
+              activeName={activeProfile?.name}
+              diagnostics={state.diagnostics}
+              document={document}
+              onNavigate={navigate}
+            />
           ) : null}
           {page === 'proxies' ? (
             <ProxyPanel
-              document={state.configuration}
+              document={document}
               busy={busy}
               onSave={saveConfiguration}
               onState={setState}
             />
           ) : null}
           {page === 'automatic' ? (
-            <AutomaticPanel document={state.configuration} busy={busy} onSave={saveConfiguration} />
+            <AutomaticPanel document={document} busy={busy} onSave={saveConfiguration} />
           ) : null}
           {page === 'diagnostics' ? (
             <DiagnosticsPanel
               state={state}
               busy={busy}
-              document={state.configuration}
+              document={document}
               onSave={saveConfiguration}
               onState={setState}
             />
           ) : null}
           {page === 'data' ? (
-            <DataPanel document={state.configuration} busy={busy} onSave={saveConfiguration} />
+            <DataPanel document={document} busy={busy} onSave={saveConfiguration} />
           ) : null}
           {page === 'settings' ? (
-            <SettingsPanel document={state.configuration} busy={busy} onSave={saveConfiguration} />
+            <SettingsPanel document={document} busy={busy} onSave={saveConfiguration} />
           ) : null}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function VersionTwoOptions({
+  busy,
+  document,
+  error,
+  onActivate,
+  onRefresh
+}: {
+  busy: boolean;
+  document: ProfileDocumentV2;
+  error: string | undefined;
+  onActivate(profileId: string): Promise<void>;
+  onRefresh(): Promise<void>;
+}) {
+  return (
+    <main className="options-app">
+      <aside className="side-rail">
+        <div className="rail-brand">
+          <span className="rail-mark">
+            <ZapMark />
+          </span>
+          <span>
+            <strong>SwitchyPeformance</strong>
+            <small>Chrome 代理路由</small>
+          </span>
+        </div>
+        <div className="rail-status">
+          <span className={error ? 'rail-dot rail-dot-error' : 'rail-dot'} />
+          <span>{error ? '需要处理' : 'V2 配置已加载'}</span>
+        </div>
+      </aside>
+      <section className="workspace">
+        <header className="workspace-header">
+          <div>
+            <p>运行状态</p>
+            <h1>V2 代理配置</h1>
+          </div>
+          <div className="header-actions">
+            <button
+              className="outline-button"
+              disabled={busy}
+              onClick={() => void onRefresh()}
+              type="button"
+            >
+              <RefreshCw size={16} />
+              刷新
+            </button>
+          </div>
+        </header>
+        {error ? (
+          <div className="error-strip">
+            <AlertTriangle size={17} />
+            {error}
+          </div>
+        ) : null}
+        <div className="workspace-content">
+          <section className="control-band">
+            <div className="control-signal">
+              <span className="signal-dot" />
+              <span>当前模式</span>
+            </div>
+            <strong>
+              {document.profiles.find((profile) => profile.id === document.activeProfileId)?.name ??
+                '未知配置'}
+            </strong>
+            <ShieldCheck size={28} aria-hidden="true" />
+          </section>
+          <section className="metric-grid" aria-label="V2 配置指标">
+            <Metric value={document.proxyServers.length} label="代理服务器" />
+            <Metric
+              value={document.profiles.filter((profile) => profile.kind === 'auto-switch').length}
+              label="自动切换配置"
+            />
+            <Metric
+              value={document.profiles.reduce(
+                (count, profile) =>
+                  profile.kind === 'auto-switch' ? count + profile.rules.length : count,
+                0
+              )}
+              label="自动切换规则"
+            />
+          </section>
+          <section className="page-panel table-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">配置切换</p>
+                <h2>选择当前代理配置</h2>
+              </div>
+            </div>
+            <div className="data-table">
+              <div className="table-row table-head">
+                <span>名称</span>
+                <span>类型</span>
+                <span>状态</span>
+                <span>操作</span>
+              </div>
+              {document.profiles.map((profile) => {
+                const active = profile.id === document.activeProfileId;
+                return (
+                  <div className="table-row" key={profile.id}>
+                    <strong>{profile.name}</strong>
+                    <span className="mono-chip">{profileKindLabel(profile.kind)}</span>
+                    <span>{active ? '当前使用' : '未启用'}</span>
+                    <span className="table-actions">
+                      <button
+                        className="outline-button"
+                        disabled={busy || active}
+                        onClick={() => void onActivate(profile.id)}
+                        type="button"
+                      >
+                        切换
+                      </button>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+          <section className="page-panel overview-actions">
+            <div>
+              <p className="panel-kicker">V2 编辑器</p>
+              <h2>运行与切换已启用，完整编辑器正在接入同一套 V2 数据模型</h2>
+            </div>
+          </section>
         </div>
       </section>
     </main>
@@ -277,18 +435,20 @@ function NavButton({
 }
 
 function OverviewPanel({
-  state,
+  document,
+  diagnostics,
   activeName,
   onNavigate
 }: {
-  state: BackgroundState;
+  document: ProfileDocument;
+  diagnostics: BackgroundState['diagnostics'];
   activeName: string | undefined;
   onNavigate(page: Page): void;
 }) {
-  const autoRules = state.configuration.profiles
+  const autoRules = document.profiles
     .filter((profile): profile is AutoSwitchProfile => profile.kind === 'auto-switch')
     .reduce((count, profile) => count + profile.rules.length, 0);
-  const errors = state.diagnostics.filter((event) => event.level === 'error').length;
+  const errors = diagnostics.filter((event) => event.level === 'error').length;
 
   return (
     <>
@@ -301,7 +461,7 @@ function OverviewPanel({
         <ShieldCheck size={28} aria-hidden="true" />
       </section>
       <section className="metric-grid" aria-label="路由指标">
-        <Metric value={state.configuration.proxies.length} label="代理服务器" />
+        <Metric value={document.proxies.length} label="代理服务器" />
         <Metric value={autoRules} label="自动切换规则" />
         <Metric value={errors} label="近期错误" tone={errors > 0 ? 'danger' : 'normal'} />
       </section>
@@ -1330,6 +1490,27 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
       <span>{label}</span>
     </div>
   );
+}
+
+function profileKindLabel(kind: ProfileDocumentV2['profiles'][number]['kind']): string {
+  switch (kind) {
+    case 'direct':
+      return '直连';
+    case 'system':
+      return '系统';
+    case 'fixed-proxy':
+      return '固定代理';
+    case 'pac':
+      return 'PAC';
+    case 'auto-detect':
+      return '自动检测';
+    case 'auto-switch':
+      return '自动切换';
+    case 'rule-list':
+      return '规则列表';
+    case 'virtual':
+      return '虚拟配置';
+  }
 }
 
 function ZapMark() {

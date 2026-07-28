@@ -68,4 +68,37 @@ describe('createConfigurationRepository', () => {
     await expect(repository.load()).rejects.toThrow('保存的配置无效');
     expect(write).not.toHaveBeenCalled();
   });
+
+  it('loads and preserves a valid V2 document instead of forcing it through the V1 parser', async () => {
+    const stored = v2Document();
+    const write = vi.fn().mockResolvedValue(undefined);
+    const repository = createConfigurationRepository({
+      read: vi.fn().mockResolvedValue(stored),
+      write
+    });
+
+    const document = await repository.load();
+
+    expect(document).toEqual(stored);
+    expect(write).not.toHaveBeenCalled();
+  });
 });
+
+function v2Document() {
+  return {
+    schemaVersion: 2,
+    activeProfileId: 'direct',
+    profiles: [
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' }
+    ],
+    proxyServers: [],
+    ruleSources: [],
+    settings: {
+      startupProfileId: 'direct',
+      reloadAfterProfileChange: false,
+      ruleInsertPosition: 'last',
+      networkMonitor: { enabled: false }
+    }
+  };
+}

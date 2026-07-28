@@ -11,14 +11,19 @@ import {
   Zap
 } from 'lucide-react';
 
-import type { ProfileDocument, RouteTarget } from '@switchypeformance/contracts';
+import {
+  addHostRuleToAutoSwitchV2,
+  type ConfigurationDocument
+} from '@switchypeformance/contracts';
 
 import {
   createId,
   requestBackgroundState,
   routeOptions,
+  routeOptionsV2,
   sendBackgroundCommand,
-  targetFromValue
+  targetFromValue,
+  targetFromValueV2
 } from '../../src/ui/background-client.ts';
 import { addHostRuleToAutoSwitch } from '../../src/ui/configuration-actions.ts';
 import { toUserFacingMessage } from '../../src/ui/error-message.ts';
@@ -37,7 +42,12 @@ export function PopupApp() {
     () => document?.profiles.find((profile) => profile.id === document.activeProfileId),
     [document]
   );
-  const options = useMemo(() => (document ? routeOptions(document) : []), [document]);
+  const options = useMemo(() => {
+    if (!document) {
+      return [];
+    }
+    return document.schemaVersion === 1 ? routeOptions(document) : routeOptionsV2(document);
+  }, [document]);
   const failedHosts = useMemo(
     () => recentFailureHosts(state?.diagnostics ?? []),
     [state?.diagnostics]
@@ -73,19 +83,10 @@ export function PopupApp() {
     if (!document) {
       return;
     }
-    const automatic = document.profiles.find((profile) => profile.kind === 'auto-switch');
-    if (!automatic || automatic.kind !== 'auto-switch') {
-      setError('没有可用的自动切换配置');
-      return;
-    }
-
-    const target = targetFromValue(ruleTarget);
-    const replacement = addHostRuleToAutoSwitch(document, {
-      host,
-      profileId: automatic.id,
-      ruleId: createId('rule'),
-      target
-    });
+    const replacement =
+      document.schemaVersion === 1
+        ? addV1HostRule(document, host, ruleTarget)
+        : addV2HostRule(document, host, selectedRuleTarget(document, ruleTarget));
 
     setBusy(true);
     setError(undefined);
@@ -180,7 +181,7 @@ export function PopupApp() {
             aria-label="当前网站的路由"
             disabled={busy || !currentHost}
             onChange={(event) => setRuleTarget(event.target.value)}
-            value={ruleTarget}
+            value={selectedRuleTarget(document, ruleTarget)}
           >
             {options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -243,7 +244,7 @@ export function PopupApp() {
   );
 }
 
-function profileGlyph(kind: ProfileDocument['profiles'][number]['kind']): string {
+function profileGlyph(kind: ConfigurationDocument['profiles'][number]['kind']): string {
   switch (kind) {
     case 'direct':
       return '直';
@@ -253,7 +254,53 @@ function profileGlyph(kind: ProfileDocument['profiles'][number]['kind']): string
       return '代';
     case 'auto-switch':
       return '自';
+    case 'pac':
+      return 'P';
+    case 'auto-detect':
+      return '检';
+    case 'rule-list':
+      return '规';
+    case 'virtual':
+      return '虚';
   }
+}
+
+function addV1HostRule(
+  document: Extract<ConfigurationDocument, { schemaVersion: 1 }>,
+  host: string,
+  targetValue: string
+) {
+  const automatic = document.profiles.find((profile) => profile.kind === 'auto-switch');
+  if (!automatic || automatic.kind !== 'auto-switch') {
+    throw new Error('没有可用的自动切换配置');
+  }
+  return addHostRuleToAutoSwitch(document, {
+    host,
+    profileId: automatic.id,
+    ruleId: createId('rule'),
+    target: targetFromValue(targetValue)
+  });
+}
+
+function addV2HostRule(
+  document: Extract<ConfigurationDocument, { schemaVersion: 2 }>,
+  host: string,
+  targetValue: string
+) {
+  const automatic = document.profiles.find((profile) => profile.kind === 'auto-switch');
+  if (!automatic || automatic.kind !== 'auto-switch') {
+    throw new Error('没有可用的自动切换配置');
+  }
+  return addHostRuleToAutoSwitchV2(document, {
+    host,
+    profileId: automatic.id,
+    ruleId: createId('rule'),
+    target: targetFromValueV2(targetValue)
+  });
+}
+
+function selectedRuleTarget(document: ConfigurationDocument | undefined, value: string): string {
+  return document?.schemaVersion === 2 && value === 'direct' ? 'profile:direct' : value;
 }
 
 async function loadCurrentHost(): Promise<string | undefined> {

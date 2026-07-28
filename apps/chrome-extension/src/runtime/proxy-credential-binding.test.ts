@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import { bindProxyCredential, clearProxyCredential } from './proxy-credential-binding.ts';
 
@@ -38,4 +38,44 @@ describe('proxy credential binding', () => {
   it('does not silently bind credentials to an unknown proxy', () => {
     expect(() => bindProxyCredential(document, 'missing', 'credential-edge')).toThrow('代理不存在');
   });
+
+  it('binds a credential id to a V2 proxy server without changing its routes', () => {
+    const bound = bindProxyCredential(v2Document(), 'v2-proxy', 'credential-v2');
+
+    expect(bound).toMatchObject({
+      schemaVersion: 2,
+      proxyServers: [expect.objectContaining({ id: 'v2-proxy', credentialId: 'credential-v2' })]
+    });
+    expect(clearProxyCredential(bound, 'v2-proxy')).toMatchObject({
+      schemaVersion: 2,
+      proxyServers: [expect.not.objectContaining({ credentialId: expect.anything() })]
+    });
+  });
 });
+
+function v2Document(): ProfileDocumentV2 {
+  return {
+    schemaVersion: 2,
+    activeProfileId: 'direct',
+    profiles: [
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' }
+    ],
+    proxyServers: [
+      {
+        id: 'v2-proxy',
+        name: 'V2 proxy',
+        scheme: 'http',
+        host: 'proxy-v2.example.test',
+        port: 8080
+      }
+    ],
+    ruleSources: [],
+    settings: {
+      startupProfileId: 'direct',
+      reloadAfterProfileChange: false,
+      ruleInsertPosition: 'last',
+      networkMonitor: { enabled: false }
+    }
+  };
+}

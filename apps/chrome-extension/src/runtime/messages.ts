@@ -1,4 +1,4 @@
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ConfigurationDocument } from '@switchypeformance/contracts';
 
 export type BackgroundRequest =
   | { type: 'state.get' }
@@ -11,7 +11,7 @@ export type BackgroundRequest =
   | { type: 'proxy.credentials.delete'; credentialId: string };
 
 export interface BackgroundState {
-  configuration: ProfileDocument;
+  configuration: ConfigurationDocument;
   diagnostics: readonly {
     id: string;
     timestamp: number;

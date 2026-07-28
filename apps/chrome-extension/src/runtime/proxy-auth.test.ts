@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ProfileDocument } from '@switchypeformance/contracts';
+import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import { createProxyAuthenticationHandler } from './proxy-auth.ts';
 
@@ -89,4 +89,52 @@ describe('createProxyAuthenticationHandler', () => {
       })
     ).resolves.toBeUndefined();
   });
+
+  it('uses a V2 proxy server credential for the matching proxy challenge', async () => {
+    const configuration = { load: vi.fn().mockResolvedValue(v2Document()) };
+    const credentials = {
+      get: vi.fn().mockResolvedValue({
+        id: 'credential-v2',
+        username: 'v2-user',
+        password: 'v2-secret'
+      })
+    };
+    const handler = createProxyAuthenticationHandler({ configuration, credentials });
+
+    await expect(
+      handler.handle({
+        challenger: { host: 'proxy-v2.example.test', port: 8080 },
+        isProxy: true,
+        requestId: 'request-v2'
+      })
+    ).resolves.toEqual({ authCredentials: { username: 'v2-user', password: 'v2-secret' } });
+  });
 });
+
+function v2Document(): ProfileDocumentV2 {
+  return {
+    schemaVersion: 2,
+    activeProfileId: 'direct',
+    profiles: [
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' }
+    ],
+    proxyServers: [
+      {
+        id: 'v2-proxy',
+        name: 'V2 proxy',
+        scheme: 'http',
+        host: 'proxy-v2.example.test',
+        port: 8080,
+        credentialId: 'credential-v2'
+      }
+    ],
+    ruleSources: [],
+    settings: {
+      startupProfileId: 'direct',
+      reloadAfterProfileChange: false,
+      ruleInsertPosition: 'last',
+      networkMonitor: { enabled: false }
+    }
+  };
+}

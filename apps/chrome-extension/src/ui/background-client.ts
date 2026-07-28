@@ -1,4 +1,9 @@
-import type { ProfileDocument, RouteTarget } from '@switchypeformance/contracts';
+import type {
+  ProfileDocument,
+  ProfileDocumentV2,
+  ProfileTarget,
+  RouteTarget
+} from '@switchypeformance/contracts';
 
 import type {
   BackgroundRequest,
@@ -42,6 +47,20 @@ export function routeOptions(document: ProfileDocument): readonly {
   ];
 }
 
+export function routeOptionsV2(document: ProfileDocumentV2): readonly {
+  label: string;
+  value: string;
+  target: ProfileTarget;
+}[] {
+  return document.profiles
+    .filter((profile) => profile.kind !== 'auto-switch')
+    .map((profile) => ({
+      label: profile.name,
+      value: `profile:${profile.id}`,
+      target: { profileId: profile.id }
+    }));
+}
+
 export function targetFromValue(value: string): RouteTarget {
   if (value === 'direct') {
     return { kind: 'direct' };
@@ -53,6 +72,17 @@ export function targetFromValue(value: string): RouteTarget {
     return { kind: 'proxy', proxyId: value.slice('proxy:'.length) };
   }
   throw new Error(`不支持的路由目标：${value}`);
+}
+
+export function targetFromValueV2(value: string): ProfileTarget {
+  if (!value.startsWith('profile:')) {
+    throw new Error(`不支持的 V2 路由目标：${value}`);
+  }
+  const profileId = value.slice('profile:'.length);
+  if (!profileId) {
+    throw new Error(`不支持的 V2 路由目标：${value}`);
+  }
+  return { profileId };
 }
 
 export function targetToValue(target: RouteTarget): string {

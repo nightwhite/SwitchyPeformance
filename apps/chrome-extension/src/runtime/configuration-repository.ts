@@ -1,13 +1,18 @@
-import { parseProfileDocument, type ProfileDocument } from '@switchypeformance/contracts';
+import {
+  parseConfigurationDocument,
+  type ConfigurationDocument,
+  type ProfileDocument,
+  type ProfileDocumentV2
+} from '@switchypeformance/contracts';
 
 export interface ConfigurationStorage {
   read(): Promise<unknown>;
-  write(document: ProfileDocument): Promise<void>;
+  write(document: ConfigurationDocument): Promise<void>;
 }
 
 export interface ConfigurationRepository {
-  load(): Promise<ProfileDocument>;
-  replace(candidate: unknown): Promise<ProfileDocument>;
+  load(): Promise<ConfigurationDocument>;
+  replace(candidate: unknown): Promise<ConfigurationDocument>;
 }
 
 export function createConfigurationRepository(
@@ -59,15 +64,21 @@ export function createDefaultProfileDocument(): ProfileDocument {
   };
 }
 
-function parseStoredDocument(candidate: unknown): ProfileDocument {
-  const result = parseProfileDocument(candidate);
+function parseStoredDocument(candidate: unknown): ConfigurationDocument {
+  const result = parseConfigurationDocument(candidate);
   if (!result.ok) {
     throw new Error('保存的配置无效');
   }
   return result.value;
 }
 
-function localizeBuiltInProfileNames(document: ProfileDocument): ProfileDocument {
+function localizeBuiltInProfileNames(document: ConfigurationDocument): ConfigurationDocument {
+  return document.schemaVersion === 1
+    ? localizeV1BuiltInProfileNames(document)
+    : localizeV2BuiltInProfileNames(document);
+}
+
+function localizeV1BuiltInProfileNames(document: ProfileDocument): ProfileDocument {
   let changed = false;
   const profiles = document.profiles.map((profile) => {
     const name = localizedBuiltInProfileName(profile);
@@ -81,7 +92,41 @@ function localizeBuiltInProfileNames(document: ProfileDocument): ProfileDocument
   return changed ? { ...document, profiles } : document;
 }
 
+function localizeV2BuiltInProfileNames(document: ProfileDocumentV2): ProfileDocumentV2 {
+  let changed = false;
+  const profiles = document.profiles.map((profile) => {
+    const name = localizedV2BuiltInProfileName(profile);
+    if (name === profile.name) {
+      return profile;
+    }
+    changed = true;
+    return { ...profile, name };
+  });
+  return changed ? { ...document, profiles } : document;
+}
+
 function localizedBuiltInProfileName(profile: ProfileDocument['profiles'][number]): string {
+  if (profile.id === 'direct' && profile.kind === 'direct' && profile.name === 'Direct') {
+    return '直连';
+  }
+  if (
+    profile.id === 'system' &&
+    profile.kind === 'system' &&
+    (profile.name === 'System' || profile.name === 'System proxy')
+  ) {
+    return '系统代理';
+  }
+  if (
+    profile.id === 'auto-switch' &&
+    profile.kind === 'auto-switch' &&
+    (profile.name === 'Automatic' || profile.name === 'Automatic routing')
+  ) {
+    return '自动切换';
+  }
+  return profile.name;
+}
+
+function localizedV2BuiltInProfileName(profile: ProfileDocumentV2['profiles'][number]): string {
   if (profile.id === 'direct' && profile.kind === 'direct' && profile.name === 'Direct') {
     return '直连';
   }
