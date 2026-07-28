@@ -8,8 +8,8 @@ describe('V2 路由选项', () => {
   it('uses profile ids rather than legacy proxy ids', () => {
     expect(routeOptionsV2(v2Document())).toEqual([
       { label: '直连', value: 'profile:direct', target: { profileId: 'direct' } },
-      { label: '系统代理', value: 'profile:system', target: { profileId: 'system' } },
-      { label: '工作代理', value: 'profile:work', target: { profileId: 'work' } }
+      { label: '工作代理', value: 'profile:work', target: { profileId: 'work' } },
+      { label: '工作代理别名', value: 'profile:work-alias', target: { profileId: 'work-alias' } }
     ]);
     expect(targetFromValueV2('profile:work')).toEqual({ profileId: 'work' });
   });
@@ -38,6 +38,12 @@ function v2Document(): ProfileDocumentV2 {
         proxyFailurePolicy: 'direct',
         rules: [],
         ruleSourceIds: []
+      },
+      {
+        id: 'work-alias',
+        kind: 'virtual',
+        name: '工作代理别名',
+        target: { profileId: 'work' }
       }
     ],
     proxyServers: [

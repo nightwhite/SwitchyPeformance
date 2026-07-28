@@ -952,13 +952,13 @@ git commit -m "feat: edit protocol-specific proxy servers"
 - Create: `apps/chrome-extension/src/ui/components/RuleTargetSelect.tsx`
 - Create: `apps/chrome-extension/src/ui/components/VirtualRuleTable.tsx`
 - Create: `apps/chrome-extension/src/ui/configuration/rule-actions.ts`
-- Modify: `apps/chrome-extension/src/ui/pages/RulesPage.tsx`
-- Modify: `apps/chrome-extension/src/ui/rule-virtualizer.ts`
+- Create: `apps/chrome-extension/src/ui/pages/V2RulesPage.tsx`
+- Modify: `apps/chrome-extension/src/ui/pages/V2OptionsApp.tsx`
 - Test: `apps/chrome-extension/src/ui/configuration/rule-actions.test.ts`
-- Test: `apps/chrome-extension/src/ui/components/RuleConditionEditor.test.tsx`
+- Test: `apps/chrome-extension/src/ui/configuration/rule-condition-draft.test.ts`
 - Test: `apps/chrome-extension/src/ui/rule-virtualizer.test.ts`
 
-- [ ] **Step 1: 写出新增高级条件、禁用规则和 50,000 行窗口计算的失败测试。**
+- [x] **Step 1: 写出新增高级条件、禁用规则和 50,000 行窗口计算的失败测试。**
 
 ```ts
 expect(
@@ -979,13 +979,13 @@ expect(
 ).toMatchObject({ start: expect.any(Number), end: expect.any(Number) });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/ui/configuration/rule-actions.test.ts apps/chrome-extension/src/ui/components/RuleConditionEditor.test.tsx apps/chrome-extension/src/ui/rule-virtualizer.test.ts`
+Run: `pnpm vitest run apps/chrome-extension/src/ui/configuration/rule-actions.test.ts apps/chrome-extension/src/ui/configuration/rule-condition-draft.test.ts apps/chrome-extension/src/ui/rule-virtualizer.test.ts`
 
 Expected: FAIL，当前规则类型和编辑器只覆盖三种条件。
 
-- [ ] **Step 3: 实现规则编辑操作。**
+- [x] **Step 3: 实现规则编辑操作。**
 
 ```ts
 export type RuleEdit =
@@ -998,18 +998,20 @@ export type RuleEdit =
 
 复杂条件表单在用户输入时显示本地校验，但只有点击保存才提交一次完整配置。规则表只渲染可见行；排序和拖动必须按稳定 ID 操作，不能用数组下标作为 React key。
 
-- [ ] **Step 4: 运行 UI、路由和生产构建测试。**
+- [x] **Step 4: 运行 UI、路由和生产构建测试。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/ui/configuration/rule-actions.test.ts apps/chrome-extension/src/ui/components/RuleConditionEditor.test.tsx apps/chrome-extension/src/ui/rule-virtualizer.test.ts && pnpm build`
+Run: `pnpm vitest run apps/chrome-extension/src/ui/configuration/rule-actions.test.ts apps/chrome-extension/src/ui/configuration/rule-condition-draft.test.ts apps/chrome-extension/src/ui/rule-virtualizer.test.ts && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交规则编辑器。**
+- [x] **Step 5: 提交规则编辑器。**
 
 ```bash
 git add apps/chrome-extension/src/ui
 git commit -m "feat: edit advanced auto-switch rules efficiently"
 ```
+
+**执行记录（2026-07-29）：** V2 自动切换页现在可以选择自动切换配置、添加/编辑/删除/启用/排序规则，并编辑全部 11 种条件。规则目标统一只接受最终解析为直连或固定代理的配置，系统代理、PAC、自动检测和嵌套自动切换不会再被错误放入快捷规则选择。空搜索时 50,000 条规则不复制中间数组，只按可见窗口切片；有搜索时才构建匹配结果。`localhost`、`.localhost`、`127.0.0.0/8`、`0.0.0.0` 和 IPv6 本地/未指定地址默认直连；用户明确选择“允许规则匹配”后，路由解释和生成的 PAC 都按规则执行。代理失败策略继续由 PAC 的 `; DIRECT` 兜底或无兜底指令实际控制。先后验证了规则操作、公共目标判断、本地地址策略和 PAC 生成的失败测试；完成后 `pnpm test` 为 39 个文件、122 项测试通过，`cargo test --workspace`、`pnpm check`、`pnpm format:check`、`cargo fmt --check` 和 `pnpm build` 均通过。
 
 ### Task 15: 实现 PAC、自动检测、规则列表和虚拟配置编辑器
 

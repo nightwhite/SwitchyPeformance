@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ProfileDocumentV2 } from './document.ts';
-import { resolveProfileV2 } from './profile-resolution.ts';
+import { isAutoSwitchRouteTargetV2, resolveProfileV2 } from './profile-resolution.ts';
 
 describe('V2 配置解析', () => {
   it('解析活动虚拟配置最终指向的真实配置', () => {
@@ -34,6 +34,27 @@ describe('V2 配置解析', () => {
     ]);
 
     expect(() => resolveProfileV2(document)).toThrow('虚拟配置存在循环引用');
+  });
+
+  it('只把最终落到直连或固定代理的配置作为自动切换目标', () => {
+    const document = documentWith([
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' },
+      {
+        id: 'fixed',
+        kind: 'fixed-proxy',
+        name: '工作代理',
+        routes: { fallbackProxyId: 'work' },
+        bypassList: []
+      },
+      { id: 'fixed-alias', kind: 'virtual', name: '工作别名', target: { profileId: 'fixed' } }
+    ]);
+
+    expect(isAutoSwitchRouteTargetV2(document, 'direct')).toBe(true);
+    expect(isAutoSwitchRouteTargetV2(document, 'fixed')).toBe(true);
+    expect(isAutoSwitchRouteTargetV2(document, 'fixed-alias')).toBe(true);
+    expect(isAutoSwitchRouteTargetV2(document, 'system')).toBe(false);
+    expect(isAutoSwitchRouteTargetV2(document, 'missing')).toBe(false);
   });
 });
 

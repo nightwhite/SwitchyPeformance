@@ -15,6 +15,7 @@ fn emits_a_v2_proxy_directive_with_direct_failover() {
     assert!(pac.contains("SOCKS5 socks.example:1080; DIRECT"));
     assert!(pac.contains("example.com"));
     assert!(pac.contains("function FindProxyForURL"));
+    assert!(pac.contains("host==='0.0.0.0'"));
 }
 
 #[test]
@@ -128,7 +129,7 @@ fn preserves_a_url_rule_before_a_later_host_index() {
 }
 
 #[test]
-fn keeps_loopback_direct_even_when_rules_are_requested() {
+fn omits_the_loopback_direct_guard_when_the_user_allows_rules() {
     let mut configuration = configuration();
     let Some(V2Profile::AutoSwitch(profile)) = configuration
         .profiles
@@ -138,13 +139,23 @@ fn keeps_loopback_direct_even_when_rules_are_requested() {
         panic!("test configuration must contain the automatic profile");
     };
     profile.loopback_policy = "use-rules".to_owned();
+    profile.rules.insert(
+        0,
+        V2SwitchRule {
+            id: "localhost-proxy".to_owned(),
+            enabled: true,
+            condition: V2RuleCondition::HostWildcard {
+                pattern: "localhost".to_owned(),
+            },
+            target: target("proxy"),
+        },
+    );
 
     let pac = compile_v2_auto_switch_pac(&configuration)
-        .expect("Chrome PAC should always keep loopback traffic direct");
+        .expect("a configuration that explicitly permits local rules should compile");
 
-    assert!(pac.contains("host==='localhost'"));
-    assert!(pac.contains("host.indexOf('127.')===0"));
-    assert!(pac.contains("host==='::1'"));
+    assert!(pac.contains("localhost"));
+    assert!(!pac.contains("host==='localhost'"));
 }
 
 #[test]

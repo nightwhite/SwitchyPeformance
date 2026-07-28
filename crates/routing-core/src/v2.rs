@@ -134,7 +134,8 @@ pub fn route_v2_auto_switch(
         .and_then(Url::host_str)
         .map(str::to_ascii_lowercase);
 
-    if host.as_deref().is_some_and(is_chrome_pac_loopback) {
+    if program.loopback_policy != "use-rules" && host.as_deref().is_some_and(is_chrome_pac_loopback)
+    {
         return V2RouteDecision {
             destination: V2RouteDestination::Direct,
             matched_rule_id: None,
@@ -232,6 +233,9 @@ fn indexed_rule_match<'a>(
 fn is_chrome_pac_loopback(host: &str) -> bool {
     host == "localhost"
         || host.ends_with(".localhost")
+        || host == "0.0.0.0"
+        || host == "::"
+        || host == "[::]"
         || host == "::1"
         || host == "[::1]"
         || host.starts_with("127.")

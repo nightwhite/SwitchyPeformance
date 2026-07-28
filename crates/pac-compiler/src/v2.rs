@@ -119,9 +119,11 @@ fn render_auto_switch(
     source.push_str(";var _spF=");
     source.push_str(&fallback.to_string());
     source.push_str(";\nfunction FindProxyForURL(url,host){host=(host||'').toLowerCase();\n");
-    source.push_str(
-        "if(host==='localhost'||host.slice(-10)==='.localhost'||host==='::1'||host==='[::1]'||host.indexOf('127.')===0)return 'DIRECT';\n",
-    );
+    if program.loopback_policy != "use-rules" {
+        source.push_str(
+            "if(host==='localhost'||host.slice(-10)==='.localhost'||host==='0.0.0.0'||host==='::'||host==='[::]'||host==='::1'||host==='[::1]'||host.indexOf('127.')===0)return 'DIRECT';\n",
+        );
+    }
     source.push_str(&body);
     source.push_str("return _spR(url,host,_spT[_spF]);\n}\n");
     Ok(source)

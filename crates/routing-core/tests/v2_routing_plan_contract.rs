@@ -83,7 +83,7 @@ fn explains_the_same_rule_order_that_the_pac_program_uses() {
 }
 
 #[test]
-fn keeps_loopback_direct_to_match_the_generated_chrome_pac() {
+fn routes_loopback_only_when_the_user_explicitly_allows_rules() {
     let mut configuration = configuration();
     let Some(V2Profile::AutoSwitch(profile)) = configuration
         .profiles
@@ -111,6 +111,44 @@ fn keeps_loopback_direct_to_match_the_generated_chrome_pac() {
         &program,
         V2RouteRequest {
             url: "http://localhost:3000/",
+            weekday: 1,
+            minute_of_day: 600,
+        },
+    );
+
+    assert_eq!(profile_id(&decision.destination), Some("proxy"));
+    assert_eq!(decision.reason, V2DecisionReason::IndexedRule);
+    assert_eq!(decision.matched_rule_id.as_deref(), Some("localhost-proxy"));
+}
+
+#[test]
+fn keeps_unspecified_local_bind_addresses_direct_by_default() {
+    let mut configuration = configuration();
+    let Some(V2Profile::AutoSwitch(profile)) = configuration
+        .profiles
+        .iter_mut()
+        .find(|profile| matches!(profile, V2Profile::AutoSwitch(value) if value.id == "auto"))
+    else {
+        panic!("test configuration must contain the automatic profile");
+    };
+    profile.rules.insert(
+        0,
+        V2SwitchRule {
+            id: "bind-address-proxy".to_owned(),
+            enabled: true,
+            condition: V2RuleCondition::HostWildcard {
+                pattern: "0.0.0.0".to_owned(),
+            },
+            target: target("proxy"),
+        },
+    );
+
+    let program = compile_v2_auto_switch_program(&configuration)
+        .expect("valid V2 automatic profile should produce a routing program");
+    let decision = route_v2_auto_switch(
+        &program,
+        V2RouteRequest {
+            url: "http://0.0.0.0:3000/",
             weekday: 1,
             minute_of_day: 600,
         },

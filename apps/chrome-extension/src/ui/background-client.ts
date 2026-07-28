@@ -4,6 +4,7 @@ import type {
   ProfileTarget,
   RouteTarget
 } from '@switchypeformance/contracts';
+import { isAutoSwitchRouteTargetV2 } from '@switchypeformance/contracts';
 
 import type {
   BackgroundRequest,
@@ -53,7 +54,7 @@ export function routeOptionsV2(document: ProfileDocumentV2): readonly {
   target: ProfileTarget;
 }[] {
   return document.profiles
-    .filter((profile) => profile.kind !== 'auto-switch')
+    .filter((profile) => isAutoSwitchRouteTargetV2(document, profile.id))
     .map((profile) => ({
       label: profile.name,
       value: `profile:${profile.id}`,

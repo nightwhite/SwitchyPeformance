@@ -14,7 +14,7 @@ import {
   Trash2,
   Upload
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   importProfileDocument,
@@ -24,14 +24,13 @@ import {
 } from '@switchypeformance/contracts';
 
 import type { BackgroundState } from '../../runtime/messages.ts';
-import { calculateVirtualWindow } from '../rule-virtualizer.ts';
 import { toUserFacingMessage } from '../error-message.ts';
 import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-routes.ts';
-import { conditionLabel, profileName } from '../v2-labels.ts';
 import { requestBackgroundState } from '../background-client.ts';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
+import { V2RulesPage } from './V2RulesPage.tsx';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
@@ -42,10 +41,6 @@ const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   data: { eyebrow: '工具', title: '导入与导出' },
   settings: { eyebrow: '设置', title: '运行参数' }
 };
-
-const RULE_ROW_HEIGHT = 59;
-const RULE_VIEWPORT_HEIGHT = 590;
-const RULE_OVERSCAN = 5;
 
 export interface V2OptionsAppProps {
   busy: boolean;
@@ -192,7 +187,9 @@ export function V2OptionsApp({
               onState={onState}
             />
           ) : null}
-          {page === 'rules' ? <V2RulesPage document={document} /> : null}
+          {page === 'rules' ? (
+            <V2RulesPage busy={busy} document={document} onReplace={onReplace} />
+          ) : null}
           {page === 'diagnostics' ? (
             <V2DiagnosticsPage busy={busy} events={state.diagnostics} onState={onState} />
           ) : null}
@@ -233,86 +230,6 @@ function NavButton({
       <span>{label}</span>
       {selected ? <ChevronRight size={15} /> : null}
     </button>
-  );
-}
-
-function V2RulesPage({ document }: { document: ProfileDocumentV2 }) {
-  const automaticProfiles = document.profiles.filter(
-    (profile): profile is Extract<typeof profile, { kind: 'auto-switch' }> =>
-      profile.kind === 'auto-switch'
-  );
-  const [profileId, setProfileId] = useState(automaticProfiles[0]?.id ?? '');
-  const [scrollTop, setScrollTop] = useState(0);
-  const selected =
-    automaticProfiles.find((profile) => profile.id === profileId) ?? automaticProfiles[0];
-  const rules = selected?.rules ?? [];
-  const window = calculateVirtualWindow({
-    itemCount: rules.length,
-    overscan: RULE_OVERSCAN,
-    rowHeight: RULE_ROW_HEIGHT,
-    scrollTop,
-    viewportHeight: RULE_VIEWPORT_HEIGHT
-  });
-
-  if (!selected) {
-    return <section className="page-panel empty-state">尚未创建自动切换配置</section>;
-  }
-
-  return (
-    <>
-      <section className="page-panel rule-toolbar">
-        <div className="profile-select">
-          <label>
-            自动切换配置
-            <select
-              onChange={(event) => {
-                setProfileId(event.target.value);
-                setScrollTop(0);
-              }}
-              value={selected.id}
-            >
-              {automaticProfiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <span className="mono-chip">{rules.length.toLocaleString()} 条规则</span>
-      </section>
-      <section className="page-panel rule-table-panel">
-        <div className="rule-table-heading">
-          <span>序号</span>
-          <span>状态</span>
-          <span>匹配条件</span>
-          <span>目标</span>
-          <span />
-        </div>
-        <div
-          className="rule-table"
-          onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-          style={{ height: RULE_VIEWPORT_HEIGHT }}
-        >
-          <div className="rule-virtual-spacer" style={{ height: window.totalHeight }}>
-            <div
-              className="rule-virtual-content"
-              style={{ transform: `translateY(${window.offsetTop}px)` }}
-            >
-              {rules.slice(window.start, window.end).map((rule, index) => (
-                <div className="rule-row" key={rule.id}>
-                  <span>{window.start + index + 1}</span>
-                  <span>{rule.enabled ? '启用' : '停用'}</span>
-                  <strong>{conditionLabel(rule.condition)}</strong>
-                  <span>{profileName(document, rule.target.profileId)}</span>
-                  <span />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
   );
 }
 

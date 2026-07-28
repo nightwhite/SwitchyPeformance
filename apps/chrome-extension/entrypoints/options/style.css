@@ -583,13 +583,14 @@ textarea {
   align-items: end;
 }
 .profile-select {
-  display: flex;
+  display: grid;
   flex: 1;
-  gap: 12px;
-  flex-wrap: wrap;
+  max-width: 560px;
+  min-width: 240px;
+  gap: 6px;
 }
-.profile-select label {
-  min-width: 190px;
+.rule-toolbar .toolbar-actions {
+  flex: 0 0 auto;
 }
 .rule-search {
   flex: 1;
@@ -599,13 +600,21 @@ textarea {
   overflow: hidden;
   padding: 0;
 }
+.rule-table-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  padding: 16px 20px;
+  border-bottom: 1px solid #dfe5df;
+}
 .rule-table-heading,
 .rule-row {
   display: grid;
-  grid-template-columns: 76px 150px minmax(190px, 1fr) 170px 52px;
+  grid-template-columns: 64px 88px minmax(220px, 1fr) minmax(150px, 0.65fr) 144px;
   gap: 10px;
   align-items: center;
-  min-width: 700px;
+  min-width: 820px;
   padding: 0 20px;
 }
 .rule-table-heading {
@@ -631,12 +640,88 @@ textarea {
 }
 .rule-virtual-spacer {
   position: relative;
-  min-width: 700px;
+  min-width: 820px;
 }
 .rule-virtual-content {
   position: absolute;
   top: 0;
   width: 100%;
+}
+.rule-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 2px;
+  align-items: center;
+}
+.rule-enabled-toggle,
+.switch-setting,
+.weekday-option {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  color: #35463b;
+  font-size: 12px;
+  font-weight: 600;
+}
+.rule-enabled-toggle input,
+.switch-setting input,
+.weekday-option input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: #167b58;
+}
+.rule-condition-value,
+.rule-target-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auto-switch-settings {
+  max-width: 1120px;
+}
+.auto-switch-settings-grid {
+  grid-template-columns: minmax(220px, 1.25fr) minmax(150px, 1fr) minmax(150px, 1fr) auto;
+  align-items: end;
+}
+.rule-page-notice {
+  max-width: 1120px;
+}
+.rule-editor-dialog {
+  width: min(100%, 760px);
+}
+.rule-condition-editor {
+  display: grid;
+  gap: 12px;
+}
+.condition-fields {
+  display: grid;
+  gap: 6px;
+}
+.two-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.weekday-fieldset {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d0d9d0;
+  border-radius: 4px;
+}
+.weekday-fieldset legend {
+  padding: 0 4px;
+  color: #536158;
+  font-size: 11px;
+  font-weight: 700;
+}
+.weekday-options {
+  display: flex;
+  gap: 8px 12px;
+  flex-wrap: wrap;
 }
 .switch-control {
   display: inline-flex;
@@ -783,11 +868,13 @@ textarea {
 
 @media (max-width: 1100px) {
   .form-grid-proxy-server,
-  .fixed-proxy-grid {
+  .fixed-proxy-grid,
+  .auto-switch-settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .form-grid-proxy-server .form-command,
-  .bypass-input {
+  .bypass-input,
+  .auto-switch-settings-grid .form-command {
     grid-column: span 2;
   }
 }
@@ -815,6 +902,10 @@ textarea {
   }
   .toolbar-actions {
     justify-content: flex-end;
+  }
+  .rule-table-controls {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 @media (max-width: 720px) {
@@ -859,10 +950,14 @@ textarea {
     flex-direction: column;
   }
   .profile-select {
-    flex-direction: column;
-  }
-  .profile-select label {
     min-width: 0;
+  }
+  .two-fields,
+  .auto-switch-settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .auto-switch-settings-grid .form-command {
+    grid-column: auto;
   }
   .diagnostic-event {
     grid-template-columns: 1fr;

@@ -26,4 +26,16 @@ describe('calculateVirtualWindow', () => {
       })
     ).toEqual({ end: 12, offsetTop: 250, start: 5, totalHeight: 600 });
   });
+
+  it('keeps fifty thousand rules to the final visible window instead of expanding the render range', () => {
+    expect(
+      calculateVirtualWindow({
+        itemCount: 50_000,
+        overscan: 5,
+        rowHeight: 59,
+        scrollTop: 2_950_000,
+        viewportHeight: 590
+      })
+    ).toEqual({ end: 50_000, offsetTop: 2_949_115, start: 49_985, totalHeight: 2_950_000 });
+  });
 });

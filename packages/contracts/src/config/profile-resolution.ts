@@ -36,3 +36,12 @@ export function resolveProfileV2(
     profileId = profile.target.profileId;
   }
 }
+
+export function isAutoSwitchRouteTargetV2(document: ProfileDocumentV2, profileId: string): boolean {
+  try {
+    const resolved = resolveProfileV2(document, profileId).profile;
+    return resolved.kind === 'direct' || resolved.kind === 'fixed-proxy';
+  } catch {
+    return false;
+  }
+}
