@@ -78,4 +78,32 @@ describe('createBackgroundService', () => {
       scope: 'configuration'
     });
   });
+
+  it('includes source metadata in a snapshot without requiring every caller to read storage', async () => {
+    const sources = {
+      list: vi.fn().mockResolvedValue([
+        {
+          byteLength: 128,
+          lastSuccessAt: 1_000,
+          sourceId: 'rule-list:company',
+          url: 'https://rules.example/company.txt'
+        }
+      ])
+    };
+    const service = createBackgroundService({
+      apply: vi.fn().mockResolvedValue({ mode: 'direct' }),
+      configuration: { load: vi.fn().mockResolvedValue(document), replace: vi.fn() },
+      diagnostics: { append: vi.fn(), clear: vi.fn(), list: vi.fn().mockResolvedValue([]) },
+      sources
+    });
+
+    await expect(service.snapshot()).resolves.toMatchObject({
+      sourceStatuses: [
+        {
+          byteLength: 128,
+          sourceId: 'rule-list:company'
+        }
+      ]
+    });
+  });
 });

@@ -84,4 +84,11 @@ describe('background messages', () => {
       })
     ).toBe(false);
   });
+
+  it('accepts manual source refresh only with a concrete source ID', () => {
+    expect(isBackgroundRequest({ type: 'source.refresh', sourceId: 'rule-list:company' })).toBe(
+      true
+    );
+    expect(isBackgroundRequest({ type: 'source.refresh', sourceId: '' })).toBe(false);
+  });
 });

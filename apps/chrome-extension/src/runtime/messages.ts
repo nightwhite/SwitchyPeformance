@@ -8,6 +8,7 @@ import { validateCondition } from '@switchypeformance/contracts';
 
 import type { CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
+import type { SourceStatus } from './source-status-repository.ts';
 import type { TemporaryRule } from './temporary-rule-service.ts';
 
 export type QuickRuleTarget = ProfileTarget | RouteTarget;
@@ -40,6 +41,7 @@ export type BackgroundRequest =
     }
   | { type: 'temporary-rule.remove'; ruleId: string }
   | { type: 'temporary-rule.clear' }
+  | { type: 'source.refresh'; sourceId: string }
   | { type: 'diagnostics.clear' }
   | { type: 'options.open' }
   | { type: 'proxy.credentials.save'; proxyId: string; username: string; password: string }
@@ -57,6 +59,7 @@ export interface BackgroundState {
     target?: string;
     detail?: string;
   }[];
+  sourceStatuses: readonly SourceStatus[];
   temporaryRules: readonly TemporaryRule[];
 }
 
@@ -84,6 +87,7 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     host?: unknown;
     expiresAt?: unknown;
     ruleId?: unknown;
+    sourceId?: unknown;
   };
   return (
     message.type === 'state.get' ||
@@ -107,6 +111,7 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
       isQuickRuleTarget(message.target)) ||
     (message.type === 'temporary-rule.remove' && isNonEmptyString(message.ruleId)) ||
     message.type === 'temporary-rule.clear' ||
+    (message.type === 'source.refresh' && isNonEmptyString(message.sourceId)) ||
     (message.type === 'proxy.credentials.save' &&
       typeof message.proxyId === 'string' &&
       typeof message.username === 'string' &&

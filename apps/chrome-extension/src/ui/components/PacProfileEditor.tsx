@@ -7,14 +7,24 @@ import type { PacProfileUpdate } from '../configuration/advanced-profile-actions
 import { sourceDraftFrom, sourceFromDraft } from '../configuration/source-draft.ts';
 import { toUserFacingMessage } from '../error-message.ts';
 import { SourceFields } from './SourceFields.tsx';
+import { SourceStatus } from './SourceStatus.tsx';
+import type { SourceStatus as SourceStatusRecord } from '../../runtime/source-status-repository.ts';
 
 interface PacProfileEditorProps {
   busy: boolean;
+  onRefresh?(): Promise<void>;
   onSave(update: PacProfileUpdate): Promise<void>;
   profile: PacProfileV2;
+  sourceStatus?: SourceStatusRecord | undefined;
 }
 
-export function PacProfileEditor({ busy, onSave, profile }: PacProfileEditorProps) {
+export function PacProfileEditor({
+  busy,
+  onRefresh,
+  onSave,
+  profile,
+  sourceStatus
+}: PacProfileEditorProps) {
   const [source, setSource] = useState(() => sourceDraftFrom(profile.source));
   const [allowInsecureHttp, setAllowInsecureHttp] = useState(false);
   const [error, setError] = useState<string>();
@@ -43,9 +53,17 @@ export function PacProfileEditor({ busy, onSave, profile }: PacProfileEditorProp
         onAllowInsecureHttpChange={setAllowInsecureHttp}
         onChange={setSource}
         showHeaders
-        showRefresh={false}
+        showRefresh
         value={source}
       />
+      {profile.source.kind === 'url' && onRefresh ? (
+        <SourceStatus
+          busy={busy}
+          onRefresh={onRefresh}
+          policy={profile.source.refresh}
+          status={sourceStatus}
+        />
+      ) : null}
       <div className="editor-actions">
         <button
           className="primary-button"

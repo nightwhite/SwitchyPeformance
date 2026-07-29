@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import type { ProfileDocumentV2, ProfileTarget } from '@switchypeformance/contracts';
 
-import { createId } from '../background-client.ts';
+import { createId, requestBackgroundState } from '../background-client.ts';
 import type {
   PacProfileUpdate,
   RuleListProfileUpdate
@@ -30,15 +30,26 @@ import { PacProfileEditor } from '../components/PacProfileEditor.tsx';
 import { ProfileDeleteDialog } from '../components/ProfileDeleteDialog.tsx';
 import { RuleListProfileEditor } from '../components/RuleListProfileEditor.tsx';
 import { VirtualProfileEditor } from '../components/VirtualProfileEditor.tsx';
+import type { BackgroundState } from '../../runtime/messages.ts';
+import { pacSourceStatusId, ruleListSourceStatusId } from '../../runtime/source-status-id.ts';
 
 interface V2ProfilesPageProps {
   busy: boolean;
   document: ProfileDocumentV2;
   onActivate(profileId: string): Promise<void>;
   onReplace(document: ProfileDocumentV2): Promise<unknown>;
+  onState(state: BackgroundState): void;
+  sourceStatuses: BackgroundState['sourceStatuses'];
 }
 
-export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2ProfilesPageProps) {
+export function V2ProfilesPage({
+  busy,
+  document,
+  onActivate,
+  onReplace,
+  onState,
+  sourceStatuses
+}: V2ProfilesPageProps) {
   const [createKind, setCreateKind] = useState<CreatableProfileKind>('auto-switch');
   const [createName, setCreateName] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string }>();
@@ -46,6 +57,7 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
   const [advancedProfileId, setAdvancedProfileId] = useState<string>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [refreshingSourceId, setRefreshingSourceId] = useState<string>();
   const deletingPlan = deletingProfileId
     ? planProfileDeletion(document, deletingProfileId)
     : undefined;
@@ -55,6 +67,14 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
   const advancedSource =
     advancedProfile?.kind === 'rule-list'
       ? document.ruleSources.find((source) => source.id === advancedProfile.sourceId)
+      : undefined;
+  const advancedPacStatusId =
+    advancedProfile?.kind === 'pac' && advancedProfile.source.kind === 'url'
+      ? pacSourceStatusId(advancedProfile.id)
+      : undefined;
+  const advancedRuleListStatusId =
+    advancedProfile?.kind === 'rule-list' && advancedSource?.source.kind === 'url'
+      ? ruleListSourceStatusId(advancedSource.id)
       : undefined;
 
   async function apply(action: () => ProfileDocumentV2): Promise<boolean> {
@@ -131,6 +151,20 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
     }
     await applyEditor(() => updateVirtualProfile(document, advancedProfile.id, target));
     setNotice(`已更新 ${advancedProfile.name}。`);
+  }
+
+  async function refreshSource(sourceId: string, sourceName: string): Promise<void> {
+    try {
+      setError(undefined);
+      setNotice(undefined);
+      setRefreshingSourceId(sourceId);
+      onState(await requestBackgroundState({ type: 'source.refresh', sourceId }));
+      setNotice(`已刷新 ${sourceName}。`);
+    } catch (cause) {
+      setError(toUserFacingMessage(cause));
+    } finally {
+      setRefreshingSourceId(undefined);
+    }
   }
 
   function profileAtOffset(profileId: string, offset: number): string | undefined {
@@ -354,10 +388,14 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
       </section>
       {advancedProfile?.kind === 'pac' ? (
         <PacProfileEditor
-          busy={busy}
+          busy={busy || refreshingSourceId === advancedPacStatusId}
           key={advancedProfile.id}
           onSave={savePac}
           profile={advancedProfile}
+          sourceStatus={sourceStatuses.find((status) => status.sourceId === advancedPacStatusId)}
+          {...(advancedPacStatusId === undefined
+            ? {}
+            : { onRefresh: () => refreshSource(advancedPacStatusId, advancedProfile.name) })}
         />
       ) : null}
       {advancedProfile?.kind === 'auto-detect' ? (
@@ -365,12 +403,18 @@ export function V2ProfilesPage({ busy, document, onActivate, onReplace }: V2Prof
       ) : null}
       {advancedProfile?.kind === 'rule-list' && advancedSource ? (
         <RuleListProfileEditor
-          busy={busy}
+          busy={busy || refreshingSourceId === advancedRuleListStatusId}
           document={document}
           key={advancedProfile.id}
           onSave={saveRuleList}
           profile={advancedProfile}
           source={advancedSource}
+          sourceStatus={sourceStatuses.find(
+            (status) => status.sourceId === advancedRuleListStatusId
+          )}
+          {...(advancedRuleListStatusId === undefined
+            ? {}
+            : { onRefresh: () => refreshSource(advancedRuleListStatusId, advancedSource.name) })}
         />
       ) : null}
       {advancedProfile?.kind === 'rule-list' && !advancedSource ? (

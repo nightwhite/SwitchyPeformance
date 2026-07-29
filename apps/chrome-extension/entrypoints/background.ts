@@ -12,6 +12,8 @@ import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
 import { createRuleListService } from '../src/runtime/rule-list-service.ts';
 import { createRoutingApplicationService } from '../src/runtime/routing-application-service.ts';
 import { createRoutingDocumentPipeline } from '../src/runtime/routing-document-pipeline.ts';
+import { createSourceRefreshLifecycle } from '../src/runtime/source-refresh-lifecycle.ts';
+import { SOURCE_REFRESH_ALARM } from '../src/runtime/source-refresh-scheduler.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
 import { createProfileActivationService } from '../src/runtime/profile-activation-service.ts';
@@ -80,7 +82,8 @@ export default defineBackground(() => {
   const service = createBackgroundService({
     apply: routingApplication.apply,
     configuration: chromeConfigurationRepository,
-    diagnostics: chromeDiagnosticsRepository
+    diagnostics: chromeDiagnosticsRepository,
+    sources: chromeSourceStatusRepository
   });
   const profileActivation = createProfileActivationService({
     activate: (profileId) => service.activateProfile(profileId),
@@ -103,10 +106,27 @@ export default defineBackground(() => {
     reapply: () => service.reapplyCurrent(),
     temporaryRules
   });
+  const sourceRefreshLifecycle = createSourceRefreshLifecycle({
+    alarms: chrome.alarms,
+    listStatuses: () => chromeSourceStatusRepository.list(),
+    loadConfiguration: () => chromeConfigurationRepository.load(),
+    reapply: () => service.reapplyCurrent(),
+    refresh: (document, target) =>
+      target.kind === 'pac'
+        ? pacSources.refreshSource(document, target.ownerId)
+        : ruleLists.refreshSource(document, target.ownerId),
+    async reportFailure(target, error) {
+      await chromeDiagnosticsRepository.append({
+        detail: errorMessage(error),
+        level: 'error',
+        message: `刷新${target.kind === 'pac' ? 'PAC' : '规则列表'}来源失败：${target.name}`,
+        scope: 'runtime'
+      });
+    }
+  });
 
   const reapply = () => {
-    void temporaryRuleLifecycle.reapplyAndSchedule().catch(() => undefined);
-    void rebuildQuickRuleMenus();
+    void reapplyAndSchedule();
   };
   const authenticate = createProxyAuthenticationHandler({
     configuration: chromeConfigurationRepository,
@@ -127,6 +147,16 @@ export default defineBackground(() => {
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === TEMPORARY_RULE_EXPIRY_ALARM) {
       void temporaryRuleLifecycle.synchronize().catch(() => undefined);
+    }
+    if (alarm.name === SOURCE_REFRESH_ALARM) {
+      void sourceRefreshLifecycle.refreshDue().catch((error: unknown) => {
+        void chromeDiagnosticsRepository.append({
+          detail: errorMessage(error),
+          level: 'error',
+          message: '定时刷新来源失败',
+          scope: 'runtime'
+        });
+      });
     }
   });
   chrome.proxy.onProxyError.addListener((details) => {
@@ -196,11 +226,13 @@ export default defineBackground(() => {
           temporaryRules,
           routingApplication,
           temporaryRuleLifecycle,
+          sourceRefreshLifecycle,
           message
         )
       )
       .then(async (response) => {
         if (messageChangesProxyList(message)) {
+          void synchronizeSourceRefresh();
           await rebuildQuickRuleMenus();
         }
         sendResponse(response);
@@ -245,6 +277,37 @@ export default defineBackground(() => {
         message: '无法重建快捷规则菜单',
         scope: 'runtime'
       });
+    }
+  }
+
+  async function reapplyAndSchedule(): Promise<void> {
+    try {
+      await temporaryRuleLifecycle.reapplyAndSchedule();
+    } catch (error) {
+      await reportRuntimeFailure('应用启动代理配置失败', error);
+    }
+    await synchronizeSourceRefresh();
+    await rebuildQuickRuleMenus();
+  }
+
+  async function synchronizeSourceRefresh(): Promise<void> {
+    try {
+      await sourceRefreshLifecycle.synchronize();
+    } catch (error) {
+      await reportRuntimeFailure('无法安排来源刷新', error);
+    }
+  }
+
+  async function reportRuntimeFailure(message: string, error: unknown): Promise<void> {
+    try {
+      await chromeDiagnosticsRepository.append({
+        detail: errorMessage(error),
+        level: 'error',
+        message,
+        scope: 'runtime'
+      });
+    } catch {
+      // A diagnostics failure must never stop Chrome proxy recovery.
     }
   }
 
@@ -298,6 +361,7 @@ async function handleMessage(
   temporaryRules: TemporaryRuleService,
   routingApplication: ReturnType<typeof createRoutingApplicationService>,
   temporaryRuleLifecycle: ReturnType<typeof createTemporaryRuleLifecycle>,
+  sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
@@ -310,6 +374,7 @@ async function handleMessage(
     profileActivation,
     temporaryRules,
     routingApplication,
+    sourceRefreshLifecycle,
     message
   );
   await temporaryRuleLifecycle.synchronize();
@@ -333,6 +398,7 @@ async function dispatch(
   profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
   routingApplication: ReturnType<typeof createRoutingApplicationService>,
+  sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
   message: BackgroundRequest
 ): Promise<CurrentRouteStatus | undefined> {
   switch (message.type) {
@@ -380,6 +446,9 @@ async function dispatch(
       if (await temporaryRules.clear()) {
         await service.reapplyCurrent();
       }
+      return undefined;
+    case 'source.refresh':
+      await sourceRefreshLifecycle.refresh(message.sourceId);
       return undefined;
     case 'diagnostics.clear':
       await service.clearDiagnostics();

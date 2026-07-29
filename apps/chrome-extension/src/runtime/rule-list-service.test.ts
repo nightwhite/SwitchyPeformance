@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ProfileDocumentV2, RuleListSource } from '@switchypeformance/contracts';
+import {
+  parseRuleList,
+  type ProfileDocumentV2,
+  type RuleListSource
+} from '@switchypeformance/contracts';
 
 import { createRuleListService, ruleListSourceStatusId } from './rule-list-service.ts';
 import { createSourceStatusRepository } from './source-status-repository.ts';
@@ -166,6 +170,64 @@ describe('rule-list service', () => {
 
     expect(resolved.activeProfileId).toBe('list');
     expect(activeAutoSwitch(resolved).id).toBe('list');
+  });
+
+  it('refreshes an inactive remote list and stores its parsed rule statistics', async () => {
+    const statuses = memoryStatuses();
+    const fetch = vi.fn().mockResolvedValue({
+      byteLength: 36,
+      kind: 'content',
+      text: '||one.example\n||two.example\n$unsupported'
+    });
+    const service = createRuleListService({
+      clock: () => 3_000,
+      fetcher: { fetch },
+      statuses
+    });
+    const document = { ...remoteRuleListDocument(), activeProfileId: 'direct' };
+
+    await service.refreshSource(document, 'company-source');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'https://rules.example/company.txt' })
+    );
+    await expect(statuses.get(ruleListSourceStatusId('company-source'))).resolves.toMatchObject({
+      lastSuccessAt: 3_000,
+      ruleCount: 2,
+      warningCount: 1
+    });
+    expect(document.activeProfileId).toBe('direct');
+  });
+
+  it('skips parsing an unchanged source after the first compiled application', async () => {
+    const parse = vi.fn(parseRuleList);
+    const document = inlineRuleListDocument();
+    const service = createRuleListService({
+      fetcher: { fetch: vi.fn() },
+      parse,
+      statuses: memoryStatuses()
+    });
+
+    await service.resolveForApply(document);
+    await service.resolveForApply(document);
+
+    expect(parse).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a bounded parsed-list cache when a source receives many revisions', async () => {
+    const parse = vi.fn(parseRuleList);
+    const service = createRuleListService({
+      fetcher: { fetch: vi.fn() },
+      maxParsedCacheEntries: 1,
+      parse,
+      statuses: memoryStatuses()
+    });
+
+    await service.resolveForApply(inlineRuleListDocument({ text: '||first.example' }));
+    await service.resolveForApply(inlineRuleListDocument({ text: '||second.example' }));
+    await service.resolveForApply(inlineRuleListDocument({ text: '||first.example' }));
+
+    expect(parse).toHaveBeenCalledTimes(3);
   });
 });
 

@@ -10,9 +10,11 @@ export interface SourceStatus {
   lastErrorAt?: number;
   lastModified?: string;
   lastSuccessAt?: number;
+  ruleCount?: number;
   sourceId: string;
   text?: string;
   url: string;
+  warningCount?: number;
 }
 
 export type SourceStatusRecords = Record<string, SourceStatus>;
@@ -40,21 +42,45 @@ export interface SaveSourceNotModified {
   sourceId: string;
 }
 
+export interface SaveRuleListStats {
+  ruleCount: number;
+  sourceId: string;
+  warningCount: number;
+}
+
 export interface SourceStatusRepository {
   get(sourceId: string): Promise<SourceStatus | undefined>;
+  list(): Promise<readonly SourceStatus[]>;
   saveContent(content: SaveSourceContent): Promise<SourceStatus>;
   saveFailure(failure: SaveSourceFailure): Promise<SourceStatus>;
   saveNotModified(notModified: SaveSourceNotModified): Promise<SourceStatus | undefined>;
+  saveRuleListStats(stats: SaveRuleListStats): Promise<SourceStatus | undefined>;
 }
 
-export function createSourceStatusRepository(storage: SourceStatusStorage): SourceStatusRepository {
+export interface SourceStatusRepositoryOptions {
+  maxCacheBytes?: number;
+}
+
+const DEFAULT_MAX_CACHE_BYTES = 6 * 1_024 * 1_024;
+
+export function createSourceStatusRepository(
+  storage: SourceStatusStorage,
+  options: SourceStatusRepositoryOptions = {}
+): SourceStatusRepository {
   let pendingOperation = Promise.resolve();
+  const maxCacheBytes = cacheByteLimit(options.maxCacheBytes);
 
   return {
     async get(sourceId) {
       await pendingOperation;
       const status = (await readRecords())[sourceId];
       return status ? cloneStatus(status) : undefined;
+    },
+    async list() {
+      await pendingOperation;
+      return Object.values(await readRecords())
+        .sort((left, right) => left.sourceId.localeCompare(right.sourceId))
+        .map(statusMetadata);
     },
     saveContent(content) {
       return serialize(async () => {
@@ -69,8 +95,13 @@ export function createSourceStatusRepository(storage: SourceStatusStorage): Sour
           ...(content.lastModified === undefined ? {} : { lastModified: content.lastModified })
         };
         const records = await readRecords();
-        await storage.write({ ...records, [content.sourceId]: status });
-        return cloneStatus(status);
+        const next = trimCachedContent(
+          { ...records, [content.sourceId]: status },
+          maxCacheBytes,
+          content.sourceId
+        );
+        await storage.write(next);
+        return cloneStatus(next[content.sourceId] ?? status);
       });
     },
     saveFailure(failure) {
@@ -111,6 +142,29 @@ export function createSourceStatusRepository(storage: SourceStatusStorage): Sour
         delete status.lastError;
         delete status.lastErrorAt;
         await storage.write({ ...records, [notModified.sourceId]: status });
+        return cloneStatus(status);
+      });
+    },
+    saveRuleListStats(stats) {
+      return serialize(async () => {
+        validateRuleListStats(stats);
+        const records = await readRecords();
+        const existing = records[stats.sourceId];
+        if (!existing) {
+          return undefined;
+        }
+        if (
+          existing.ruleCount === stats.ruleCount &&
+          existing.warningCount === stats.warningCount
+        ) {
+          return cloneStatus(existing);
+        }
+        const status: SourceStatus = {
+          ...existing,
+          ruleCount: stats.ruleCount,
+          warningCount: stats.warningCount
+        };
+        await storage.write({ ...records, [stats.sourceId]: status });
         return cloneStatus(status);
       });
     }
@@ -156,7 +210,9 @@ function parseStatus(value: unknown): SourceStatus | undefined {
     !isOptionalString(value.lastError) ||
     !isOptionalTimestamp(value.lastSuccessAt) ||
     !isOptionalTimestamp(value.lastErrorAt) ||
-    !isOptionalByteLength(value.byteLength)
+    !isOptionalByteLength(value.byteLength) ||
+    !isOptionalNonNegativeInteger(value.ruleCount) ||
+    !isOptionalNonNegativeInteger(value.warningCount)
   ) {
     return undefined;
   }
@@ -170,7 +226,9 @@ function parseStatus(value: unknown): SourceStatus | undefined {
     ...(value.lastError === undefined ? {} : { lastError: value.lastError }),
     ...(value.lastSuccessAt === undefined ? {} : { lastSuccessAt: value.lastSuccessAt }),
     ...(value.lastErrorAt === undefined ? {} : { lastErrorAt: value.lastErrorAt }),
-    ...(value.byteLength === undefined ? {} : { byteLength: value.byteLength })
+    ...(value.byteLength === undefined ? {} : { byteLength: value.byteLength }),
+    ...(value.ruleCount === undefined ? {} : { ruleCount: value.ruleCount }),
+    ...(value.warningCount === undefined ? {} : { warningCount: value.warningCount })
   };
 }
 
@@ -204,8 +262,86 @@ function validateNotModified(notModified: SaveSourceNotModified): void {
   }
 }
 
+function validateRuleListStats(stats: SaveRuleListStats): void {
+  if (
+    !isNonEmptyString(stats.sourceId) ||
+    !isNonNegativeInteger(stats.ruleCount) ||
+    !isNonNegativeInteger(stats.warningCount)
+  ) {
+    throw new Error('规则列表统计无效');
+  }
+}
+
 function cloneStatus(status: SourceStatus): SourceStatus {
   return { ...status };
+}
+
+function statusMetadata(status: SourceStatus): SourceStatus {
+  const metadata = cloneStatus(status);
+  delete metadata.text;
+  delete metadata.etag;
+  delete metadata.lastModified;
+  return metadata;
+}
+
+function cacheByteLimit(value: number | undefined): number {
+  if (value === undefined) {
+    return DEFAULT_MAX_CACHE_BYTES;
+  }
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error('来源缓存大小限制无效');
+  }
+  return value;
+}
+
+function trimCachedContent(
+  records: SourceStatusRecords,
+  maxCacheBytes: number,
+  newestSourceId: string
+): SourceStatusRecords {
+  let totalBytes = cachedByteLength(records);
+  if (totalBytes <= maxCacheBytes) {
+    return records;
+  }
+
+  const candidates = Object.values(records)
+    .filter((status) => status.text !== undefined)
+    .sort((left, right) => {
+      const leftNewest = left.sourceId === newestSourceId ? 1 : 0;
+      const rightNewest = right.sourceId === newestSourceId ? 1 : 0;
+      if (leftNewest !== rightNewest) {
+        return leftNewest - rightNewest;
+      }
+      return (left.lastSuccessAt ?? 0) - (right.lastSuccessAt ?? 0);
+    });
+  const trimmed = { ...records };
+  for (const candidate of candidates) {
+    if (totalBytes <= maxCacheBytes) {
+      break;
+    }
+    totalBytes -= utf8ByteLength(candidate.text ?? '');
+    trimmed[candidate.sourceId] = withoutCachedContent(candidate);
+  }
+  return trimmed;
+}
+
+function cachedByteLength(records: SourceStatusRecords): number {
+  return Object.values(records).reduce(
+    (total, status) => total + utf8ByteLength(status.text ?? ''),
+    0
+  );
+}
+
+function withoutCachedContent(status: SourceStatus): SourceStatus {
+  const next = { ...status };
+  delete next.text;
+  delete next.etag;
+  delete next.lastModified;
+  return next;
+}
+
+function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -232,4 +368,12 @@ function isOptionalByteLength(value: unknown): value is number | undefined {
   return (
     value === undefined || (typeof value === 'number' && Number.isInteger(value) && value >= 0)
   );
+}
+
+function isOptionalNonNegativeInteger(value: unknown): value is number | undefined {
+  return value === undefined || isNonNegativeInteger(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }

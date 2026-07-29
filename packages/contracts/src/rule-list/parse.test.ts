@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRuleList } from './parse.ts';
+import { parseRuleList, ruleListSourceDigest } from './parse.ts';
 
 describe('parseRuleList', () => {
+  it('computes the same stable digest without parsing the list twice', () => {
+    const text = '||cached.example\n@@||direct.example';
+
+    expect(ruleListSourceDigest(text, 'auto-proxy')).toBe(
+      parseRuleList(text, 'auto-proxy').sourceDigest
+    );
+  });
+
   it('parses sequential AutoProxy rules and exclusions without executing text', () => {
     const result = parseRuleList(
       [

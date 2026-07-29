@@ -190,6 +190,8 @@ export function V2OptionsApp({
               document={document}
               onActivate={onActivate}
               onReplace={onReplace}
+              onState={onState}
+              sourceStatuses={state.sourceStatuses}
             />
           ) : null}
           {page === 'proxy-servers' ? (

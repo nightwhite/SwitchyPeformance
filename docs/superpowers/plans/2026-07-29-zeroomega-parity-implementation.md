@@ -1380,7 +1380,7 @@ git commit -m "feat: parse supported rule-list formats"
 - Test: `apps/chrome-extension/src/runtime/source-refresh-scheduler.test.ts`
 - Test: `apps/chrome-extension/src/ui/components/SourceStatus.test.tsx`
 
-- [ ] **Step 1: 写出只调度启用且到期来源的失败测试。**
+- [x] **Step 1: 写出只调度启用且到期来源的失败测试。**
 
 ```ts
 expect(sourcesDueForRefresh(sources, 1_000_000).map((source) => source.id)).toEqual([
@@ -1389,13 +1389,13 @@ expect(sourcesDueForRefresh(sources, 1_000_000).map((source) => source.id)).toEq
 expect(nextAlarmAt({ refreshMinutes: 60, lastSuccessAt: 900_000 })).toBe(960_000);
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/source-refresh-scheduler.test.ts apps/chrome-extension/src/ui/components/SourceStatus.test.tsx`
 
 Expected: FAIL，调度器和状态组件不存在。
 
-- [ ] **Step 3: 实现调度和中文状态。**
+- [x] **Step 3: 实现调度和中文状态。**
 
 ```ts
 export interface RefreshPolicy {
@@ -1406,13 +1406,15 @@ export interface RefreshPolicy {
 
 使用 `chrome.alarms` 触发而不是长期 `setInterval`；服务工作线程重启时重新计算闹钟。状态组件显示上次成功、上次错误、下载大小、规则数、下次刷新和“立即刷新”按钮。
 
-- [ ] **Step 4: 运行来源和构建验证。**
+**执行记录（2026-07-29）：** 远程 PAC 与规则列表都会进入统一来源清单；启用来源按“最后一次成功或失败 + 刷新间隔”安排下次 Chrome 闹钟，避免失败后紧密重试。启动时先应用当前配置再安排闹钟，避免同一订阅重复下载；定时刷新会继续处理其他来源，即使其中一个失败，只有活动来源刷新后才重新应用代理。来源缓存限制为 6 MiB，淘汰正文时保留大小、时间和规则统计，并清除 ETag 防止 304 误用无正文缓存。设置页可显示成功、错误、大小、规则数、下次刷新，并可对任何远程来源立即刷新；状态消息不包含规则文本、ETag 或修改时间。规则列表按内容摘要缓存，同一版本不会重复解析，缓存最多保留 32 个版本；配置保存不会等待后台重排闹钟。
+
+- [x] **Step 4: 运行来源和构建验证。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/source-refresh-scheduler.test.ts apps/chrome-extension/src/ui/components/SourceStatus.test.tsx && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交刷新调度。**
+- [x] **Step 5: 提交刷新调度。**
 
 ```bash
 git add apps/chrome-extension/src/runtime apps/chrome-extension/src/ui/components

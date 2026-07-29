@@ -166,6 +166,32 @@ describe('PAC source service', () => {
       text: 'function FindProxyForURL(){return "DIRECT";}'
     });
   });
+
+  it('refreshes a named inactive remote PAC without changing the active document', async () => {
+    const status = memoryStatusRepository();
+    const fetch = vi.fn().mockResolvedValue({
+      byteLength: 44,
+      kind: 'content',
+      text: 'function FindProxyForURL(){return "DIRECT";}'
+    });
+    const service = createPacSourceService({
+      clock: () => 3_000,
+      fetcher: { fetch },
+      statuses: status
+    });
+    const document = { ...remotePacDocument(), activeProfileId: 'direct' };
+
+    await service.refreshSource(document, 'pac-company');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'https://pac.example.test/company.pac' })
+    );
+    await expect(status.get(pacSourceStatusId('pac-company'))).resolves.toMatchObject({
+      lastSuccessAt: 3_000,
+      text: 'function FindProxyForURL(){return "DIRECT";}'
+    });
+    expect(document.activeProfileId).toBe('direct');
+  });
 });
 
 function remotePacDocument(activeProfileId = 'pac-company'): ProfileDocumentV2 {

@@ -4,16 +4,19 @@ import type { ApplyConfigurationResult } from './apply-configuration.ts';
 import type { ConfigurationRepository } from './configuration-repository.ts';
 import { createConfigurationService } from './configuration-service.ts';
 import type { DiagnosticEvent, DiagnosticsRepository } from './diagnostics-repository.ts';
+import type { SourceStatus, SourceStatusRepository } from './source-status-repository.ts';
 
 export interface BackgroundServiceDependencies {
   apply(document: ConfigurationDocument): Promise<ApplyConfigurationResult>;
   configuration: ConfigurationRepository;
   diagnostics: Pick<DiagnosticsRepository, 'append' | 'clear' | 'list'>;
+  sources?: Pick<SourceStatusRepository, 'list'>;
 }
 
 export interface BackgroundSnapshot {
   configuration: ConfigurationDocument;
   diagnostics: readonly DiagnosticEvent[];
+  sourceStatuses: readonly SourceStatus[];
 }
 
 export interface BackgroundService {
@@ -82,11 +85,12 @@ export function createBackgroundService(
       return runConfigurationOperation(() => configurationService.replace(candidate));
     },
     async snapshot() {
-      const [configuration, diagnostics] = await Promise.all([
+      const [configuration, diagnostics, sourceStatuses] = await Promise.all([
         dependencies.configuration.load(),
-        dependencies.diagnostics.list()
+        dependencies.diagnostics.list(),
+        dependencies.sources?.list() ?? []
       ]);
-      return { configuration, diagnostics };
+      return { configuration, diagnostics, sourceStatuses };
     }
   };
 

@@ -1,6 +1,7 @@
 import {
   isAutoSwitchRouteTargetV2,
   parseRuleList,
+  ruleListSourceDigest,
   resolveProfileV2,
   type AutoSwitchProfileV2,
   type ConfigurationDocument,
@@ -13,20 +14,30 @@ import {
 
 import { createRemoteTextSourceService } from './remote-text-source-service.ts';
 import type { SourceFetcher } from './source-fetcher.ts';
+import { ruleListSourceStatusId } from './source-status-id.ts';
 import type { SourceStatusRepository } from './source-status-repository.ts';
 
+export { ruleListSourceStatusId } from './source-status-id.ts';
+
 const DEFAULT_MAX_RULE_LIST_BYTES = 2 * 1_024 * 1_024;
+const DEFAULT_MAX_PARSED_CACHE_ENTRIES = 32;
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 export interface RuleListServiceDependencies {
   clock?: () => number;
   fetcher: Pick<SourceFetcher, 'fetch'>;
+  maxParsedCacheEntries?: number;
   maxBytes?: number;
-  statuses: Pick<SourceStatusRepository, 'get' | 'saveContent' | 'saveFailure' | 'saveNotModified'>;
+  parse?: typeof parseRuleList;
+  statuses: Pick<
+    SourceStatusRepository,
+    'get' | 'saveContent' | 'saveFailure' | 'saveNotModified' | 'saveRuleListStats'
+  >;
   timeoutMs?: number;
 }
 
 export interface RuleListService {
+  refreshSource(document: ConfigurationDocument, sourceId: string): Promise<void>;
   refreshAndResolve<T extends ConfigurationDocument>(document: T): Promise<T>;
   resolveForApply<T extends ConfigurationDocument>(document: T): Promise<T>;
 }
@@ -46,9 +57,18 @@ export function createRuleListService(dependencies: RuleListServiceDependencies)
     timeoutMs: dependencies.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     ...(dependencies.clock === undefined ? {} : { clock: dependencies.clock })
   });
+  const parse = dependencies.parse ?? parseRuleList;
+  const maxParsedCacheEntries = parsedCacheLimit(dependencies.maxParsedCacheEntries);
   const parsedByDigest = new Map<string, ParsedRuleList>();
 
   return {
+    async refreshSource(document, sourceId) {
+      const source = ruleListSource(document, sourceId);
+      if (!source || source.source.kind !== 'url') {
+        throw new Error(`规则列表来源不存在或不可刷新：${sourceId}`);
+      }
+      await parsedRuleList(source, await refreshText(source));
+    },
     async refreshAndResolve(document) {
       const active = activeRuleList(document);
       if (!active) {
@@ -79,15 +99,15 @@ export function createRuleListService(dependencies: RuleListServiceDependencies)
     return remoteSources.refresh(remoteSource(source));
   }
 
-  function resolveDocument<T extends ConfigurationDocument>(
+  async function resolveDocument<T extends ConfigurationDocument>(
     document: T,
     active: ActiveRuleList,
     text: string
-  ): T {
+  ): Promise<T> {
     if (document.schemaVersion !== 2) {
       return document;
     }
-    const parsed = parsedRuleList(active.source, text);
+    const parsed = await parsedRuleList(active.source, text);
     const replacement = toAutoSwitchProfile(document, active, parsed);
     const resolved: ProfileDocumentV2 = {
       ...document,
@@ -99,20 +119,51 @@ export function createRuleListService(dependencies: RuleListServiceDependencies)
     return resolved as T;
   }
 
-  function parsedRuleList(source: RuleListSource, text: string): ParsedRuleList {
-    const parsed = parseRuleList(text, source.format);
-    const key = `${source.id}:${parsed.sourceDigest}`;
+  async function parsedRuleList(source: RuleListSource, text: string): Promise<ParsedRuleList> {
+    const key = `${source.id}:${ruleListSourceDigest(text, source.format)}`;
     const cached = parsedByDigest.get(key);
-    if (cached) {
-      return cached;
+    const resolved = cached ?? parse(text, source.format);
+    cacheParsedRuleList(parsedByDigest, key, resolved, maxParsedCacheEntries);
+    if (source.source.kind === 'url') {
+      try {
+        await dependencies.statuses.saveRuleListStats({
+          ruleCount: resolved.rules.length,
+          sourceId: ruleListSourceStatusId(source.id),
+          warningCount: resolved.warnings.length
+        });
+      } catch {
+        // Statistics are diagnostics only and must not block routing.
+      }
     }
-    parsedByDigest.set(key, parsed);
-    return parsed;
+    return resolved;
   }
 }
 
-export function ruleListSourceStatusId(sourceId: string): string {
-  return `rule-list:${sourceId}`;
+function parsedCacheLimit(value: number | undefined): number {
+  if (value === undefined) {
+    return DEFAULT_MAX_PARSED_CACHE_ENTRIES;
+  }
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error('规则列表解析缓存大小无效');
+  }
+  return value;
+}
+
+function cacheParsedRuleList(
+  cache: Map<string, ParsedRuleList>,
+  key: string,
+  parsed: ParsedRuleList,
+  maxEntries: number
+): void {
+  cache.delete(key);
+  cache.set(key, parsed);
+  while (cache.size > maxEntries) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined) {
+      break;
+    }
+    cache.delete(oldestKey);
+  }
 }
 
 function activeRuleList(document: ConfigurationDocument): ActiveRuleList | undefined {
@@ -124,11 +175,20 @@ function activeRuleList(document: ConfigurationDocument): ActiveRuleList | undef
   if (profile.kind !== 'rule-list') {
     return undefined;
   }
-  const source = document.ruleSources.find((candidate) => candidate.id === profile.sourceId);
+  const source = ruleListSource(document, profile.sourceId);
   if (!source) {
     throw new Error(`规则列表来源不存在：${profile.sourceId}`);
   }
   return { profile, profileId: resolved.profileId, source };
+}
+
+function ruleListSource(
+  document: ConfigurationDocument,
+  sourceId: string
+): RuleListSource | undefined {
+  return document.schemaVersion === 2
+    ? document.ruleSources.find((candidate) => candidate.id === sourceId)
+    : undefined;
 }
 
 function remoteSource(source: RuleListSource) {

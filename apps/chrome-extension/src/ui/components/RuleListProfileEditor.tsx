@@ -12,21 +12,27 @@ import { sourceDraftFrom, sourceFromDraft } from '../configuration/source-draft.
 import { toUserFacingMessage } from '../error-message.ts';
 import { ProfileTargetSelect } from './ProfileTargetSelect.tsx';
 import { SourceFields } from './SourceFields.tsx';
+import { SourceStatus } from './SourceStatus.tsx';
+import type { SourceStatus as SourceStatusRecord } from '../../runtime/source-status-repository.ts';
 
 interface RuleListProfileEditorProps {
   busy: boolean;
   document: ProfileDocumentV2;
+  onRefresh?(): Promise<void>;
   onSave(update: RuleListProfileUpdate): Promise<void>;
   profile: RuleListProfileV2;
   source: RuleListSource;
+  sourceStatus?: SourceStatusRecord | undefined;
 }
 
 export function RuleListProfileEditor({
   busy,
   document,
+  onRefresh,
   onSave,
   profile,
-  source
+  source,
+  sourceStatus
 }: RuleListProfileEditorProps) {
   const [sourceName, setSourceName] = useState(source.name);
   const [format, setFormat] = useState(source.format);
@@ -113,6 +119,14 @@ export function RuleListProfileEditor({
         showRefresh
         value={sourceDraft}
       />
+      {source.source.kind === 'url' && onRefresh ? (
+        <SourceStatus
+          busy={busy}
+          onRefresh={onRefresh}
+          policy={source.source.refresh}
+          status={sourceStatus}
+        />
+      ) : null}
       <div className="editor-actions">
         <button
           className="primary-button"

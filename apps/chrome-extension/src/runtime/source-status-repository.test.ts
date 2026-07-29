@@ -95,6 +95,87 @@ describe('source status repository', () => {
     await expect(repository.get('pac:company')).resolves.toBeUndefined();
     expect(storage.read).toHaveBeenCalled();
   });
+
+  it('evicts the oldest cached source text before exceeding the configured cache budget', async () => {
+    const storage = memoryStorage();
+    const repository = createSourceStatusRepository(storage, { maxCacheBytes: 8 });
+
+    await repository.saveContent({
+      byteLength: 6,
+      etag: 'old-tag',
+      fetchedAt: 1_000,
+      sourceId: 'rule-list:old',
+      text: '123456',
+      url: 'https://rules.example/old.txt'
+    });
+    await repository.saveContent({
+      byteLength: 6,
+      etag: 'new-tag',
+      fetchedAt: 2_000,
+      sourceId: 'rule-list:new',
+      text: 'abcdef',
+      url: 'https://rules.example/new.txt'
+    });
+
+    await expect(repository.get('rule-list:old')).resolves.toMatchObject({
+      byteLength: 6,
+      lastSuccessAt: 1_000,
+      sourceId: 'rule-list:old',
+      url: 'https://rules.example/old.txt'
+    });
+    await expect(repository.get('rule-list:old')).resolves.not.toHaveProperty('text');
+    await expect(repository.get('rule-list:old')).resolves.not.toHaveProperty('etag');
+    await expect(repository.get('rule-list:new')).resolves.toMatchObject({
+      etag: 'new-tag',
+      text: 'abcdef'
+    });
+  });
+
+  it('stores parsed rule-list statistics next to the downloaded source status', async () => {
+    const repository = createSourceStatusRepository(memoryStorage());
+    await repository.saveContent({
+      byteLength: 16,
+      etag: 'private-cache-tag',
+      fetchedAt: 1_000,
+      sourceId: 'rule-list:company',
+      text: '||company.example',
+      url: 'https://rules.example/company.txt'
+    });
+
+    await repository.saveRuleListStats({
+      ruleCount: 12,
+      sourceId: 'rule-list:company',
+      warningCount: 2
+    });
+
+    await expect(repository.get('rule-list:company')).resolves.toMatchObject({
+      ruleCount: 12,
+      warningCount: 2
+    });
+  });
+
+  it('returns metadata lists without copying cached rule text into UI messages', async () => {
+    const repository = createSourceStatusRepository(memoryStorage());
+    await repository.saveContent({
+      byteLength: 16,
+      etag: 'private-cache-tag',
+      fetchedAt: 1_000,
+      sourceId: 'rule-list:company',
+      text: '||company.example',
+      url: 'https://rules.example/company.txt'
+    });
+
+    const statuses = await repository.list();
+    expect(statuses).toEqual([
+      {
+        byteLength: 16,
+        lastSuccessAt: 1_000,
+        sourceId: 'rule-list:company',
+        url: 'https://rules.example/company.txt'
+      }
+    ]);
+    expect(statuses[0]).not.toHaveProperty('etag');
+  });
 });
 
 function memoryStorage(initial: unknown = {}) {
