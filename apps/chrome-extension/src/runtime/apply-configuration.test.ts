@@ -137,6 +137,21 @@ describe('applyConfiguration', () => {
 
     expect(compileAutoSwitch).toHaveBeenCalledWith({ ...document, activeProfileId: 'auto' });
   });
+
+  it('keeps a configuration change saveable when another extension controls Chrome proxy', async () => {
+    const compileAutoSwitch = vi.fn().mockResolvedValue(compilationResult());
+    const setProxySetting = vi.fn().mockRejectedValue(externalProxyControlError());
+
+    await expect(
+      applyConfiguration(v2AutoSwitchDocument(), { compileAutoSwitch, setProxySetting })
+    ).resolves.toEqual({
+      control: {
+        controlledBy: 'other_extension',
+        levelOfControl: 'controlled_by_other_extensions'
+      },
+      mode: 'deferred'
+    });
+  });
 });
 
 function compilationResult() {
@@ -149,6 +164,20 @@ function compilationResult() {
       simpleRuleCount: 4
     }
   };
+}
+
+function externalProxyControlError(): Error & {
+  code: 'chrome-proxy-control-conflict';
+  control: { controlledBy: 'other_extension'; levelOfControl: 'controlled_by_other_extensions' };
+} {
+  const error = new Error('Chrome 代理当前由其他扩展控制');
+  return Object.assign(error, {
+    code: 'chrome-proxy-control-conflict' as const,
+    control: {
+      controlledBy: 'other_extension' as const,
+      levelOfControl: 'controlled_by_other_extensions' as const
+    }
+  });
 }
 
 function v2FixedDocument(): ProfileDocumentV2 {

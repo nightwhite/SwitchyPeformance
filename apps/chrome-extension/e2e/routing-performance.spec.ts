@@ -26,13 +26,11 @@ test('applies 10,000 automatic rules once and does not reapply them on navigatio
 
     const afterApply = await extension.sendMessage<DiagnosticsResponse>({ type: 'state.get' });
     expect(compilationEventCount(afterApply)).toBe(1);
-    expect(afterApply).toMatchObject({
-      state: {
-        diagnostics: [
-          expect.objectContaining({ message: expect.stringContaining(`${RULE_COUNT} 条索引规则`) })
-        ]
-      }
-    });
+    expect(afterApply.state?.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining(`${RULE_COUNT} 条索引规则`) })
+      ])
+    );
 
     const page = await extension.context.newPage();
     const url = `http://rule-${RULE_COUNT - 1}.performance.test:${target.port}/large-rule-set`;

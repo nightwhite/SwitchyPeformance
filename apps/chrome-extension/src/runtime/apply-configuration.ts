@@ -6,6 +6,8 @@ import {
 
 import { buildChromeProxySetting, type ChromeProxySetting } from './proxy-setting.ts';
 import { buildChromeProxySettingV2 } from './proxy-setting-v2.ts';
+import { isChromeProxyControlConflict } from './chrome-proxy.ts';
+import type { ProxyControlState } from './external-proxy-state.ts';
 
 export interface CompilationMetrics {
   simpleRuleCount: number;
@@ -28,7 +30,8 @@ export interface ApplyConfigurationDependencies {
 
 export type ApplyConfigurationResult =
   | { mode: Exclude<ChromeProxySetting['mode'], 'pac_script'> }
-  | { mode: 'pac_script'; metrics: CompilationMetrics };
+  | { mode: 'pac_script'; metrics: CompilationMetrics }
+  | { mode: 'deferred'; control: ProxyControlState };
 
 export async function applyConfiguration(
   document: ConfigurationDocument,
@@ -37,14 +40,36 @@ export async function applyConfiguration(
   const compilationDocument = autoSwitchCompilationDocument(document);
   if (!compilationDocument) {
     const setting = buildSetting(document);
-    await dependencies.setProxySetting(setting);
-    return { mode: setting.mode } as ApplyConfigurationResult;
+    return applyProxySetting(
+      setting,
+      { mode: setting.mode } as Exclude<ApplyConfigurationResult, { mode: 'deferred' }>,
+      dependencies.setProxySetting
+    );
   }
 
   const compilation = await dependencies.compileAutoSwitch(compilationDocument);
   const setting = buildSetting(document, compilation.pacSource);
-  await dependencies.setProxySetting(setting);
-  return { mode: 'pac_script', metrics: compilation.metrics };
+  return applyProxySetting(
+    setting,
+    { mode: 'pac_script', metrics: compilation.metrics },
+    dependencies.setProxySetting
+  );
+}
+
+async function applyProxySetting(
+  setting: ChromeProxySetting,
+  result: Exclude<ApplyConfigurationResult, { mode: 'deferred' }>,
+  setProxySetting: ApplyConfigurationDependencies['setProxySetting']
+): Promise<ApplyConfigurationResult> {
+  try {
+    await setProxySetting(setting);
+    return result;
+  } catch (error) {
+    if (isChromeProxyControlConflict(error)) {
+      return { control: error.control, mode: 'deferred' };
+    }
+    throw error;
+  }
 }
 
 function autoSwitchCompilationDocument(

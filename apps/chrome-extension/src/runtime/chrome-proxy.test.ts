@@ -9,6 +9,13 @@ describe('Chrome proxy controller', () => {
     const settings = installProxySettings('controlled_by_other_extensions');
 
     await expect(setChromeProxySetting({ mode: 'direct' })).rejects.toThrow('其他扩展控制');
+    await expect(setChromeProxySetting({ mode: 'direct' })).rejects.toMatchObject({
+      code: 'chrome-proxy-control-conflict',
+      control: {
+        controlledBy: 'other_extension',
+        levelOfControl: 'controlled_by_other_extensions'
+      }
+    });
 
     expect(settings.set).not.toHaveBeenCalled();
   });

@@ -4,6 +4,7 @@ import type { ApplyConfigurationResult } from './apply-configuration.ts';
 import type { ConfigurationRepository } from './configuration-repository.ts';
 import { createConfigurationService } from './configuration-service.ts';
 import type { DiagnosticEvent, DiagnosticsRepository } from './diagnostics-repository.ts';
+import type { ChromeProxySetting } from './proxy-setting.ts';
 import type { SourceStatus, SourceStatusRepository } from './source-status-repository.ts';
 
 export interface BackgroundServiceDependencies {
@@ -112,6 +113,9 @@ function errorMessage(error: unknown): string {
 }
 
 function appliedConfigurationMessage(result: ApplyConfigurationResult): string {
+  if (result.mode === 'deferred') {
+    return deferredProxyControlMessage(result.control);
+  }
   if (result.mode !== 'pac_script') {
     return `已应用${proxyModeLabel(result.mode)}代理配置`;
   }
@@ -131,7 +135,15 @@ function appliedConfigurationMessage(result: ApplyConfigurationResult): string {
   return `已应用自动切换：${details.join('；')}。`;
 }
 
-function proxyModeLabel(mode: Exclude<ApplyConfigurationResult['mode'], 'pac_script'>): string {
+function deferredProxyControlMessage(
+  control: Extract<ApplyConfigurationResult, { mode: 'deferred' }>['control']
+): string {
+  return control.controlledBy === 'other_extension'
+    ? '已保存配置，但 Chrome 代理正由其他扩展控制。恢复控制权后，请重新应用当前配置。'
+    : '已保存配置，但 Chrome 代理受系统策略控制。恢复控制权后，请重新应用当前配置。';
+}
+
+function proxyModeLabel(mode: Exclude<ChromeProxySetting['mode'], 'pac_script'>): string {
   switch (mode) {
     case 'direct':
       return '直连';

@@ -5,15 +5,35 @@ import {
   type ProxyControlState
 } from './external-proxy-state.ts';
 
+export const CHROME_PROXY_CONTROL_CONFLICT = 'chrome-proxy-control-conflict';
+
+export class ChromeProxyControlConflictError extends Error {
+  readonly code = CHROME_PROXY_CONTROL_CONFLICT;
+
+  constructor(readonly control: ProxyControlState) {
+    super(proxyControlError(control));
+    this.name = 'ChromeProxyControlConflictError';
+  }
+}
+
 export async function setChromeProxySetting(setting: ChromeProxySetting): Promise<void> {
   const control = await readChromeProxyControl();
   if (!canControlChromeProxy(control)) {
-    throw new Error(proxyControlError(control));
+    throw new ChromeProxyControlConflictError(control);
   }
   await chrome.proxy.settings.set({
     scope: 'regular',
     value: setting as unknown as chrome.proxy.ProxyConfig
   });
+}
+
+export function isChromeProxyControlConflict(
+  error: unknown
+): error is Pick<ChromeProxyControlConflictError, 'code' | 'control'> {
+  if (!isRecord(error) || error.code !== CHROME_PROXY_CONTROL_CONFLICT) {
+    return false;
+  }
+  return isProxyControlState(error.control);
 }
 
 export async function readChromeProxyControl(): Promise<ProxyControlState> {
@@ -44,4 +64,19 @@ function proxyControlError(control: ProxyControlState): string {
     case 'uncontrolled':
       return 'Chrome 代理控制状态异常。';
   }
+}
+
+function isProxyControlState(value: unknown): value is ProxyControlState {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    (value.controlledBy === 'other_extension' || value.controlledBy === 'system') &&
+    (value.levelOfControl === 'controlled_by_other_extensions' ||
+      value.levelOfControl === 'not_controllable')
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -79,6 +79,29 @@ describe('createBackgroundService', () => {
     });
   });
 
+  it('records that a configuration was saved while Chrome proxy control is external', async () => {
+    const diagnostics = { append: vi.fn().mockResolvedValue([]), clear: vi.fn(), list: vi.fn() };
+    const service = createBackgroundService({
+      apply: vi.fn().mockResolvedValue({
+        control: {
+          controlledBy: 'other_extension',
+          levelOfControl: 'controlled_by_other_extensions'
+        },
+        mode: 'deferred'
+      }),
+      configuration: { load: vi.fn().mockResolvedValue(document), replace: vi.fn() },
+      diagnostics
+    });
+
+    await service.reapplyCurrent();
+
+    expect(diagnostics.append).toHaveBeenCalledWith({
+      level: 'info',
+      message: '已保存配置，但 Chrome 代理正由其他扩展控制。恢复控制权后，请重新应用当前配置。',
+      scope: 'configuration'
+    });
+  });
+
   it('includes source metadata in a snapshot without requiring every caller to read storage', async () => {
     const sources = {
       list: vi.fn().mockResolvedValue([
