@@ -10,6 +10,7 @@
     "pnpm": ">=9.15.5"
   },
   "scripts": {
+    "benchmark:routing": "node scripts/benchmark-routing.mjs",
     "build": "pnpm build:wasm && pnpm build:extension",
     "build:extension": "pnpm --filter @switchypeformance/chrome-extension build",
     "build:wasm": "cargo build -p routing-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/routing_wasm.wasm --target web --out-dir apps/chrome-extension/src/generated/routing-wasm --out-name routing_wasm",
@@ -19,10 +20,13 @@
     "dev": "pnpm --filter @switchypeformance/chrome-extension dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "package:chrome": "pnpm build:wasm && pnpm --filter @switchypeformance/chrome-extension exec wxt zip --browser chrome",
     "test": "pnpm test:ts && cargo test --workspace",
+    "test:e2e": "pnpm exec playwright test",
     "test:ts": "vitest run"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.0",
     "@types/chrome": "0.2.2",
     "@types/node": "25.0.3",
     "@types/react": "19.2.17",

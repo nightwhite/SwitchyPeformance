@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { currentTabFromChromeTab, currentTabFromUrl } from './current-tab.ts';
+import { currentTabFromChromeTab, currentTabFromUrl, loadCurrentTab } from './current-tab.ts';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe('current tab', () => {
   it('exposes a proxy-routable HTTP or HTTPS page', () => {
@@ -20,6 +25,29 @@ describe('current tab', () => {
       tabId: 81,
       url: 'https://sub.example.com:8443/path?q=1'
     });
+  });
+
+  it('retries a popup startup lookup when Chrome initially exposes an extension page', async () => {
+    vi.useFakeTimers();
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([{ id: 41, url: 'chrome-extension://extension-id/popup.html' }])
+      .mockResolvedValueOnce([{ id: 41, url: 'chrome-extension://extension-id/popup.html' }])
+      .mockResolvedValueOnce([{ id: 81, url: 'https://sub.example.com/path?q=1' }]);
+    vi.stubGlobal('chrome', { tabs: { query } });
+
+    const current = loadCurrentTab();
+    await vi.runAllTimersAsync();
+
+    await expect(current).resolves.toEqual({
+      available: true,
+      host: 'sub.example.com',
+      tabId: 81,
+      url: 'https://sub.example.com/path?q=1'
+    });
+    expect(query).toHaveBeenNthCalledWith(1, { active: true, lastFocusedWindow: true });
+    expect(query).toHaveBeenNthCalledWith(2, { active: true, currentWindow: true });
+    expect(query).toHaveBeenNthCalledWith(3, { active: true, lastFocusedWindow: true });
   });
 
   it.each([
