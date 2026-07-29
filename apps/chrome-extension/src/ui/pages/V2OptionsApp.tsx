@@ -1,44 +1,39 @@
-import {
-  Activity,
-  AlertTriangle,
-  ChevronRight,
-  CircleGauge,
-  Cloud,
-  Clock3,
-  FileUp,
-  Globe2,
-  Network,
-  RefreshCw,
-  Route,
-  Search,
-  Settings2
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { ConfigurationDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import type { BackgroundState } from '../../runtime/messages.ts';
-import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-routes.ts';
-import { DiagnosticsPage } from './DiagnosticsPage.tsx';
+import {
+  optionsHash,
+  optionsHashForProfile,
+  routeFromOptionsHash,
+  type OptionPage,
+  type OptionRoute
+} from '../options-routes.ts';
+import { profileKindLabel } from '../v2-labels.ts';
 import { DataPage } from './DataPage.tsx';
+import { DiagnosticsPage } from './DiagnosticsPage.tsx';
+import { ProfileNavigation } from './ProfileNavigation.tsx';
+import { ProfileWorkspace } from './ProfileWorkspace.tsx';
 import { SettingsPage } from './SettingsPage.tsx';
 import { SyncPage } from './SyncPage.tsx';
+import { TemporaryRulesPage } from './TemporaryRulesPage.tsx';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
 import { V2RulesPage } from './V2RulesPage.tsx';
-import { TemporaryRulesPage } from './TemporaryRulesPage.tsx';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
-  overview: { eyebrow: '运行状态', title: '代理路由状态' },
-  profiles: { eyebrow: '情景模式', title: '代理配置' },
-  'proxy-servers': { eyebrow: '情景模式', title: '代理服务器' },
-  rules: { eyebrow: '情景模式', title: '自动切换规则' },
-  'temporary-rules': { eyebrow: '情景模式', title: '临时规则' },
+  overview: { eyebrow: '设置', title: '运行状态' },
+  profiles: { eyebrow: '代理配置', title: '新建配置' },
+  'proxy-servers': { eyebrow: '工具', title: '代理服务器' },
+  rules: { eyebrow: '兼容入口', title: '自动切换规则' },
+  'temporary-rules': { eyebrow: '工具', title: '临时规则' },
   diagnostics: { eyebrow: '工具', title: '排查日志' },
-  data: { eyebrow: '工具', title: '导入与导出' },
-  sync: { eyebrow: '工具', title: '配置同步' },
-  settings: { eyebrow: '设置', title: '运行参数' }
+  data: { eyebrow: '设置', title: '导入与导出' },
+  sync: { eyebrow: '设置', title: '配置同步' },
+  settings: { eyebrow: '设置', title: '通用设置' }
 };
 
 export interface V2OptionsAppProps {
@@ -62,107 +57,57 @@ export function V2OptionsApp({
   onReplace,
   onState
 }: V2OptionsAppProps) {
-  const [page, setPage] = useState<OptionPage>(() => pageFromOptionsHash(window.location.hash));
+  const [route, setRoute] = useState<OptionRoute>(() => routeFromOptionsHash(window.location.hash));
 
   useEffect(() => {
-    const onHashChange = () => setPage(pageFromOptionsHash(window.location.hash));
+    const onHashChange = () => setRoute(routeFromOptionsHash(window.location.hash));
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  function navigate(next: OptionPage): void {
-    window.location.hash = optionsHash(next);
-    setPage(next);
+  const selectedProfile = useMemo(
+    () =>
+      route.kind === 'profile'
+        ? document.profiles.find((profile) => profile.id === route.profileId)
+        : undefined,
+    [document.profiles, route]
+  );
+  const title =
+    route.kind === 'profile'
+      ? (selectedProfile?.name ?? '配置不存在')
+      : PAGE_META[route.page].title;
+  const eyebrow =
+    route.kind === 'profile' && selectedProfile
+      ? `代理配置 / ${profileKindLabel(selectedProfile.kind)}`
+      : route.kind === 'profile'
+        ? '代理配置'
+        : PAGE_META[route.page].eyebrow;
+
+  function navigateProfile(profileId: string): void {
+    window.location.hash = optionsHashForProfile(profileId);
+    setRoute({ kind: 'profile', profileId });
   }
 
-  const copy = PAGE_META[page];
+  function navigateTool(page: OptionPage): void {
+    window.location.hash = optionsHash(page);
+    setRoute({ kind: 'tool', page });
+  }
+
   return (
     <main className="options-app v2-options-app">
-      <aside className="side-rail">
-        <div className="rail-brand">
-          <span className="rail-mark">
-            <Globe2 size={20} strokeWidth={2.5} />
-          </span>
-          <span>
-            <strong>SwitchyPeformance</strong>
-            <small>Chrome 代理路由</small>
-          </span>
-        </div>
-        <nav aria-label="V2 设置导航" className="side-nav">
-          <NavButton
-            active={page}
-            icon={<CircleGauge />}
-            label="运行状态"
-            page="overview"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Route />}
-            label="代理配置"
-            page="profiles"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Network />}
-            label="代理服务器"
-            page="proxy-servers"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Search />}
-            label="自动切换规则"
-            page="rules"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Clock3 />}
-            label="临时规则"
-            page="temporary-rules"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Activity />}
-            label="排查日志"
-            page="diagnostics"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<FileUp />}
-            label="导入与导出"
-            page="data"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Cloud />}
-            label="配置同步"
-            page="sync"
-            onNavigate={navigate}
-          />
-          <NavButton
-            active={page}
-            icon={<Settings2 />}
-            label="运行参数"
-            page="settings"
-            onNavigate={navigate}
-          />
-        </nav>
-        <div className="rail-status">
-          <span className={error ? 'rail-dot rail-dot-error' : 'rail-dot'} />
-          <span>{error ? '需要处理' : 'Chrome 代理正常'}</span>
-        </div>
-      </aside>
+      <ProfileNavigation
+        document={document}
+        onNavigateProfile={navigateProfile}
+        onNavigateTool={navigateTool}
+        onNewProfile={() => navigateTool('profiles')}
+        route={route}
+        {...(error === undefined ? {} : { error })}
+      />
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <p>{copy.eyebrow}</p>
-            <h1>{copy.title}</h1>
+            <p>{eyebrow}</p>
+            <h1>{title}</h1>
           </div>
           <div className="header-actions">
             <button
@@ -183,18 +128,34 @@ export function V2OptionsApp({
           </div>
         ) : null}
         <div className="workspace-content">
-          {page === 'overview' ? <V2OverviewPage document={document} /> : null}
-          {page === 'profiles' ? (
+          {route.kind === 'profile' ? (
+            <ProfileWorkspace
+              busy={busy}
+              document={document}
+              onActivate={onActivate}
+              onOpenProfile={navigateProfile}
+              onOpenTool={navigateTool}
+              onReplace={onReplace}
+              onState={onState}
+              profileId={route.profileId}
+              sourceStatuses={state.sourceStatuses}
+            />
+          ) : null}
+          {route.kind === 'tool' && route.page === 'overview' ? (
+            <V2OverviewPage document={document} />
+          ) : null}
+          {route.kind === 'tool' && route.page === 'profiles' ? (
             <V2ProfilesPage
               busy={busy}
               document={document}
               onActivate={onActivate}
+              onOpenProfile={navigateProfile}
               onReplace={onReplace}
               onState={onState}
               sourceStatuses={state.sourceStatuses}
             />
           ) : null}
-          {page === 'proxy-servers' ? (
+          {route.kind === 'tool' && route.page === 'proxy-servers' ? (
             <V2ProxyServersPage
               busy={busy}
               document={document}
@@ -202,10 +163,10 @@ export function V2OptionsApp({
               onState={onState}
             />
           ) : null}
-          {page === 'rules' ? (
+          {route.kind === 'tool' && route.page === 'rules' ? (
             <V2RulesPage busy={busy} document={document} onReplace={onReplace} />
           ) : null}
-          {page === 'temporary-rules' ? (
+          {route.kind === 'tool' && route.page === 'temporary-rules' ? (
             <TemporaryRulesPage
               busy={busy}
               document={document}
@@ -213,7 +174,7 @@ export function V2OptionsApp({
               rules={state.temporaryRules}
             />
           ) : null}
-          {page === 'diagnostics' ? (
+          {route.kind === 'tool' && route.page === 'diagnostics' ? (
             <DiagnosticsPage
               busy={busy}
               document={document}
@@ -222,7 +183,7 @@ export function V2OptionsApp({
               onState={onState}
             />
           ) : null}
-          {page === 'data' ? (
+          {route.kind === 'tool' && route.page === 'data' ? (
             <DataPage
               busy={busy}
               document={document}
@@ -230,10 +191,10 @@ export function V2OptionsApp({
               sourceStatuses={state.sourceStatuses}
             />
           ) : null}
-          {page === 'sync' ? (
+          {route.kind === 'tool' && route.page === 'sync' ? (
             <SyncPage busy={busy} onState={onState} syncStatus={state.sync} />
           ) : null}
-          {page === 'settings' ? (
+          {route.kind === 'tool' && route.page === 'settings' ? (
             <SettingsPage
               busy={busy}
               document={document}
@@ -245,33 +206,5 @@ export function V2OptionsApp({
         </div>
       </section>
     </main>
-  );
-}
-
-function NavButton({
-  active,
-  icon,
-  label,
-  page,
-  onNavigate
-}: {
-  active: OptionPage;
-  icon: React.ReactNode;
-  label: string;
-  page: OptionPage;
-  onNavigate(page: OptionPage): void;
-}) {
-  const selected = active === page;
-  return (
-    <button
-      aria-current={selected ? 'page' : undefined}
-      className={selected ? 'nav-button nav-button-active' : 'nav-button'}
-      onClick={() => onNavigate(page)}
-      type="button"
-    >
-      {icon}
-      <span>{label}</span>
-      {selected ? <ChevronRight size={15} /> : null}
-    </button>
   );
 }

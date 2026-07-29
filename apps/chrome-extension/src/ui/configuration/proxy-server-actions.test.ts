@@ -4,6 +4,7 @@ import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import {
   createProxyServerWithFixedProfile,
+  deleteProxyServerWithDependentProfiles,
   planProxyServerDeletion,
   replaceAndDeleteProxyServer,
   updateFixedProxyProfile
@@ -93,6 +94,44 @@ describe('V2 proxy server actions', () => {
     });
     expect(replaceAndDeleteProxyServer(withoutProfile, 'proxy-unused')).toMatchObject({
       proxyServers: [{ id: 'proxy-primary' }, { id: 'proxy-backup' }]
+    });
+  });
+
+  it('removes a server and its dependent fixed profile while repairing profile references', () => {
+    const source: ProfileDocumentV2 = {
+      ...document(),
+      activeProfileId: 'automatic',
+      profiles: [
+        ...document().profiles,
+        {
+          fallback: { profileId: 'direct' },
+          id: 'automatic',
+          kind: 'auto-switch',
+          loopbackPolicy: 'use-rules',
+          name: '自动切换',
+          proxyFailurePolicy: 'direct',
+          ruleSourceIds: [],
+          rules: [
+            {
+              condition: { pattern: '*.example.com', type: 'host-wildcard' },
+              enabled: true,
+              id: 'work-rule',
+              target: { profileId: 'fixed-work' }
+            }
+          ]
+        }
+      ],
+      settings: { ...document().settings, startupProfileId: 'automatic' }
+    };
+
+    const result = deleteProxyServerWithDependentProfiles(source, 'proxy-primary', 'direct');
+
+    expect(result.proxyServers.map((proxy) => proxy.id)).toEqual(['proxy-backup']);
+    expect(result.profiles).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'fixed-work' })])
+    );
+    expect(result.profiles.find((profile) => profile.id === 'automatic')).toMatchObject({
+      rules: [expect.objectContaining({ target: { profileId: 'direct' } })]
     });
   });
 });

@@ -29,6 +29,34 @@ test('adds the active website to automatic routing from the browser action popup
     await expect
       .poll(() =>
         popup.evaluate<boolean>(
+          `Array.from(document.querySelectorAll('button')).some(
+            (button) => button.textContent?.trim() === '为当前网站添加规则'
+          )`
+        )
+      )
+      .toBe(true);
+    await expect(
+      popup.evaluate<boolean>(
+        `Boolean(document.querySelector('select[aria-label="当前网站的路由"]'))`
+      )
+    ).resolves.toBe(false);
+    await expect(
+      popup.evaluate<boolean>(`
+        (() => {
+          const button = Array.from(document.querySelectorAll('button')).find(
+            (candidate) => candidate.textContent?.trim() === '为当前网站添加规则'
+          );
+          if (!(button instanceof HTMLButtonElement)) {
+            throw new Error('找不到当前网站规则入口');
+          }
+          button.click();
+          return true;
+        })()
+      `)
+    ).resolves.toBe(true);
+    await expect
+      .poll(() =>
+        popup.evaluate<boolean>(
           `Boolean(document.querySelector('select[aria-label="当前网站的路由"]'))`
         )
       )

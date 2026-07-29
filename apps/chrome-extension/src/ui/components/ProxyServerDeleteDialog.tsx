@@ -10,10 +10,15 @@ interface ProxyServerDeleteDialogProps {
   busy: boolean;
   document: ProfileDocumentV2;
   onClose(): void;
-  onConfirm(replacementProxyId: string | undefined): Promise<void>;
+  onConfirm(action: ProxyServerDeleteAction): Promise<void>;
   plan: ProxyServerDeletionPlan;
   proxyId: string;
 }
+
+export type ProxyServerDeleteAction =
+  | { kind: 'delete-server' }
+  | { kind: 'delete-dependent-profiles'; replacementProfileId: string }
+  | { kind: 'replace-server'; replacementProxyId: string };
 
 export function ProxyServerDeleteDialog({
   busy,
@@ -23,10 +28,35 @@ export function ProxyServerDeleteDialog({
   plan,
   proxyId
 }: ProxyServerDeleteDialogProps) {
-  const replacements = document.proxyServers.filter((server) => server.id !== proxyId);
-  const [replacementProxyId, setReplacementProxyId] = useState(replacements[0]?.id ?? '');
+  const serverReplacements = document.proxyServers.filter((server) => server.id !== proxyId);
+  const dependentProfileIds = [...new Set(plan.references.map((reference) => reference.profileId))];
+  const profileReplacements = document.profiles.filter(
+    (profile) => !dependentProfileIds.includes(profile.id)
+  );
+  const hasReferences = plan.references.length > 0;
+  const [mode, setMode] = useState<'delete-dependent-profiles' | 'replace-server'>(
+    serverReplacements.length > 0 ? 'replace-server' : 'delete-dependent-profiles'
+  );
+  const [replacementProxyId, setReplacementProxyId] = useState(serverReplacements[0]?.id ?? '');
+  const [replacementProfileId, setReplacementProfileId] = useState(
+    profileReplacements[0]?.id ?? ''
+  );
   const proxyName = document.proxyServers.find((server) => server.id === proxyId)?.name ?? proxyId;
-  const needsReplacement = plan.references.length > 0;
+  const deletingProfiles = mode === 'delete-dependent-profiles';
+  const canConfirm =
+    !busy &&
+    (!hasReferences || deletingProfiles
+      ? Boolean(!hasReferences || replacementProfileId)
+      : Boolean(replacementProxyId));
+
+  function confirmAction(): ProxyServerDeleteAction {
+    if (!hasReferences) {
+      return { kind: 'delete-server' };
+    }
+    return deletingProfiles
+      ? { kind: 'delete-dependent-profiles', replacementProfileId }
+      : { kind: 'replace-server', replacementProxyId };
+  }
 
   return (
     <div className="modal-scrim" role="presentation">
@@ -46,11 +76,11 @@ export function ProxyServerDeleteDialog({
             <X size={17} />
           </button>
         </div>
-        {needsReplacement ? (
+        {hasReferences ? (
           <>
             <p className="modal-warning">
               <AlertTriangle size={16} />
-              当前服务器仍被 {plan.references.length} 处固定代理配置使用。删除时会改用下方服务器。
+              当前服务器仍被 {plan.references.length} 处固定代理配置使用。
             </p>
             <ul className="reference-list">
               {plan.references.map((reference) => (
@@ -59,23 +89,61 @@ export function ProxyServerDeleteDialog({
                 </li>
               ))}
             </ul>
-            <label>
-              替代代理服务器
-              <select
-                disabled={busy || replacements.length === 0}
-                onChange={(event) => setReplacementProxyId(event.target.value)}
-                value={replacementProxyId}
+            <div className="dialog-mode-control" role="group" aria-label="删除处理方式">
+              {serverReplacements.length > 0 ? (
+                <button
+                  aria-pressed={!deletingProfiles}
+                  className={
+                    !deletingProfiles ? 'scope-button scope-button-active' : 'scope-button'
+                  }
+                  disabled={busy}
+                  onClick={() => setMode('replace-server')}
+                  type="button"
+                >
+                  替代服务器
+                </button>
+              ) : null}
+              <button
+                aria-pressed={deletingProfiles}
+                className={deletingProfiles ? 'scope-button scope-button-active' : 'scope-button'}
+                disabled={busy}
+                onClick={() => setMode('delete-dependent-profiles')}
+                type="button"
               >
-                {replacements.map((server) => (
-                  <option key={server.id} value={server.id}>
-                    {server.name} ({server.scheme.toUpperCase()} {server.host}:{server.port})
-                  </option>
-                ))}
-              </select>
-            </label>
-            {replacements.length === 0 ? (
-              <p className="inline-error">没有可替代服务器，请先修改或删除引用它的固定代理配置。</p>
-            ) : null}
+                删除关联配置
+              </button>
+            </div>
+            {deletingProfiles ? (
+              <label>
+                被替换为
+                <select
+                  disabled={busy || profileReplacements.length === 0}
+                  onChange={(event) => setReplacementProfileId(event.target.value)}
+                  value={replacementProfileId}
+                >
+                  {profileReplacements.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label>
+                替代代理服务器
+                <select
+                  disabled={busy || serverReplacements.length === 0}
+                  onChange={(event) => setReplacementProxyId(event.target.value)}
+                  value={replacementProxyId}
+                >
+                  {serverReplacements.map((server) => (
+                    <option key={server.id} value={server.id}>
+                      {server.name} ({server.scheme.toUpperCase()} {server.host}:{server.port})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </>
         ) : (
           <p className="inline-notice">没有固定代理配置引用这个服务器。</p>
@@ -86,12 +154,12 @@ export function ProxyServerDeleteDialog({
           </button>
           <button
             className="danger-outline"
-            disabled={busy || (needsReplacement && !replacementProxyId)}
-            onClick={() => void onConfirm(needsReplacement ? replacementProxyId : undefined)}
+            disabled={!canConfirm}
+            onClick={() => void onConfirm(confirmAction())}
             type="button"
           >
             <Trash2 size={16} />
-            替换并删除
+            {deletingProfiles && hasReferences ? '删除配置和服务器' : '替换并删除'}
           </button>
         </div>
       </section>

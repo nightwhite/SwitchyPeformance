@@ -7,6 +7,8 @@ import {
   type ProxyServer
 } from '@switchypeformance/contracts';
 
+import { replaceAndDeleteProfile } from './profile-actions.ts';
+
 const PROXY_SCHEMES: readonly ProxySchemeV2[] = ['http', 'https', 'socks4', 'socks5'];
 
 export interface CreateProxyServerOptions {
@@ -142,6 +144,31 @@ export function replaceAndDeleteProxyServer(
   };
   assertValid(next);
   return next;
+}
+
+/**
+ * Mirrors profile deletion when a user removes a server that is its fixed profile's only route.
+ * Every reference to those fixed profiles is rewritten before the server is removed.
+ */
+export function deleteProxyServerWithDependentProfiles(
+  document: ProfileDocumentV2,
+  proxyId: string,
+  replacementProfileId: string
+): ProfileDocumentV2 {
+  const plan = planProxyServerDeletion(document, proxyId);
+  const dependentProfileIds = [...new Set(plan.references.map((reference) => reference.profileId))];
+  if (dependentProfileIds.length === 0) {
+    return replaceAndDeleteProxyServer(document, proxyId);
+  }
+  if (dependentProfileIds.includes(replacementProfileId)) {
+    throw new Error('替代配置不能依赖待删除的代理服务器');
+  }
+
+  const withoutProfiles = dependentProfileIds.reduce(
+    (current, profileId) => replaceAndDeleteProfile(current, profileId, replacementProfileId),
+    document
+  );
+  return replaceAndDeleteProxyServer(withoutProfiles, proxyId);
 }
 
 export function normalizeBypassList(values: readonly string[]): readonly string[] {

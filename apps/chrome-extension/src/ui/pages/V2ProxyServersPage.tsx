@@ -12,10 +12,14 @@ import type { BackgroundState } from '../../runtime/messages.ts';
 import { createId, requestBackgroundState } from '../background-client.ts';
 import { FixedProxyEditor } from '../components/FixedProxyEditor.tsx';
 import { ProxyCredentialDialog } from '../components/ProxyCredentialDialog.tsx';
-import { ProxyServerDeleteDialog } from '../components/ProxyServerDeleteDialog.tsx';
+import {
+  ProxyServerDeleteDialog,
+  type ProxyServerDeleteAction
+} from '../components/ProxyServerDeleteDialog.tsx';
 import { ProxyServerForm, type ProxyServerFormValue } from '../components/ProxyServerForm.tsx';
 import {
   createProxyServerWithFixedProfile,
+  deleteProxyServerWithDependentProfiles,
   planProxyServerDeletion,
   replaceAndDeleteProxyServer,
   updateFixedProxyProfile,
@@ -98,15 +102,30 @@ export function V2ProxyServersPage({
     setNotice(`已更新 ${selectedFixedProfile.name} 的协议和绕过规则。`);
   }
 
-  async function deleteServer(replacementProxyId: string | undefined): Promise<void> {
+  async function deleteServer(action: ProxyServerDeleteAction): Promise<void> {
     const server = document.proxyServers.find((candidate) => candidate.id === deletingServerId);
     if (!server || !deletingServerId) {
       return;
     }
     try {
-      await replaceConfiguration(() =>
-        replaceAndDeleteProxyServer(document, deletingServerId, replacementProxyId)
-      );
+      await replaceConfiguration(() => {
+        switch (action.kind) {
+          case 'delete-server':
+            return replaceAndDeleteProxyServer(document, deletingServerId);
+          case 'replace-server':
+            return replaceAndDeleteProxyServer(
+              document,
+              deletingServerId,
+              action.replacementProxyId
+            );
+          case 'delete-dependent-profiles':
+            return deleteProxyServerWithDependentProfiles(
+              document,
+              deletingServerId,
+              action.replacementProfileId
+            );
+        }
+      });
     } catch {
       return;
     }

@@ -8,7 +8,6 @@ import type {
   SwitchRuleV2
 } from '@switchypeformance/contracts';
 
-import type { BackgroundState } from '../../runtime/messages.ts';
 import { createId } from '../background-client.ts';
 import { AutoSwitchSettingsEditor } from '../components/AutoSwitchSettingsEditor.tsx';
 import { RuleEditorDialog, type RuleEditorDraft } from '../components/RuleEditorDialog.tsx';
@@ -27,21 +26,23 @@ import { toUserFacingMessage } from '../error-message.ts';
 interface V2RulesPageProps {
   busy: boolean;
   document: ProfileDocumentV2;
-  onReplace(document: ConfigurationDocument): Promise<BackgroundState>;
+  onReplace(document: ConfigurationDocument): Promise<unknown>;
+  selectedProfileId?: string;
 }
 
 type RuleEditorState = { kind: 'create' } | { kind: 'edit'; ruleId: string };
 
-export function V2RulesPage({ busy, document, onReplace }: V2RulesPageProps) {
+export function V2RulesPage({ busy, document, onReplace, selectedProfileId }: V2RulesPageProps) {
   const automaticProfiles = document.profiles.filter(
     (profile): profile is AutoSwitchProfileV2 => profile.kind === 'auto-switch'
   );
-  const [profileId, setProfileId] = useState(automaticProfiles[0]?.id ?? '');
+  const [profileId, setProfileId] = useState(selectedProfileId ?? automaticProfiles[0]?.id ?? '');
   const [editor, setEditor] = useState<RuleEditorState>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const selectedId = selectedProfileId ?? profileId;
   const selected =
-    automaticProfiles.find((profile) => profile.id === profileId) ?? automaticProfiles[0];
+    automaticProfiles.find((profile) => profile.id === selectedId) ?? automaticProfiles[0];
   const editedRule =
     editor?.kind === 'edit' ? selected?.rules.find((rule) => rule.id === editor.ruleId) : undefined;
 
@@ -125,36 +126,44 @@ export function V2RulesPage({ busy, document, onReplace }: V2RulesPageProps) {
     return <section className="page-panel empty-state">请先在代理配置中创建自动切换模式。</section>;
   }
 
+  const ruleActions = (
+    <div className="toolbar-actions">
+      <span className="mono-chip">{selected.rules.length.toLocaleString()} 条规则</span>
+      <button
+        className="primary-button"
+        disabled={busy}
+        onClick={() => setEditor({ kind: 'create' })}
+        type="button"
+      >
+        <Plus size={16} />
+        添加规则
+      </button>
+    </div>
+  );
+
   return (
     <>
-      <section className="page-panel rule-toolbar">
-        <label className="profile-select">
-          自动切换配置
-          <select
-            disabled={busy}
-            onChange={(event) => setProfileId(event.target.value)}
-            value={selected.id}
-          >
-            {automaticProfiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="toolbar-actions">
-          <span className="mono-chip">{selected.rules.length.toLocaleString()} 条规则</span>
-          <button
-            className="primary-button"
-            disabled={busy}
-            onClick={() => setEditor({ kind: 'create' })}
-            type="button"
-          >
-            <Plus size={16} />
-            添加规则
-          </button>
-        </div>
-      </section>
+      {selectedProfileId ? (
+        <div className="rule-toolbar rule-toolbar-compact">{ruleActions}</div>
+      ) : (
+        <section className="page-panel rule-toolbar">
+          <label className="profile-select">
+            自动切换配置
+            <select
+              disabled={busy}
+              onChange={(event) => setProfileId(event.target.value)}
+              value={selected.id}
+            >
+              {automaticProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {ruleActions}
+        </section>
+      )}
       {notice ? (
         <p className="inline-notice rule-page-notice" role="status">
           {notice}

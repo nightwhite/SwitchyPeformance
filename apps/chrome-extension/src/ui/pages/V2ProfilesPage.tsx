@@ -28,8 +28,10 @@ import { profileKindLabel } from '../v2-labels.ts';
 import { AutoDetectProfileEditor } from '../components/AutoDetectProfileEditor.tsx';
 import { PacProfileEditor } from '../components/PacProfileEditor.tsx';
 import { ProfileDeleteDialog } from '../components/ProfileDeleteDialog.tsx';
+import { ProxyServerForm, type ProxyServerFormValue } from '../components/ProxyServerForm.tsx';
 import { RuleListProfileEditor } from '../components/RuleListProfileEditor.tsx';
 import { VirtualProfileEditor } from '../components/VirtualProfileEditor.tsx';
+import { createProxyServerWithFixedProfile } from '../configuration/proxy-server-actions.ts';
 import type { BackgroundState } from '../../runtime/messages.ts';
 import { pacSourceStatusId, ruleListSourceStatusId } from '../../runtime/source-status-id.ts';
 
@@ -37,20 +39,29 @@ interface V2ProfilesPageProps {
   busy: boolean;
   document: ProfileDocumentV2;
   onActivate(profileId: string): Promise<void>;
+  onOpenProfile(profileId: string): void;
   onReplace(document: ProfileDocumentV2): Promise<unknown>;
   onState(state: BackgroundState): void;
   sourceStatuses: BackgroundState['sourceStatuses'];
 }
 
+type ProfileCreationKind = CreatableProfileKind | 'fixed-proxy';
+
+const PROFILE_CREATION_KINDS: readonly ProfileCreationKind[] = [
+  ...CREATABLE_PROFILE_KINDS,
+  'fixed-proxy'
+];
+
 export function V2ProfilesPage({
   busy,
   document,
   onActivate,
+  onOpenProfile,
   onReplace,
   onState,
   sourceStatuses
 }: V2ProfilesPageProps) {
-  const [createKind, setCreateKind] = useState<CreatableProfileKind>('auto-switch');
+  const [createKind, setCreateKind] = useState<ProfileCreationKind>('auto-switch');
   const [createName, setCreateName] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string }>();
   const [deletingProfileId, setDeletingProfileId] = useState<string>();
@@ -58,6 +69,7 @@ export function V2ProfilesPage({
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [refreshingSourceId, setRefreshingSourceId] = useState<string>();
+  const [showManager, setShowManager] = useState(false);
   const deletingPlan = deletingProfileId
     ? planProfileDeletion(document, deletingProfileId)
     : undefined;
@@ -101,16 +113,35 @@ export function V2ProfilesPage({
   }
 
   async function create(): Promise<void> {
+    if (createKind === 'fixed-proxy') {
+      return;
+    }
+    const profileId = createId('profile');
     const saved = await apply(() =>
       createProfile(document, {
-        id: createId('profile'),
+        id: profileId,
         kind: createKind,
         name: createName
       })
     );
     if (saved) {
       setCreateName('');
+      onOpenProfile(profileId);
     }
+  }
+
+  async function createFixedProxy(value: ProxyServerFormValue): Promise<void> {
+    const profileId = createId('profile');
+    const saved = await apply(() =>
+      createProxyServerWithFixedProfile(document, {
+        profileId,
+        proxy: { ...value, id: createId('proxy'), name: value.name.trim() }
+      })
+    );
+    if (!saved) {
+      throw new Error('无法创建固定代理配置');
+    }
+    onOpenProfile(profileId);
   }
 
   async function saveRename(profileId: string, name: string): Promise<void> {
@@ -179,43 +210,55 @@ export function V2ProfilesPage({
         <div className="panel-heading">
           <div>
             <p className="panel-kicker">新增配置</p>
-            <h2>创建代理模式</h2>
+            <h2>{createKind === 'fixed-proxy' ? '添加固定代理' : '创建代理模式'}</h2>
           </div>
-        </div>
-        <div className="form-grid form-grid-profile-create">
-          <label>
-            类型
-            <select
-              disabled={busy}
-              onChange={(event) => setCreateKind(event.target.value as CreatableProfileKind)}
-              value={createKind}
-            >
-              {CREATABLE_PROFILE_KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {profileKindLabel(kind)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            名称
-            <input
-              disabled={busy}
-              onChange={(event) => setCreateName(event.target.value)}
-              placeholder="例如：工作自动切换"
-              value={createName}
-            />
-          </label>
           <button
-            className="primary-button form-command"
-            disabled={busy || !createName.trim()}
-            onClick={() => void create()}
+            className="outline-button"
+            onClick={() => setShowManager((current) => !current)}
             type="button"
           >
-            <Plus size={16} />
-            新增配置
+            <Settings2 size={16} />
+            {showManager ? '收起整理' : '整理配置'}
           </button>
         </div>
+        <label className="profile-create-kind">
+          类型
+          <select
+            disabled={busy}
+            onChange={(event) => setCreateKind(event.target.value as ProfileCreationKind)}
+            value={createKind}
+          >
+            {PROFILE_CREATION_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {profileKindLabel(kind)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {createKind === 'fixed-proxy' ? (
+          <ProxyServerForm busy={busy} onSubmit={createFixedProxy} submitLabel="添加代理配置" />
+        ) : (
+          <div className="form-grid form-grid-profile-create">
+            <label>
+              名称
+              <input
+                disabled={busy}
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder="例如：工作自动切换"
+                value={createName}
+              />
+            </label>
+            <button
+              className="primary-button form-command"
+              disabled={busy || !createName.trim()}
+              onClick={() => void create()}
+              type="button"
+            >
+              <Plus size={16} />
+              新增配置
+            </button>
+          </div>
+        )}
         {error ? <p className="inline-error">{error}</p> : null}
       </section>
       {notice ? (
@@ -223,221 +266,229 @@ export function V2ProfilesPage({
           {notice}
         </p>
       ) : null}
-      <section className="page-panel table-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="panel-kicker">配置切换</p>
-            <h2>选择当前代理配置</h2>
-          </div>
-        </div>
-        <div className="data-table">
-          <div className="table-row table-head profile-table-row">
-            <span>名称</span>
-            <span>类型</span>
-            <span>状态</span>
-            <span>操作</span>
-          </div>
-          {document.profiles.map((profile, index) => {
-            const active = profile.id === document.activeProfileId;
-            const builtIn = profile.id === 'direct' || profile.id === 'system';
-            const isEditing = editing?.id === profile.id;
-            const canEditAdvanced =
-              profile.kind === 'pac' ||
-              profile.kind === 'auto-detect' ||
-              profile.kind === 'rule-list' ||
-              profile.kind === 'virtual';
-            return (
-              <div className="table-row profile-table-row" key={profile.id}>
-                {isEditing ? (
-                  <span className="inline-name-editor">
-                    <input
-                      aria-label={`配置 ${profile.name} 的新名称`}
-                      onChange={(event) =>
-                        setEditing((current) =>
-                          current ? { ...current, name: event.target.value } : current
-                        )
-                      }
-                      value={editing.name}
-                    />
-                    <button
-                      aria-label={`保存 ${profile.name} 的新名称`}
-                      className="icon-action"
-                      disabled={busy}
-                      onClick={() => void saveRename(profile.id, editing.name)}
-                      title="保存名称"
-                      type="button"
-                    >
-                      <Save size={16} />
-                    </button>
-                    <button
-                      aria-label={`取消修改 ${profile.name}`}
-                      className="icon-action"
-                      disabled={busy}
-                      onClick={() => setEditing(undefined)}
-                      title="取消"
-                      type="button"
-                    >
-                      <X size={16} />
-                    </button>
-                  </span>
-                ) : (
-                  <strong>{profile.name}</strong>
-                )}
-                <span className="mono-chip">{profileKindLabel(profile.kind)}</span>
-                <span>{active ? '当前使用' : '未启用'}</span>
-                <span className="table-actions profile-actions">
-                  <button
-                    className="outline-button"
-                    disabled={busy || active}
-                    onClick={() => void onActivate(profile.id)}
-                    type="button"
-                  >
-                    切换
-                  </button>
-                  {!builtIn ? (
-                    <>
-                      {canEditAdvanced ? (
-                        <button
-                          aria-label={`编辑 ${profile.name} 的配置`}
-                          className="icon-action"
-                          disabled={busy}
-                          onClick={() =>
-                            setAdvancedProfileId((current) =>
-                              current === profile.id ? undefined : profile.id
+      {showManager ? (
+        <>
+          <section className="page-panel table-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">配置切换</p>
+                <h2>选择当前代理配置</h2>
+              </div>
+            </div>
+            <div className="data-table">
+              <div className="table-row table-head profile-table-row">
+                <span>名称</span>
+                <span>类型</span>
+                <span>状态</span>
+                <span>操作</span>
+              </div>
+              {document.profiles.map((profile, index) => {
+                const active = profile.id === document.activeProfileId;
+                const builtIn = profile.id === 'direct' || profile.id === 'system';
+                const isEditing = editing?.id === profile.id;
+                const canEditAdvanced =
+                  profile.kind === 'pac' ||
+                  profile.kind === 'auto-detect' ||
+                  profile.kind === 'rule-list' ||
+                  profile.kind === 'virtual';
+                return (
+                  <div className="table-row profile-table-row" key={profile.id}>
+                    {isEditing ? (
+                      <span className="inline-name-editor">
+                        <input
+                          aria-label={`配置 ${profile.name} 的新名称`}
+                          onChange={(event) =>
+                            setEditing((current) =>
+                              current ? { ...current, name: event.target.value } : current
                             )
                           }
-                          title="编辑配置"
+                          value={editing.name}
+                        />
+                        <button
+                          aria-label={`保存 ${profile.name} 的新名称`}
+                          className="icon-action"
+                          disabled={busy}
+                          onClick={() => void saveRename(profile.id, editing.name)}
+                          title="保存名称"
                           type="button"
                         >
-                          <Settings2 size={16} />
+                          <Save size={16} />
                         </button>
+                        <button
+                          aria-label={`取消修改 ${profile.name}`}
+                          className="icon-action"
+                          disabled={busy}
+                          onClick={() => setEditing(undefined)}
+                          title="取消"
+                          type="button"
+                        >
+                          <X size={16} />
+                        </button>
+                      </span>
+                    ) : (
+                      <strong>{profile.name}</strong>
+                    )}
+                    <span className="mono-chip">{profileKindLabel(profile.kind)}</span>
+                    <span>{active ? '当前使用' : '未启用'}</span>
+                    <span className="table-actions profile-actions">
+                      <button
+                        className="outline-button"
+                        disabled={busy || active}
+                        onClick={() => void onActivate(profile.id)}
+                        type="button"
+                      >
+                        切换
+                      </button>
+                      {!builtIn ? (
+                        <>
+                          {canEditAdvanced ? (
+                            <button
+                              aria-label={`编辑 ${profile.name} 的配置`}
+                              className="icon-action"
+                              disabled={busy}
+                              onClick={() =>
+                                setAdvancedProfileId((current) =>
+                                  current === profile.id ? undefined : profile.id
+                                )
+                              }
+                              title="编辑配置"
+                              type="button"
+                            >
+                              <Settings2 size={16} />
+                            </button>
+                          ) : null}
+                          <button
+                            aria-label={`重命名 ${profile.name}`}
+                            className="icon-action"
+                            disabled={busy}
+                            onClick={() => setEditing({ id: profile.id, name: profile.name })}
+                            title="重命名"
+                            type="button"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            aria-label={`复制 ${profile.name}`}
+                            className="icon-action"
+                            disabled={busy}
+                            onClick={() =>
+                              void apply(() =>
+                                cloneProfile(document, profile.id, {
+                                  id: createId('profile'),
+                                  name: `${profile.name} 副本`,
+                                  ruleId: () => createId('rule')
+                                })
+                              )
+                            }
+                            title="复制"
+                            type="button"
+                          >
+                            <Copy size={16} />
+                          </button>
+                          <button
+                            aria-label={`上移 ${profile.name}`}
+                            className="icon-action"
+                            disabled={busy || index <= 2}
+                            onClick={() => {
+                              const before = profileAtOffset(profile.id, -1);
+                              if (before) {
+                                void apply(() => moveProfile(document, profile.id, before));
+                              }
+                            }}
+                            title="上移"
+                            type="button"
+                          >
+                            <ArrowUp size={16} />
+                          </button>
+                          <button
+                            aria-label={`下移 ${profile.name}`}
+                            className="icon-action"
+                            disabled={busy || index === document.profiles.length - 1}
+                            onClick={() => {
+                              const afterNext = profileAtOffset(profile.id, 2);
+                              void apply(() => moveProfile(document, profile.id, afterNext));
+                            }}
+                            title="下移"
+                            type="button"
+                          >
+                            <ArrowDown size={16} />
+                          </button>
+                          <button
+                            aria-label={`删除 ${profile.name}`}
+                            className="icon-danger"
+                            disabled={busy}
+                            onClick={() => setDeletingProfileId(profile.id)}
+                            title="删除"
+                            type="button"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
                       ) : null}
-                      <button
-                        aria-label={`重命名 ${profile.name}`}
-                        className="icon-action"
-                        disabled={busy}
-                        onClick={() => setEditing({ id: profile.id, name: profile.name })}
-                        title="重命名"
-                        type="button"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        aria-label={`复制 ${profile.name}`}
-                        className="icon-action"
-                        disabled={busy}
-                        onClick={() =>
-                          void apply(() =>
-                            cloneProfile(document, profile.id, {
-                              id: createId('profile'),
-                              name: `${profile.name} 副本`,
-                              ruleId: () => createId('rule')
-                            })
-                          )
-                        }
-                        title="复制"
-                        type="button"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
-                        aria-label={`上移 ${profile.name}`}
-                        className="icon-action"
-                        disabled={busy || index <= 2}
-                        onClick={() => {
-                          const before = profileAtOffset(profile.id, -1);
-                          if (before) {
-                            void apply(() => moveProfile(document, profile.id, before));
-                          }
-                        }}
-                        title="上移"
-                        type="button"
-                      >
-                        <ArrowUp size={16} />
-                      </button>
-                      <button
-                        aria-label={`下移 ${profile.name}`}
-                        className="icon-action"
-                        disabled={busy || index === document.profiles.length - 1}
-                        onClick={() => {
-                          const afterNext = profileAtOffset(profile.id, 2);
-                          void apply(() => moveProfile(document, profile.id, afterNext));
-                        }}
-                        title="下移"
-                        type="button"
-                      >
-                        <ArrowDown size={16} />
-                      </button>
-                      <button
-                        aria-label={`删除 ${profile.name}`}
-                        className="icon-danger"
-                        disabled={busy}
-                        onClick={() => setDeletingProfileId(profile.id)}
-                        title="删除"
-                        type="button"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  ) : null}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-      {advancedProfile?.kind === 'pac' ? (
-        <PacProfileEditor
-          busy={busy || refreshingSourceId === advancedPacStatusId}
-          key={advancedProfile.id}
-          onSave={savePac}
-          profile={advancedProfile}
-          sourceStatus={sourceStatuses.find((status) => status.sourceId === advancedPacStatusId)}
-          {...(advancedPacStatusId === undefined
-            ? {}
-            : { onRefresh: () => refreshSource(advancedPacStatusId, advancedProfile.name) })}
-        />
-      ) : null}
-      {advancedProfile?.kind === 'auto-detect' ? (
-        <AutoDetectProfileEditor profile={advancedProfile} />
-      ) : null}
-      {advancedProfile?.kind === 'rule-list' && advancedSource ? (
-        <RuleListProfileEditor
-          busy={busy || refreshingSourceId === advancedRuleListStatusId}
-          document={document}
-          key={advancedProfile.id}
-          onSave={saveRuleList}
-          profile={advancedProfile}
-          source={advancedSource}
-          sourceStatus={sourceStatuses.find(
-            (status) => status.sourceId === advancedRuleListStatusId
-          )}
-          {...(advancedRuleListStatusId === undefined
-            ? {}
-            : { onRefresh: () => refreshSource(advancedRuleListStatusId, advancedSource.name) })}
-        />
-      ) : null}
-      {advancedProfile?.kind === 'rule-list' && !advancedSource ? (
-        <p className="inline-error profile-page-notice">规则列表引用的来源不存在。</p>
-      ) : null}
-      {advancedProfile?.kind === 'virtual' ? (
-        <VirtualProfileEditor
-          busy={busy}
-          document={document}
-          key={advancedProfile.id}
-          onSave={saveVirtual}
-          profile={advancedProfile}
-        />
-      ) : null}
-      {deletingProfileId && deletingPlan ? (
-        <ProfileDeleteDialog
-          busy={busy}
-          document={document}
-          plan={deletingPlan}
-          profileId={deletingProfileId}
-          onClose={() => setDeletingProfileId(undefined)}
-          onConfirm={deleteProfile}
-        />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+          {advancedProfile?.kind === 'pac' ? (
+            <PacProfileEditor
+              busy={busy || refreshingSourceId === advancedPacStatusId}
+              key={advancedProfile.id}
+              onSave={savePac}
+              profile={advancedProfile}
+              sourceStatus={sourceStatuses.find(
+                (status) => status.sourceId === advancedPacStatusId
+              )}
+              {...(advancedPacStatusId === undefined
+                ? {}
+                : { onRefresh: () => refreshSource(advancedPacStatusId, advancedProfile.name) })}
+            />
+          ) : null}
+          {advancedProfile?.kind === 'auto-detect' ? (
+            <AutoDetectProfileEditor profile={advancedProfile} />
+          ) : null}
+          {advancedProfile?.kind === 'rule-list' && advancedSource ? (
+            <RuleListProfileEditor
+              busy={busy || refreshingSourceId === advancedRuleListStatusId}
+              document={document}
+              key={advancedProfile.id}
+              onSave={saveRuleList}
+              profile={advancedProfile}
+              source={advancedSource}
+              sourceStatus={sourceStatuses.find(
+                (status) => status.sourceId === advancedRuleListStatusId
+              )}
+              {...(advancedRuleListStatusId === undefined
+                ? {}
+                : {
+                    onRefresh: () => refreshSource(advancedRuleListStatusId, advancedSource.name)
+                  })}
+            />
+          ) : null}
+          {advancedProfile?.kind === 'rule-list' && !advancedSource ? (
+            <p className="inline-error profile-page-notice">规则列表引用的来源不存在。</p>
+          ) : null}
+          {advancedProfile?.kind === 'virtual' ? (
+            <VirtualProfileEditor
+              busy={busy}
+              document={document}
+              key={advancedProfile.id}
+              onSave={saveVirtual}
+              profile={advancedProfile}
+            />
+          ) : null}
+          {deletingProfileId && deletingPlan ? (
+            <ProfileDeleteDialog
+              busy={busy}
+              document={document}
+              plan={deletingPlan}
+              profileId={deletingProfileId}
+              onClose={() => setDeletingProfileId(undefined)}
+              onConfirm={deleteProfile}
+            />
+          ) : null}
+        </>
       ) : null}
     </>
   );
