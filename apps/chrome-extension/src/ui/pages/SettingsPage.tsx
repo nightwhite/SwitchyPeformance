@@ -59,7 +59,7 @@ export function SettingsPage({
   async function resetExtension(): Promise<void> {
     if (
       !window.confirm(
-        '要重置 SwitchyPeformance 吗？这会删除本扩展的配置、账号密码、临时规则和日志；不会修改系统代理或其他扩展的代理设置。'
+        '要重置 SwitchyPeformance 吗？这会删除本扩展的配置、账号密码、同步关联、临时规则和日志；不会修改系统代理或其他扩展的代理设置。'
       )
     ) {
       return;
@@ -218,7 +218,9 @@ export function SettingsPage({
         <div>
           <p className="panel-kicker">本扩展数据</p>
           <h2>重置 SwitchyPeformance</h2>
-          <p>删除本扩展保存的配置、账号密码、临时规则、来源缓存和日志，不会修改系统代理。</p>
+          <p>
+            删除本扩展保存的配置、账号密码、同步关联、临时规则、来源缓存和日志，不会修改系统代理。
+          </p>
         </div>
         <button
           className="danger-outline"

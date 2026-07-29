@@ -12,3 +12,4 @@ export * from './config/profile-resolution.ts';
 export * from './config/validate.ts';
 export * from './rule-list/parse.ts';
 export * from './migrations/v1-to-v2.ts';
+export * from './sync/sync-types.ts';

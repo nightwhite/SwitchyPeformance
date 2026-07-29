@@ -10,6 +10,10 @@ import { createDiagnosticsRepository, type DiagnosticEvent } from './diagnostics
 import { createNetworkEventRepository } from './network-event-repository.ts';
 import { createSourceStatusRepository } from './source-status-repository.ts';
 import { createTemporaryRuleRepository } from './temporary-rule-repository.ts';
+import {
+  createSyncMetadataRepository,
+  createSyncSecretsRepository
+} from './sync/sync-settings-repository.ts';
 
 const CONFIGURATION_KEY = 'switchypeformance.configuration.v1';
 const CREDENTIALS_KEY = 'switchypeformance.proxy-credentials.v1';
@@ -17,6 +21,8 @@ const DIAGNOSTICS_KEY = 'switchypeformance.diagnostics.v1';
 const NETWORK_EVENTS_KEY = 'switchypeformance.network-events.v1';
 const TEMPORARY_RULES_KEY = 'switchypeformance.temporary-rules.v1';
 const SOURCE_STATUS_KEY = 'switchypeformance.source-status.v1';
+const SYNC_METADATA_KEY = 'switchypeformance.sync-metadata.v1';
+const SYNC_SECRETS_KEY = 'switchypeformance.sync-secrets.v1';
 
 export const chromeConfigurationRepository = createConfigurationRepository({
   async read() {
@@ -77,6 +83,40 @@ export const chromeSourceStatusRepository = createSourceStatusRepository({
     await chrome.storage.local.set({ [SOURCE_STATUS_KEY]: records });
   }
 });
+
+/** Public sync state stays local; Chrome Sync itself is used only by the sync adapter. */
+export const chromeSyncMetadataRepository = createSyncMetadataRepository({
+  async read() {
+    const stored = await chrome.storage.local.get(SYNC_METADATA_KEY);
+    return stored[SYNC_METADATA_KEY];
+  },
+  async write(value) {
+    await chrome.storage.local.set({ [SYNC_METADATA_KEY]: value });
+  }
+});
+
+/** Gist tokens and WebDAV passwords never leave local extension storage. */
+export const chromeSyncSecretsRepository = createSyncSecretsRepository({
+  async read() {
+    const stored = await chrome.storage.local.get(SYNC_SECRETS_KEY);
+    return stored[SYNC_SECRETS_KEY];
+  },
+  async write(value) {
+    await chrome.storage.local.set({ [SYNC_SECRETS_KEY]: value });
+  }
+});
+
+export const chromeExtensionSyncStorage = {
+  async get(keys: readonly string[]) {
+    return chrome.storage.sync.get([...keys]);
+  },
+  async remove(keys: readonly string[]) {
+    await chrome.storage.sync.remove([...keys]);
+  },
+  async set(values: Record<string, unknown>) {
+    await chrome.storage.sync.set(values);
+  }
+};
 
 export function serializableConfiguration(
   document: ConfigurationDocument

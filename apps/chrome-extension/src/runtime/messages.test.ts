@@ -119,4 +119,21 @@ describe('background messages', () => {
   it('accepts the explicit extension reset command', () => {
     expect(isBackgroundRequest({ type: 'extension.reset' })).toBe(true);
   });
+
+  it('accepts only validated write-only synchronization settings', () => {
+    expect(
+      isBackgroundRequest({
+        configuration: { fileName: 'switchypeformance.json', kind: 'gist' },
+        secret: 'write-only-token',
+        type: 'sync.configure'
+      })
+    ).toBe(true);
+    expect(
+      isBackgroundRequest({
+        configuration: { kind: 'webdav', url: 'file:///unsafe', username: 'night' },
+        type: 'sync.configure'
+      })
+    ).toBe(false);
+    expect(isBackgroundRequest({ type: 'sync.inspect' })).toBe(true);
+  });
 });

@@ -6,10 +6,13 @@ export interface ExtensionResetDependencies<TDocument> {
     scope: 'configuration';
   }): Promise<unknown>;
   clearChromeProxy(): Promise<{ cleared: boolean }>;
+  clearChromeSync?(): Promise<unknown>;
   clearCredentials(): Promise<unknown>;
   clearDiagnostics(): Promise<unknown>;
   clearNetworkEvents(): Promise<unknown>;
   clearSourceStatuses(): Promise<unknown>;
+  clearSyncMetadata?(): Promise<unknown>;
+  clearSyncSecrets?(): Promise<unknown>;
   clearTemporaryRules(): Promise<unknown>;
   createDefaultDocument(): TDocument;
   replaceConfiguration(document: TDocument): Promise<unknown>;
@@ -31,7 +34,10 @@ export function createExtensionResetService<TDocument>(
         dependencies.clearDiagnostics(),
         dependencies.clearNetworkEvents(),
         dependencies.clearSourceStatuses(),
-        dependencies.clearTemporaryRules()
+        dependencies.clearTemporaryRules(),
+        ...(dependencies.clearChromeSync === undefined ? [] : [dependencies.clearChromeSync()]),
+        ...(dependencies.clearSyncMetadata === undefined ? [] : [dependencies.clearSyncMetadata()]),
+        ...(dependencies.clearSyncSecrets === undefined ? [] : [dependencies.clearSyncSecrets()])
       ]);
       await dependencies.replaceConfiguration(dependencies.createDefaultDocument());
       await dependencies.appendDiagnostic({

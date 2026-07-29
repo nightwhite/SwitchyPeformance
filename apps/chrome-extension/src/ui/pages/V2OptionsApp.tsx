@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ChevronRight,
   CircleGauge,
+  Cloud,
   Clock3,
   FileUp,
   Globe2,
@@ -21,6 +22,7 @@ import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-ro
 import { DiagnosticsPage } from './DiagnosticsPage.tsx';
 import { DataPage } from './DataPage.tsx';
 import { SettingsPage } from './SettingsPage.tsx';
+import { SyncPage } from './SyncPage.tsx';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
@@ -35,6 +37,7 @@ const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   'temporary-rules': { eyebrow: '情景模式', title: '临时规则' },
   diagnostics: { eyebrow: '工具', title: '排查日志' },
   data: { eyebrow: '工具', title: '导入与导出' },
+  sync: { eyebrow: '工具', title: '配置同步' },
   settings: { eyebrow: '设置', title: '运行参数' }
 };
 
@@ -137,6 +140,13 @@ export function V2OptionsApp({
           />
           <NavButton
             active={page}
+            icon={<Cloud />}
+            label="配置同步"
+            page="sync"
+            onNavigate={navigate}
+          />
+          <NavButton
+            active={page}
             icon={<Settings2 />}
             label="运行参数"
             page="settings"
@@ -219,6 +229,9 @@ export function V2OptionsApp({
               onState={onState}
               sourceStatuses={state.sourceStatuses}
             />
+          ) : null}
+          {page === 'sync' ? (
+            <SyncPage busy={busy} onState={onState} syncStatus={state.sync} />
           ) : null}
           {page === 'settings' ? (
             <SettingsPage

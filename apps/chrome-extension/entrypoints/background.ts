@@ -6,14 +6,20 @@ import {
   chromeCredentialRepository,
   chromeConfigurationRepository,
   chromeDiagnosticsRepository,
+  chromeExtensionSyncStorage,
   chromeNetworkEventRepository,
   chromeSourceStatusRepository,
+  chromeSyncMetadataRepository,
+  chromeSyncSecretsRepository,
   chromeTemporaryRuleRepository
 } from '../src/runtime/chrome-repositories.ts';
 import { createNetworkMonitor } from '../src/runtime/network-monitor.ts';
 import type { NetworkEventRepository } from '../src/runtime/network-event-repository.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
-import { createConfigurationImportService } from '../src/runtime/configuration-import-service.ts';
+import {
+  createConfigurationImportService,
+  previewConfigurationImport
+} from '../src/runtime/configuration-import-service.ts';
 import {
   canControlChromeProxy,
   proxyControlStateFromLevel,
@@ -62,6 +68,8 @@ import {
   type BackgroundResponse
 } from '../src/runtime/messages.ts';
 import { compileAutoSwitchWithWasm } from '../src/runtime/wasm-runtime.ts';
+import { createSyncProviderFactory } from '../src/runtime/sync/sync-provider-factory.ts';
+import { createSyncService } from '../src/runtime/sync/sync-service.ts';
 import {
   addHostRuleToAutoSwitch,
   addHostRuleToAutoSwitchV2,
@@ -114,6 +122,24 @@ export default defineBackground(() => {
       }
       return committed;
     }
+  });
+  const syncProviderFactory = createSyncProviderFactory({
+    chromeStorage: chromeExtensionSyncStorage,
+    fetch: (url, request) => fetch(url, request)
+  });
+  const sync = createSyncService({
+    async commit(document) {
+      const committed = await service.replaceConfiguration(document);
+      if (committed.schemaVersion !== 2) {
+        throw new Error('同步后配置版本异常');
+      }
+      return committed;
+    },
+    loadConfiguration: () => chromeConfigurationRepository.load(),
+    metadata: chromeSyncMetadataRepository,
+    preview: previewConfigurationImport,
+    remoteFactory: syncProviderFactory,
+    secrets: chromeSyncSecretsRepository
   });
   const profileActivation = createProfileActivationService({
     activate: (profileId) => service.activateProfile(profileId),
@@ -169,10 +195,13 @@ export default defineBackground(() => {
   const extensionReset = createExtensionResetService({
     appendDiagnostic: (event) => chromeDiagnosticsRepository.append(event),
     clearChromeProxy: clearChromeProxySetting,
+    clearChromeSync: () => syncProviderFactory.clearChromeSync(),
     clearCredentials: () => chromeCredentialRepository.clear(),
     clearDiagnostics: () => chromeDiagnosticsRepository.clear(),
     clearNetworkEvents: () => chromeNetworkEventRepository.clear(),
     clearSourceStatuses: () => chromeSourceStatusRepository.clear(),
+    clearSyncMetadata: () => chromeSyncMetadataRepository.clear(),
+    clearSyncSecrets: () => chromeSyncSecretsRepository.clear(),
     clearTemporaryRules: () => chromeTemporaryRuleRepository.replace([]),
     createDefaultDocument: createDefaultProfileDocumentV2,
     replaceConfiguration: (document) => chromeConfigurationRepository.replace(document)
@@ -302,11 +331,13 @@ export default defineBackground(() => {
           sourceRefreshLifecycle,
           chromeNetworkEventRepository,
           resetExtensionState,
+          sync,
           message
         )
       )
       .then(async (response) => {
         if (messageChangesProxyList(message)) {
+          await synchronizeTemporaryRules();
           await synchronizeNetworkMonitor();
           void synchronizeSourceRefresh();
           await rebuildQuickRuleMenus();
@@ -632,6 +663,7 @@ async function handleMessage(
   sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
   networkEvents: Pick<NetworkEventRepository, 'clear' | 'list'>,
   resetExtensionState: () => Promise<void>,
+  sync: ReturnType<typeof createSyncService>,
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
@@ -640,6 +672,9 @@ async function handleMessage(
 
   if (message.type === 'configuration.import.preview') {
     return { ok: true, importPreview: configurationImport.preview(message.input) };
+  }
+  if (isSyncRequest(message)) {
+    return handleSyncMessage(sync, message);
   }
 
   const routeStatus = await dispatch(
@@ -675,6 +710,7 @@ async function handleMessage(
     state: {
       ...snapshot,
       temporaryRules: await temporaryRules.list(snapshot.configuration),
+      sync: await sync.status(),
       ...(proxyControl === undefined ? {} : { proxyControl }),
       ...(allNetworkEvents === undefined
         ? {}
@@ -772,6 +808,42 @@ async function dispatch(
     case 'proxy.credentials.delete':
       await chromeCredentialRepository.remove(message.credentialId);
       return undefined;
+    case 'sync.status.get':
+    case 'sync.configure':
+    case 'sync.inspect':
+    case 'sync.keep-local':
+    case 'sync.use-remote':
+    case 'sync.export-both':
+    case 'sync.disconnect':
+      return undefined;
+  }
+}
+
+function isSyncRequest(
+  message: BackgroundRequest
+): message is Extract<BackgroundRequest, { type: `sync.${string}` }> {
+  return message.type.startsWith('sync.');
+}
+
+async function handleSyncMessage(
+  sync: ReturnType<typeof createSyncService>,
+  message: Extract<BackgroundRequest, { type: `sync.${string}` }>
+): Promise<BackgroundResponse> {
+  switch (message.type) {
+    case 'sync.status.get':
+      return { ok: true, syncStatus: await sync.status() };
+    case 'sync.configure':
+      return { ok: true, syncStatus: await sync.configure(message) };
+    case 'sync.inspect':
+      return { ok: true, syncInspection: await sync.inspect() };
+    case 'sync.keep-local':
+      return { ok: true, syncStatus: (await sync.keepLocal()).status };
+    case 'sync.use-remote':
+      return { ok: true, syncStatus: (await sync.useRemote()).status };
+    case 'sync.export-both':
+      return { ok: true, syncExport: await sync.exportBoth() };
+    case 'sync.disconnect':
+      return { ok: true, syncStatus: await sync.disconnect() };
   }
 }
 
@@ -807,6 +879,7 @@ function messageChangesProxyList(message: unknown): boolean {
   return (
     type === 'configuration.replace' ||
     type === 'configuration.import.commit' ||
+    type === 'sync.use-remote' ||
     type === 'extension.reset'
   );
 }

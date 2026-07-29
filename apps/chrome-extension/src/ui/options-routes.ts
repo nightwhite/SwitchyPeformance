@@ -6,6 +6,7 @@ export const OPTION_PAGES = [
   'temporary-rules',
   'diagnostics',
   'data',
+  'sync',
   'settings'
 ] as const;
 

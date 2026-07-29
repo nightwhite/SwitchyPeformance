@@ -55,11 +55,16 @@ export function createConfigurationImportService(
       return committed;
     },
     preview(input) {
-      const next = buildPreview(input);
+      const next = previewConfigurationImport(input);
       pendingPreview = clonePreview(next);
       return clonePreview(next);
     }
   };
+}
+
+/** A side-effect-free import preview for sync and other trusted callers. */
+export function previewConfigurationImport(input: unknown): ConfigurationImportPreview {
+  return clonePreview(buildPreview(input));
 }
 
 /** Parses file contents only. File extensions such as .bak are intentionally irrelevant. */

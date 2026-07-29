@@ -62,4 +62,30 @@ describe('extension reset service', () => {
       expect.objectContaining({ detail: '已清除本扩展写入的 Chrome 代理配置。' })
     );
   });
+
+  it('also clears only extension-owned synchronization state when synchronization is enabled', async () => {
+    const clearChromeSync = vi.fn().mockResolvedValue(undefined);
+    const clearSyncMetadata = vi.fn().mockResolvedValue(undefined);
+    const clearSyncSecrets = vi.fn().mockResolvedValue(undefined);
+    const service = createExtensionResetService({
+      appendDiagnostic: vi.fn().mockResolvedValue(undefined),
+      clearChromeProxy: vi.fn().mockResolvedValue({ cleared: false }),
+      clearChromeSync,
+      clearCredentials: vi.fn().mockResolvedValue(undefined),
+      clearDiagnostics: vi.fn().mockResolvedValue(undefined),
+      clearNetworkEvents: vi.fn().mockResolvedValue(undefined),
+      clearSourceStatuses: vi.fn().mockResolvedValue(undefined),
+      clearSyncMetadata,
+      clearSyncSecrets,
+      clearTemporaryRules: vi.fn().mockResolvedValue(undefined),
+      createDefaultDocument: () => ({ schemaVersion: 2 }),
+      replaceConfiguration: vi.fn().mockResolvedValue(undefined)
+    });
+
+    await service.reset();
+
+    expect(clearChromeSync).toHaveBeenCalledOnce();
+    expect(clearSyncMetadata).toHaveBeenCalledOnce();
+    expect(clearSyncSecrets).toHaveBeenCalledOnce();
+  });
 });

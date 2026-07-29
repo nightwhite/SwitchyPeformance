@@ -14,6 +14,13 @@ import type { NetworkEvent } from './network-event-repository.ts';
 import type { SourceStatus } from './source-status-repository.ts';
 import type { TabNetworkSummary } from './tab-network-summary.ts';
 import type { TemporaryRule } from './temporary-rule-service.ts';
+import type {
+  SyncExportPair,
+  SyncInspection,
+  SyncProviderConfiguration,
+  SyncStatus
+} from './sync/sync-service.ts';
+import { normalizeSyncProviderConfiguration } from './sync/sync-settings-repository.ts';
 
 export type QuickRuleTarget = ProfileTarget | RouteTarget;
 export type QuickRuleCondition = Extract<
@@ -55,7 +62,18 @@ export type BackgroundRequest =
   | { type: 'options.open' }
   | { type: 'proxy.credentials.save'; proxyId: string; username: string; password: string }
   | { type: 'proxy.credentials.clear'; proxyId: string }
-  | { type: 'proxy.credentials.delete'; credentialId: string };
+  | { type: 'proxy.credentials.delete'; credentialId: string }
+  | { type: 'sync.status.get' }
+  | {
+      type: 'sync.configure';
+      configuration: SyncProviderConfiguration;
+      secret?: string;
+    }
+  | { type: 'sync.inspect' }
+  | { type: 'sync.keep-local' }
+  | { type: 'sync.use-remote' }
+  | { type: 'sync.export-both' }
+  | { type: 'sync.disconnect' };
 
 export interface BackgroundState {
   configuration: ConfigurationDocument;
@@ -73,6 +91,7 @@ export interface BackgroundState {
   temporaryRules: readonly TemporaryRule[];
   networkSummary?: readonly TabNetworkSummary[];
   proxyControl?: ProxyControlState;
+  sync?: SyncStatus;
 }
 
 export type BackgroundResponse =
@@ -82,6 +101,9 @@ export type BackgroundResponse =
       networkEvents?: readonly NetworkEvent[];
       routeStatus?: CurrentRouteStatus;
       state?: BackgroundState;
+      syncExport?: SyncExportPair;
+      syncInspection?: SyncInspection;
+      syncStatus?: SyncStatus;
     }
   | { ok: false; error: string };
 
@@ -108,6 +130,8 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     ruleId?: unknown;
     sourceId?: unknown;
     tabId?: unknown;
+    configuration?: unknown;
+    secret?: unknown;
   };
   return (
     message.type === 'state.get' ||
@@ -144,8 +168,26 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
       typeof message.username === 'string' &&
       typeof message.password === 'string') ||
     (message.type === 'proxy.credentials.clear' && typeof message.proxyId === 'string') ||
-    (message.type === 'proxy.credentials.delete' && typeof message.credentialId === 'string')
+    (message.type === 'proxy.credentials.delete' && typeof message.credentialId === 'string') ||
+    message.type === 'sync.status.get' ||
+    message.type === 'sync.inspect' ||
+    message.type === 'sync.keep-local' ||
+    message.type === 'sync.use-remote' ||
+    message.type === 'sync.export-both' ||
+    message.type === 'sync.disconnect' ||
+    (message.type === 'sync.configure' &&
+      isSyncProviderConfiguration(message.configuration) &&
+      (message.secret === undefined || typeof message.secret === 'string'))
   );
+}
+
+function isSyncProviderConfiguration(value: unknown): value is SyncProviderConfiguration {
+  try {
+    normalizeSyncProviderConfiguration(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isQuickRuleCondition(value: unknown): value is QuickRuleCondition {

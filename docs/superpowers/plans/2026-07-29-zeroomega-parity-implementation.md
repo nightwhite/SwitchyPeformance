@@ -1686,7 +1686,7 @@ git commit -m "feat: manage startup and external proxy control"
 - Test: `apps/chrome-extension/src/runtime/sync/chrome-sync.test.ts`
 - Test: `apps/chrome-extension/src/runtime/sync/webdav-sync.test.ts`
 
-- [ ] **Step 1: 写出版本冲突绝不静默覆盖本地配置的失败测试。**
+- [x] **Step 1: 写出版本冲突绝不静默覆盖本地配置的失败测试。**
 
 ```ts
 expect(resolveSyncConflict({ localRevision: 8, remoteRevision: 9, sameDigest: false })).toEqual({
@@ -1697,13 +1697,13 @@ expect(resolveSyncConflict({ localRevision: 8, remoteRevision: 8, sameDigest: tr
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/sync/conflict-resolution.test.ts apps/chrome-extension/src/runtime/sync/chrome-sync.test.ts apps/chrome-extension/src/runtime/sync/webdav-sync.test.ts`
 
 Expected: FAIL，同步模块不存在。
 
-- [ ] **Step 3: 实现可验证的同步包。**
+- [x] **Step 3: 实现可验证的同步包。**
 
 ```ts
 export interface SyncEnvelope {
@@ -1717,18 +1717,27 @@ export interface SyncEnvelope {
 
 Chrome 同步按分片和摘要处理配额；Gist 与 WebDAV 使用用户输入的令牌或账号密码，只保存在本地凭据仓库，永不放入配置导出。所有远程内容先走导入预览和校验，冲突时必须让用户选择“保留本地”“使用远端”或“导出两份后再决定”。
 
-- [ ] **Step 4: 运行同步测试、完整检查与构建。**
+- [x] **Step 4: 运行同步测试、完整检查与构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/sync && pnpm check && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交同步功能。**
+- [x] **Step 5: 提交同步功能。**
 
 ```bash
 git add packages/contracts/src/sync apps/chrome-extension/src/runtime/sync apps/chrome-extension/src/ui/pages/SyncPage.tsx
 git commit -m "feat: synchronize configurations with conflict protection"
 ```
+
+**执行记录（2026-07-29）：** 新增了可移植的 V2 同步包，使用稳定序列化和 SHA-256 摘要
+防止远端内容被篡改；账号密码和 GitHub 令牌只放在 Chrome 本地存储，既不会进入配置导出，
+也不会回传到设置页。Chrome 同步采用带代际清单的 UTF-8 分片，完整分片写入后才切换到新
+版本；Gist 支持私有创建、更新和大文件原始内容读取；WebDAV 使用 `If-Match` / `If-None-Match`
+保护并发写入。两份配置不同时只显示预览，不会自动覆盖；用户必须明确选择保留本地、使用远端
+或导出两份。若 WebDAV/Gist 的已有远端数据没有版本标记，则拒绝覆盖。验证：`pnpm test`
+（86 个测试文件、314 个测试）、`pnpm check`、当前改动的 Prettier 校验、`cargo fmt --all -- --check`
+和 `pnpm build` 均通过。全仓 `pnpm format:check` 仍因两个未修改的旧测试文件而失败。
 
 ## M6：视觉完成度、真实 Chrome 和性能验收
 
