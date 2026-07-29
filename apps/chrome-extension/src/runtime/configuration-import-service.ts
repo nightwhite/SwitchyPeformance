@@ -104,7 +104,7 @@ function buildPreview(input: unknown): ConfigurationImportPreview {
     }
     source = 'legacy';
     const migration = migrateV1Document(legacy.value);
-    document = migration.value;
+    document = applyLegacyRuleInsertPreference(migration.value, candidate);
     warnings.push(...legacy.warnings, ...migration.warnings);
   }
 
@@ -134,6 +134,22 @@ function extractExportedConfiguration(input: unknown): unknown {
     throw new Error('配置备份版本不受支持');
   }
   return input.configuration;
+}
+
+function applyLegacyRuleInsertPreference(
+  document: ProfileDocumentV2,
+  input: unknown
+): ProfileDocumentV2 {
+  if (!isRecord(input) || typeof input['-addConditionsToBottom'] !== 'boolean') {
+    return document;
+  }
+  return {
+    ...document,
+    settings: {
+      ...document.settings,
+      ruleInsertPosition: input['-addConditionsToBottom'] ? 'last' : 'first'
+    }
+  };
 }
 
 function previewCounts(

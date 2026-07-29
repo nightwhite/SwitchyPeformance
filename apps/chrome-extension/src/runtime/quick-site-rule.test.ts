@@ -64,6 +64,27 @@ describe('quick site rule', () => {
     ).toHaveLength(1);
   });
 
+  it('puts a new popup rule ahead of existing rules even when manual rules append at the end', () => {
+    const document = {
+      ...v2Document(),
+      settings: { ...v2Document().settings, ruleInsertPosition: 'last' as const }
+    };
+
+    const updated = addCurrentSiteRule(document, {
+      automaticProfileId: 'automatic-secondary',
+      condition: { type: 'host-wildcard', pattern: 'github.com' },
+      host: 'github.com',
+      ruleId: 'quick-github',
+      scope: 'host',
+      target: { profileId: 'fixed-work' }
+    });
+
+    expect(v2Automatic(updated, 'automatic-secondary').rules.map((rule) => rule.id)).toEqual([
+      'quick-github',
+      'existing-rule'
+    ]);
+  });
+
   it('only permits a loopback quick rule after a non-direct target was explicitly selected', () => {
     const proxied = addCurrentSiteRule(v2Document(), {
       automaticProfileId: 'automatic-secondary',
@@ -112,6 +133,41 @@ describe('quick site rule', () => {
       type: 'host-equals',
       value: 'sub.example.com'
     });
+  });
+
+  it('puts V1 popup rules ahead of existing rules', () => {
+    const document = {
+      ...v1Document(),
+      profiles: v1Document().profiles.map((profile) =>
+        profile.kind === 'auto-switch'
+          ? {
+              ...profile,
+              rules: [
+                {
+                  id: 'existing-v1-rule',
+                  enabled: true,
+                  condition: { type: 'host-equals' as const, value: 'existing.example' },
+                  target: { kind: 'direct' as const }
+                }
+              ]
+            }
+          : profile
+      )
+    };
+
+    const updated = addCurrentSiteRule(document, {
+      automaticProfileId: 'automatic',
+      condition: { type: 'host-wildcard', pattern: 'github.com' },
+      host: 'github.com',
+      ruleId: 'quick-v1-github',
+      scope: 'host',
+      target: { kind: 'proxy', proxyId: 'proxy-work' }
+    });
+
+    expect(v1Automatic(updated).rules.map((rule) => rule.id)).toEqual([
+      'quick-v1-github',
+      'existing-v1-rule'
+    ]);
   });
 
   it('rejects a V2 target that cannot be routed by Chrome PAC', () => {

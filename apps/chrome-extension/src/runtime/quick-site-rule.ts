@@ -96,7 +96,7 @@ function addV1CurrentSiteRule(
   );
   const rules =
     existingIndex < 0
-      ? [...profile.rules, entry]
+      ? [entry, ...profile.rules]
       : profile.rules.map((rule, index) =>
           index === existingIndex ? { ...rule, enabled: true, target: entry.target } : rule
         );
@@ -128,9 +128,7 @@ function addV2CurrentSiteRule(
   );
   const rules =
     existingIndex < 0
-      ? document.settings.ruleInsertPosition === 'first'
-        ? [entry, ...profile.rules]
-        : [...profile.rules, entry]
+      ? [entry, ...profile.rules]
       : profile.rules.map((rule, index) =>
           index === existingIndex ? { ...rule, enabled: true, target: entry.target } : rule
         );

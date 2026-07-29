@@ -4,7 +4,8 @@ import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import {
   createConfigurationImportService,
-  parseConfigurationImportText
+  parseConfigurationImportText,
+  previewConfigurationImport
 } from './configuration-import-service.ts';
 import { exportConfiguration } from './configuration-export.ts';
 
@@ -79,6 +80,15 @@ describe('configuration import service', () => {
     });
     expect(preview.document.proxyServers[0]).not.toHaveProperty('credentialId');
     expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('keeps the legacy preference to put newly added rules at the top', () => {
+    const preview = previewConfigurationImport({
+      ...legacyBackup(),
+      '-addConditionsToBottom': false
+    });
+
+    expect(preview.document.settings.ruleInsertPosition).toBe('first');
   });
 });
 
