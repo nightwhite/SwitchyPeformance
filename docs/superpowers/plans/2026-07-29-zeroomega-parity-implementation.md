@@ -1753,20 +1753,20 @@ git commit -m "feat: synchronize configurations with conflict protection"
 - Test: `apps/chrome-extension/src/ui/ui-language.test.ts`
 - Test: `apps/chrome-extension/e2e/options-layout.spec.ts`
 
-- [ ] **Step 1: 写出所有页面显示中文文案、弹窗最小宽度和设置页横向滚动的失败测试。**
+- [x] **Step 1: 写出所有页面显示中文文案、弹窗最小宽度和设置页横向滚动的失败测试。**
 
 ```ts
 expect(visibleUiText()).not.toMatch(/\b(Add|Delete|Unknown|Failed|Options)\b/);
 expect(popupDimensions()).toEqual({ minWidth: 360, maxWidth: 440 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/ui-language.test.ts && pnpm playwright test apps/chrome-extension/e2e/options-layout.spec.ts`
 
 Expected: FAIL，新的页面和布局验收尚未建立。
 
-- [ ] **Step 3: 实现共享布局和可访问性约束。**
+- [x] **Step 3: 实现共享布局和可访问性约束。**
 
 ```css
 .options-app {
@@ -1782,18 +1782,22 @@ Expected: FAIL，新的页面和布局验收尚未建立。
 
 所有文字使用中文；错误由错误码转为用户能看懂的句子；图标按钮带 `title`、`aria-label`；不把主要操作藏在没有说明的图标中。布局只允许页面级横向滚动，不能把侧边栏和主内容叠成一条细线。
 
-- [ ] **Step 4: 运行视觉和构建验证。**
+- [x] **Step 4: 运行视觉和构建验证。**
 
 Run: `pnpm test && pnpm build && pnpm playwright test apps/chrome-extension/e2e/options-layout.spec.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交 UI 完成度。**
+- [x] **Step 5: 提交 UI 完成度。**
 
 ```bash
 git add apps/chrome-extension/src/ui apps/chrome-extension/entrypoints
 git commit -m "feat: polish Chinese extension interface"
 ```
+
+**执行记录（2026-07-29）：** 新安装默认使用 V2 中文配置；设置页保持 760px 最小工作区，
+弹窗保持 360px 至 420px 宽度。`ui-language.test.ts` 和真实扩展的布局回归已建立；最终
+`pnpm test`、`pnpm build`、`pnpm test:e2e` 均通过。
 
 ### Task 28: 建立真实 Chrome、代理认证和性能回归测试
 
@@ -1808,7 +1812,7 @@ git commit -m "feat: polish Chinese extension interface"
 - Modify: `README.md`
 - Test: `apps/chrome-extension/e2e/proxy-routing.spec.ts`
 
-- [ ] **Step 1: 写出本地 HTTP 代理夹具、认证失败和 10,000/50,000 条规则基准的失败测试。**
+- [x] **Step 1: 写出本地 HTTP 代理夹具、认证失败和 10,000/50,000 条规则基准的失败测试。**
 
 ```ts
 test('10,000 条规则的配置只在保存时编译一次', async ({ extension }) => {
@@ -1820,13 +1824,13 @@ test('10,000 条规则的配置只在保存时编译一次', async ({ extension 
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm playwright test apps/chrome-extension/e2e/proxy-routing.spec.ts apps/chrome-extension/e2e/proxy-auth.spec.ts apps/chrome-extension/e2e/recovery.spec.ts`
 
 Expected: FAIL，Playwright 夹具和真实扩展测试尚未建立。
 
-- [ ] **Step 3: 实现端到端夹具和基准脚本。**
+- [x] **Step 3: 实现端到端夹具和基准脚本。**
 
 ```js
 // scripts/benchmark-routing.mjs
@@ -1839,18 +1843,24 @@ for (const size of sizes) {
 
 夹具只使用本机测试 HTTP 服务和测试代理，不请求真实用户站点。端到端测试必须覆盖：固定 HTTP 代理、SOCKS 代理配置、认证挑战、自动切换命中、回环不代理、配置编译失败恢复、服务工作线程重启恢复和弹窗快速加规则。
 
-- [ ] **Step 4: 运行完整发布门禁。**
+- [x] **Step 4: 运行完整发布门禁。**
 
 Run: `pnpm format:check && pnpm check && pnpm test && cargo fmt --check && pnpm build && pnpm playwright test && node scripts/benchmark-routing.mjs`
 
 Expected: 所有检查 PASS；基准脚本输出四行 CSV 数据。真实 x.com、Instagram 等外部网站仅在用户已提供可用代理后做手动验证，不把网络波动误判为扩展性能结果。
 
-- [ ] **Step 5: 提交测试和基准。**
+- [x] **Step 5: 提交测试和基准。**
 
 ```bash
 git add apps/chrome-extension/e2e scripts/benchmark-routing.mjs package.json README.md
 git commit -m "test: verify chrome routing recovery and performance"
 ```
+
+**执行记录（2026-07-29）：** 新增隔离 Chromium 的 MV3 夹具、本地 HTTP/SOCKS5/认证代理、
+恢复和性能测试。工具栏真实弹窗使用 Chrome 调试协议访问特殊页面，并验证当前网页能直接加入
+自动切换；弹窗启动时首次读到扩展页会在 75ms 间隔内重试，避免丢失当前网页。最终 10 条
+Chrome 端到端测试通过。基准输出：100 条 9.051ms、1,000 条 6.989ms、10,000 条 50.446ms、
+50,000 条 311.385ms；均为保存时编译。
 
 ### Task 29: 完成发布审查、MIT 边界和可安装包
 
@@ -1862,20 +1872,20 @@ git commit -m "test: verify chrome routing recovery and performance"
 - Modify: `.gitignore`
 - Test: `scripts/check-source-size.mjs`
 
-- [ ] **Step 1: 写出参考目录不能被 Git 暂存的失败检查。**
+- [x] **Step 1: 写出参考目录不能被 Git 暂存的失败检查。**
 
 ```js
 assert.equal(isIgnored('.reference/zeroomega-audit/omega-pac/src/profiles.coffee'), true);
 assert.equal(sourceFilesOverLimit().length, 0);
 ```
 
-- [ ] **Step 2: 运行失败检查。**
+- [x] **Step 2: 运行失败检查。**
 
 Run: `node scripts/check-source-size.mjs && git check-ignore -q .reference/zeroomega-audit/omega-pac/src/profiles.coffee`
 
 Expected: 如果忽略规则或大小限制损坏则 FAIL；修复后两个命令成功。
 
-- [ ] **Step 3: 写出发布清单。**
+- [x] **Step 3: 写出发布清单。**
 
 ```markdown
 - [ ] `pnpm format:check` 已通过
@@ -1890,18 +1900,22 @@ Expected: 如果忽略规则或大小限制损坏则 FAIL；修复后两个命�
 
 README 必须标明：这是预发布还是稳定版、Chrome 版本要求、纯扩展限制、如何加载 `.output/chrome-mv3`、如何导出备份以及已验证的性能数据。MIT 许可证和净室规则必须保留。
 
-- [ ] **Step 4: 执行发布门禁。**
+- [x] **Step 4: 执行发布门禁。**
 
 Run: `pnpm format:check && pnpm check && pnpm test && pnpm build && git status --short && git ls-files .reference`
 
 Expected: 前四项 PASS；`git ls-files .reference` 没有输出；工作区只剩本次发布文档变更。
 
-- [ ] **Step 5: 提交发布文档。**
+- [x] **Step 5: 提交发布文档。**
 
 ```bash
 git add README.md docs .gitignore scripts/check-source-size.mjs
 git commit -m "docs: document clean-room release verification"
 ```
+
+**执行记录（2026-07-29）：** `docs/release-checklist.md` 已覆盖许可证、参考资料隔离、
+自动门禁和安装验证；`.reference/` 被 Git 忽略且没有被跟踪，源码行数检查通过。完整发布门禁
+通过，`pnpm package:chrome` 生成约 964KB 的 Chrome 解压安装包。
 
 ## 每个里程碑的验收门槛
 
