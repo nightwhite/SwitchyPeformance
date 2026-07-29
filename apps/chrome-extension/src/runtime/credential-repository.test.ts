@@ -6,7 +6,9 @@ describe('createCredentialRepository', () => {
   it('clears the memory cache as well as the local credential store', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     const repository = createCredentialRepository({
-      read: vi.fn().mockResolvedValue([{ id: 'credential-a', password: 'secret', username: 'user' }]),
+      read: vi
+        .fn()
+        .mockResolvedValue([{ id: 'credential-a', password: 'secret', username: 'user' }]),
       write
     });
 

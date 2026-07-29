@@ -23,7 +23,7 @@ export function createConfigurationRepository(
     async load() {
       const stored = await storage.read();
       if (stored === undefined) {
-        const document = createDefaultProfileDocument();
+        const document = createDefaultProfileDocumentV2();
         await storage.write(document);
         return document;
       }

@@ -76,7 +76,9 @@ describe('temporary rule lifecycle', () => {
       loadConfiguration: vi.fn().mockResolvedValue(document),
       now: () => 1_000,
       reapply,
-      temporaryRules: { prune: vi.fn().mockResolvedValue({ changed: true, rules: [rule('safe', 2_000)] }) }
+      temporaryRules: {
+        prune: vi.fn().mockResolvedValue({ changed: true, rules: [rule('safe', 2_000)] })
+      }
     });
 
     await lifecycle.schedule();
