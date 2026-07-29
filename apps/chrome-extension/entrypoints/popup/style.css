@@ -409,8 +409,14 @@ select {
   border-bottom: 1px solid #e3e8e2;
 }
 
-.failure-row:last-child {
+.failure-entry:last-child > .failure-row {
   border-bottom: 0;
+}
+
+.failure-resource {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
 }
 
 .failure-host {
@@ -420,6 +426,90 @@ select {
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.failure-error {
+  overflow: hidden;
+  color: #a04f42;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.failure-action-menu {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #f8faf7;
+  border-top: 1px solid #dce4dc;
+}
+
+.failure-route-details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border: 1px solid #d7dfd7;
+  background: #ffffff;
+}
+
+.failure-route-details > div {
+  display: grid;
+  min-height: 27px;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 0 7px;
+  border-bottom: 1px solid #e5ebe5;
+}
+
+.failure-route-details > div:last-child {
+  border-bottom: 0;
+}
+
+.failure-route-details dt,
+.failure-route-details dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.failure-route-details dt {
+  color: #6d786f;
+  font-size: 10px;
+}
+
+.failure-route-details dd {
+  color: #294236;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.failure-loopback-notice {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  color: #8a5a10;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.failure-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.failure-action-grid .command-button,
+.failure-action-grid .outline-button {
+  min-width: 0;
+  min-height: 31px;
+  padding: 0 7px;
+  justify-content: center;
+  font-size: 10px;
 }
 
 .popup-footer {

@@ -1,8 +1,10 @@
 import type { DiagnosticEvent } from './diagnostics-repository.ts';
+import { sanitizeNetworkUrl } from './network-monitor.ts';
 
 export interface NetworkFailure {
   url: string;
   error: string;
+  tabId?: number;
 }
 
 export interface NetworkFailureRecorderOptions {
@@ -36,7 +38,8 @@ export function createNetworkFailureRecorder(
         return;
       }
       const now = clock();
-      const key = failureKey(failure);
+      const target = sanitizeNetworkUrl(failure.url);
+      const key = failureKey(target, failure.error);
       const previous = recentFailures.get(key);
       if (previous !== undefined && now - previous < dedupeWindowMs) {
         return;
@@ -52,18 +55,19 @@ export function createNetworkFailureRecorder(
         level: 'error',
         scope: 'network',
         message: '网络请求失败',
-        target: failure.url,
-        detail: failure.error
+        target,
+        detail: failure.error,
+        ...(failure.tabId === undefined ? {} : { tabId: failure.tabId })
       });
     }
   };
 }
 
-function failureKey(failure: NetworkFailure): string {
+function failureKey(target: string, error: string): string {
   try {
-    const url = new URL(failure.url);
-    return `${url.protocol}//${url.host}${url.pathname}\u0000${failure.error}`;
+    const url = new URL(target);
+    return `${url.protocol}//${url.host}\u0000${error}`;
   } catch {
-    return `${failure.url}\u0000${failure.error}`;
+    return `${target}\u0000${error}`;
   }
 }

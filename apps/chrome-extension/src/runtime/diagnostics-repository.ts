@@ -7,6 +7,7 @@ export interface DiagnosticEvent {
   level: DiagnosticLevel;
   scope: DiagnosticScope;
   message: string;
+  tabId?: number;
   target?: string;
   detail?: string;
 }
@@ -109,6 +110,7 @@ function isDiagnosticEvent(input: unknown): input is DiagnosticEvent {
       event.scope === 'network' ||
       event.scope === 'runtime') &&
     typeof event.message === 'string' &&
+    (event.tabId === undefined || (Number.isInteger(event.tabId) && event.tabId >= -1)) &&
     (event.target === undefined || typeof event.target === 'string') &&
     (event.detail === undefined || typeof event.detail === 'string')
   );

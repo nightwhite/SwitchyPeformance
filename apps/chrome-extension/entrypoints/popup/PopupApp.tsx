@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
+  ChevronDown,
   ChevronRight,
   Clock3,
   ExternalLink,
@@ -19,6 +20,7 @@ import type { ConfigurationDocument } from '@switchypeformance/contracts';
 import {
   requestBackgroundState,
   requestCurrentRoute,
+  requestNetworkEvents,
   routeOptions,
   routeOptionsV2,
   sendBackgroundCommand,
@@ -26,7 +28,13 @@ import {
   targetFromValueV2
 } from '../../src/ui/background-client.ts';
 import { toUserFacingMessage } from '../../src/ui/error-message.ts';
-import { recentFailureHosts } from '../../src/ui/failure-hosts.ts';
+import { FailureActionMenu } from '../../src/ui/components/FailureActionMenu.tsx';
+import {
+  recentDiagnosticFailures,
+  recentNetworkFailures,
+  type FailureAction,
+  type FailureResource
+} from '../../src/ui/diagnostics/failure-remediation.ts';
 import {
   TEMPORARY_RULE_DURATION_OPTIONS,
   temporaryRuleExpiry,
@@ -56,6 +64,9 @@ export function PopupApp() {
   const [ruleScope, setRuleScope] = useState<CurrentSiteScope>('domain');
   const [ruleTarget, setRuleTarget] = useState('');
   const [temporaryDuration, setTemporaryDuration] = useState<TemporaryRuleDuration>('30m');
+  const [failures, setFailures] = useState<readonly FailureResource[]>([]);
+  const [failureRoutes, setFailureRoutes] = useState<Record<string, CurrentRouteStatus>>({});
+  const [expandedFailureKey, setExpandedFailureKey] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -73,10 +84,6 @@ export function PopupApp() {
   const automaticProfiles = useMemo(
     () => (document ? automaticProfileOptions(document) : []),
     [document]
-  );
-  const failedHosts = useMemo(
-    () => recentFailureHosts(state?.diagnostics ?? []),
-    [state?.diagnostics]
   );
   const availableTab = currentTab?.available ? currentTab : undefined;
   const effectiveAutomaticProfileId = automaticProfiles.some(
@@ -146,32 +153,20 @@ export function PopupApp() {
   }
 
   async function addQuickRule(url: string, scope: CurrentSiteScope): Promise<void> {
-    if (!document || !effectiveAutomaticProfileId || !effectiveRuleTarget) {
-      return;
-    }
-
-    setBusy(true);
-    setError(undefined);
-    try {
-      const siteRule = buildCurrentSiteRule(url, scope);
-      const nextState = await requestBackgroundState({
-        type: 'quick-rule.add',
-        automaticProfileId: effectiveAutomaticProfileId,
-        condition: siteRule.condition,
-        host: siteRule.host,
-        scope,
-        target: quickRuleTarget(document, effectiveRuleTarget)
-      });
-      await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
-    } catch (cause) {
-      setError(messageFor(cause));
-    } finally {
-      setBusy(false);
-    }
+    await applyRule(url, scope, effectiveRuleTarget, false);
   }
 
   async function addTemporaryRule(url: string, scope: CurrentSiteScope): Promise<void> {
-    if (!document || !effectiveAutomaticProfileId || !effectiveRuleTarget) {
+    await applyRule(url, scope, effectiveRuleTarget, true);
+  }
+
+  async function applyRule(
+    url: string,
+    scope: CurrentSiteScope,
+    targetValue: string | undefined,
+    temporary: boolean
+  ): Promise<void> {
+    if (!document || !effectiveAutomaticProfileId || !targetValue) {
       return;
     }
 
@@ -179,15 +174,25 @@ export function PopupApp() {
     setError(undefined);
     try {
       const siteRule = buildCurrentSiteRule(url, scope);
-      const nextState = await requestBackgroundState({
-        type: 'temporary-rule.add',
-        automaticProfileId: effectiveAutomaticProfileId,
-        condition: siteRule.condition,
-        expiresAt: temporaryRuleExpiry(temporaryDuration, Date.now()),
-        host: siteRule.host,
-        scope,
-        target: quickRuleTarget(document, effectiveRuleTarget)
-      });
+      const target = quickRuleTarget(document, targetValue);
+      const nextState = temporary
+        ? await requestBackgroundState({
+            type: 'temporary-rule.add',
+            automaticProfileId: effectiveAutomaticProfileId,
+            condition: siteRule.condition,
+            expiresAt: temporaryRuleExpiry(temporaryDuration, Date.now()),
+            host: siteRule.host,
+            scope,
+            target
+          })
+        : await requestBackgroundState({
+            type: 'quick-rule.add',
+            automaticProfileId: effectiveAutomaticProfileId,
+            condition: siteRule.condition,
+            host: siteRule.host,
+            scope,
+            target
+          });
       await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
     } catch (cause) {
       setError(messageFor(cause));
@@ -201,14 +206,90 @@ export function PopupApp() {
     setCurrentTab(tab);
     if (!tab.available) {
       setRouteStatus(undefined);
+      setFailures([]);
+      setFailureRoutes({});
+      setExpandedFailureKey(undefined);
       return;
     }
+    void refreshFailureResources(tab, nextState.diagnostics);
     try {
       setRouteStatus(await requestCurrentRoute(tab.url));
     } catch (cause) {
       setRouteStatus(undefined);
       setError(messageFor(cause));
     }
+  }
+
+  async function refreshFailureResources(
+    tab: Extract<CurrentTab, { available: true }>,
+    diagnostics: BackgroundState['diagnostics']
+  ): Promise<void> {
+    if (tab.tabId === undefined) {
+      await setFailureResources(recentDiagnosticFailures(diagnostics));
+      return;
+    }
+    try {
+      const networkFailures = recentNetworkFailures(await requestNetworkEvents(tab.tabId));
+      await setFailureResources(
+        networkFailures.length > 0
+          ? networkFailures
+          : recentDiagnosticFailures(diagnostics, 6, tab.tabId)
+      );
+    } catch {
+      await setFailureResources(recentDiagnosticFailures(diagnostics, 6, tab.tabId));
+    }
+  }
+
+  async function setFailureResources(nextFailures: readonly FailureResource[]): Promise<void> {
+    setFailures(nextFailures);
+    setExpandedFailureKey((current) =>
+      current && nextFailures.some((failure) => failure.key === current) ? current : undefined
+    );
+    const routes = await Promise.all(
+      nextFailures.map(async (failure) => {
+        try {
+          return [failure.key, await requestCurrentRoute(failure.url)] as const;
+        } catch {
+          return undefined;
+        }
+      })
+    );
+    setFailureRoutes(
+      Object.fromEntries(
+        routes.filter(
+          (route): route is readonly [string, CurrentRouteStatus] => route !== undefined
+        )
+      )
+    );
+  }
+
+  async function handleFailureAction(
+    failure: FailureResource,
+    action: FailureAction
+  ): Promise<void> {
+    if (action === 'inspect-route') {
+      setBusy(true);
+      setError(undefined);
+      try {
+        const status = await requestCurrentRoute(failure.url);
+        setFailureRoutes((current) => ({ ...current, [failure.key]: status }));
+      } catch (cause) {
+        setError(messageFor(cause));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const target =
+      action === 'add-direct-rule' || action === 'add-temporary-direct-rule'
+        ? document && directRouteValue(document)
+        : effectiveRuleTarget;
+    await applyRule(
+      failure.url,
+      'host',
+      target,
+      action === 'add-temporary-direct-rule' || action === 'add-temporary-proxy-rule'
+    );
   }
 
   async function openOptions(): Promise<void> {
@@ -222,6 +303,9 @@ export function PopupApp() {
 
   const canAddRule = Boolean(
     availableTab && effectiveAutomaticProfileId && effectiveRuleTarget && !busy
+  );
+  const proxyActionAvailable = Boolean(
+    document && effectiveRuleTarget && effectiveRuleTarget !== directRouteValue(document)
   );
 
   return (
@@ -423,28 +507,62 @@ export function PopupApp() {
         </section>
       ) : null}
 
-      {failedHosts.length > 0 ? (
+      {failures.length > 0 ? (
         <section className="popup-section" aria-label="失败资源">
           <div className="section-label">
             <span>失败资源</span>
-            <span>{failedHosts.length}</span>
+            <span>{failures.length}</span>
           </div>
           <div className="failure-list">
-            {failedHosts.map((failure) => (
-              <div className="failure-row" key={failure.host} title={failure.target}>
-                <span className="failure-host">{failure.host}</span>
-                <button
-                  aria-label={`将 ${failure.host} 按当前选择加入自动切换`}
-                  className="icon-button"
-                  disabled={!canAddRule}
-                  onClick={() => void addQuickRule(failure.target, 'host')}
-                  title="按当前选择加入自动切换"
-                  type="button"
-                >
-                  <Plus size={15} />
-                </button>
-              </div>
-            ))}
+            {failures.map((failure) => {
+              const failureRoute = failureRoutes[failure.key];
+              const expanded = expandedFailureKey === failure.key;
+              return (
+                <div className="failure-entry" key={failure.key}>
+                  <div className="failure-row" title={failure.url}>
+                    <span className="failure-resource">
+                      <strong className="failure-host">{failure.host}</strong>
+                      <small className="failure-error">{failure.error}</small>
+                    </span>
+                    <button
+                      aria-expanded={expanded}
+                      aria-label={`处理 ${failure.host} 的失败资源`}
+                      className="icon-button"
+                      onClick={() =>
+                        setExpandedFailureKey((current) =>
+                          current === failure.key ? undefined : failure.key
+                        )
+                      }
+                      title="处理失败资源"
+                      type="button"
+                    >
+                      {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    </button>
+                  </div>
+                  {expanded ? (
+                    <FailureActionMenu
+                      busy={busy}
+                      failure={failure}
+                      onAction={(action) => void handleFailureAction(failure, action)}
+                      proxyActionAvailable={proxyActionAvailable}
+                      ruleActionAvailable={Boolean(effectiveAutomaticProfileId)}
+                      matchedRule={
+                        failureRoute?.matchedRuleId ??
+                        (failureRoute ? routeReasonLabel(failureRoute.reason) : '正在读取')
+                      }
+                      routeLabel={
+                        failureRoute
+                          ? `${profileLabel(
+                              document,
+                              failureRoute.resolvedProfileId
+                            )} / ${routeTargetLabel(document, failureRoute)}`
+                          : '正在检查路由'
+                      }
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -464,6 +582,10 @@ export function PopupApp() {
 
 function quickRuleTarget(document: ConfigurationDocument, value: string): QuickRuleTarget {
   return document.schemaVersion === 1 ? targetFromValue(value) : targetFromValueV2(value);
+}
+
+function directRouteValue(document: ConfigurationDocument): string {
+  return document.schemaVersion === 1 ? 'direct' : 'profile:direct';
 }
 
 function defaultAutomaticProfileIdOrUndefined(

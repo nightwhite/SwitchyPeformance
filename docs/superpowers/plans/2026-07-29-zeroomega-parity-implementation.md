@@ -1482,9 +1482,10 @@ git add apps/chrome-extension/src/runtime apps/chrome-extension/entrypoints/back
 git commit -m "feat: record bounded network diagnostics"
 ```
 
-**执行记录（2026-07-29）：** 网络监控默认关闭，关闭时会直接卸载五个
-`webRequest` 监听器，不参与网页请求路径。开启后才记录请求开始、响应头、重定向、
-完成和失败；失败会按标签页、网址路径和错误在 60 秒内合并，取消请求不记录。
+**执行记录（2026-07-29）：** 网络时间线默认关闭，关闭时会直接卸载五个详细
+`webRequest` 监听器，不参与正常网页请求路径。后台仍保留一个只在请求已经失败后才
+触发的失败监听器；它按标签页、协议、域名和错误在 60 秒内合并，取消请求不记录。
+开启后才记录请求开始、响应头、重定向、完成和失败的完整时间线。
 网络时间线保存在 Chrome 会话存储中，每个标签页最多 500 条、总量最多 5,000 条或
 4 MB，超出时淘汰最旧记录；地址会移除账号、密码、片段和非白名单查询参数。后台
 消息可读取指定标签页时间线、清空时间线，并返回按标签页的成功/失败摘要；普通
@@ -1499,9 +1500,9 @@ git commit -m "feat: record bounded network diagnostics"
 - Modify: `apps/chrome-extension/src/ui/pages/DiagnosticsPage.tsx`
 - Modify: `apps/chrome-extension/entrypoints/popup/PopupApp.tsx`
 - Test: `apps/chrome-extension/src/ui/diagnostics/failure-remediation.test.ts`
-- Test: `apps/chrome-extension/src/ui/components/FailureActionMenu.test.tsx`
+- Test: `apps/chrome-extension/src/ui/components/FailureActionMenu.test.ts`
 
-- [ ] **Step 1: 写出“失败不等于必须走代理”的失败测试。**
+- [x] **Step 1: 写出“失败不等于必须走代理”的失败测试。**
 
 ```ts
 expect(
@@ -1512,13 +1513,13 @@ expect(
 ).toContainEqual({ action: 'inspect-route', label: '查看路由判断' });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/diagnostics/failure-remediation.test.ts apps/chrome-extension/src/ui/components/FailureActionMenu.test.tsx`
 
 Expected: FAIL，当前失败资源只偏向加入自动切换。
 
-- [ ] **Step 3: 实现可解释动作。**
+- [x] **Step 3: 实现可解释动作。**
 
 ```ts
 export type FailureAction =
@@ -1531,18 +1532,23 @@ export type FailureAction =
 
 动作菜单先显示当前命中的配置和规则，再显示可选操作；自动切换目标由用户选择，不能偷偷固定为第一个自动配置。localhost、127.0.0.1 和 `::1` 始终提示当前回环策略；如果被拦截，日志必须有对应的规则解释。
 
-- [ ] **Step 4: 运行失败操作和生产构建。**
+- [x] **Step 4: 运行失败操作和生产构建。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/diagnostics/failure-remediation.test.ts apps/chrome-extension/src/ui/components/FailureActionMenu.test.tsx && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交失败修复工作流。**
+- [x] **Step 5: 提交失败修复工作流。**
 
 ```bash
 git add apps/chrome-extension/src/ui
 git commit -m "feat: provide explicit failure remediation actions"
 ```
+
+**执行记录（2026-07-29）：** 弹窗和排查页会优先展示用户主动开启的完整网络时间线；
+没有完整时间线时，改用默认保留的合并失败日志。每条失败资源都可先查看实际路由和
+命中规则，再按用户选定的自动切换配置写入“代理”“直连”“临时代理”或“临时直连”
+规则。代理连接失败优先建议直连；本地回环地址会明确提示 Chrome 的直连策略。
 
 ### Task 24: 完成导入、导出、预览和恢复
 

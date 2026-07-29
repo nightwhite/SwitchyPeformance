@@ -12,6 +12,7 @@ import type {
   BackgroundState
 } from '../runtime/messages.ts';
 import type { CurrentRouteStatus } from '../runtime/current-route.ts';
+import type { NetworkEvent } from '../runtime/network-event-repository.ts';
 
 type SuccessfulBackgroundResponse = Extract<BackgroundResponse, { ok: true }>;
 
@@ -39,6 +40,14 @@ export async function requestCurrentRoute(url: string): Promise<CurrentRouteStat
     throw new Error('后台响应没有返回路由说明');
   }
   return response.routeStatus;
+}
+
+export async function requestNetworkEvents(tabId?: number): Promise<readonly NetworkEvent[]> {
+  const response = await sendBackgroundCommand({
+    type: 'network.events.list',
+    ...(tabId === undefined ? {} : { tabId })
+  });
+  return response.networkEvents ?? [];
 }
 
 export function routeOptions(document: ProfileDocument): readonly {

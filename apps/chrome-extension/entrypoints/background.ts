@@ -10,6 +10,7 @@ import {
 } from '../src/runtime/chrome-repositories.ts';
 import { createNetworkMonitor } from '../src/runtime/network-monitor.ts';
 import type { NetworkEventRepository } from '../src/runtime/network-event-repository.ts';
+import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
 import { createRuleListService } from '../src/runtime/rule-list-service.ts';
 import { createRoutingApplicationService } from '../src/runtime/routing-application-service.ts';
@@ -142,6 +143,9 @@ export default defineBackground(() => {
     replace: (document) => service.replaceConfiguration(document)
   });
   const networkMonitor = createNetworkMonitor({ repository: chromeNetworkEventRepository });
+  const recordNetworkFailure = createNetworkFailureRecorder((event) =>
+    chromeDiagnosticsRepository.append(event)
+  );
   const networkRequestFilter = { urls: ['<all_urls>'] };
   let networkMonitoringListenersAttached = false;
 
@@ -165,6 +169,11 @@ export default defineBackground(() => {
   chrome.proxy.onProxyError.addListener((details) => {
     void service.recordProxyError(details.error, details.details);
   });
+  chrome.webRequest.onErrorOccurred.addListener((details) => {
+    void recordNetworkFailure
+      .record({ error: details.error, tabId: details.tabId, url: details.url })
+      .catch(() => undefined);
+  }, networkRequestFilter);
   chrome.webRequest.onAuthRequired.addListener(
     (details, callback) => {
       void authenticate

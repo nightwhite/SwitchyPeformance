@@ -13,11 +13,12 @@ describe('createNetworkFailureRecorder', () => {
 
     await recorder.record({
       error: 'net::ERR_CONNECTION_TIMED_OUT',
+      tabId: 12,
       url: 'https://x.example.test/api?attempt=1'
     });
     await recorder.record({
       error: 'net::ERR_CONNECTION_TIMED_OUT',
-      url: 'https://x.example.test/api?attempt=2'
+      url: 'https://x.example.test/other-resource?attempt=2'
     });
     await recorder.record({ error: 'net::ERR_ABORTED', url: 'https://x.example.test/cancelled' });
 
@@ -27,7 +28,8 @@ describe('createNetworkFailureRecorder', () => {
       level: 'error',
       message: '网络请求失败',
       scope: 'network',
-      target: 'https://x.example.test/api?attempt=1'
+      tabId: 12,
+      target: 'https://x.example.test/api'
     });
 
     now += 5_001;

@@ -14,7 +14,6 @@ import {
   Route,
   Search,
   Settings2,
-  Trash2,
   Upload
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -30,6 +29,7 @@ import type { BackgroundState } from '../../runtime/messages.ts';
 import { toUserFacingMessage } from '../error-message.ts';
 import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-routes.ts';
 import { requestBackgroundState } from '../background-client.ts';
+import { DiagnosticsPage } from './DiagnosticsPage.tsx';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
@@ -214,7 +214,13 @@ export function V2OptionsApp({
             />
           ) : null}
           {page === 'diagnostics' ? (
-            <V2DiagnosticsPage busy={busy} events={state.diagnostics} onState={onState} />
+            <DiagnosticsPage
+              busy={busy}
+              document={document}
+              events={state.diagnostics}
+              networkSummary={state.networkSummary}
+              onState={onState}
+            />
           ) : null}
           {page === 'data' ? (
             <V2DataPage busy={busy} document={document} onReplace={onReplace} />
@@ -253,75 +259,6 @@ function NavButton({
       <span>{label}</span>
       {selected ? <ChevronRight size={15} /> : null}
     </button>
-  );
-}
-
-function V2DiagnosticsPage({
-  busy,
-  events,
-  onState
-}: {
-  busy: boolean;
-  events: BackgroundState['diagnostics'];
-  onState(state: BackgroundState): void;
-}) {
-  const [error, setError] = useState<string>();
-
-  async function clear(): Promise<void> {
-    if (!window.confirm('要清空排查日志吗？')) {
-      return;
-    }
-    try {
-      setError(undefined);
-      onState(await requestBackgroundState({ type: 'diagnostics.clear' }));
-    } catch (cause) {
-      setError(toUserFacingMessage(cause));
-    }
-  }
-
-  return (
-    <section className="page-panel diagnostics-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="panel-kicker">本地事件</p>
-          <h2>{events.length} 条事件</h2>
-        </div>
-        <button
-          className="outline-button"
-          disabled={busy}
-          onClick={() => void clear()}
-          type="button"
-        >
-          <Trash2 size={16} />
-          清空
-        </button>
-      </div>
-      {error ? <p className="inline-error">{error}</p> : null}
-      {events.length === 0 ? (
-        <div className="empty-state">没有排查事件</div>
-      ) : (
-        <div className="diagnostic-list">
-          {events
-            .slice()
-            .reverse()
-            .map((event) => (
-              <article
-                className={
-                  event.level === 'error' ? 'diagnostic-event diagnostic-error' : 'diagnostic-event'
-                }
-                key={event.id}
-              >
-                <time>{new Date(event.timestamp).toLocaleString()}</time>
-                <span className="event-scope">{event.scope}</span>
-                <strong>{event.message}</strong>
-                <span />
-                {event.target ? <p className="diagnostic-target">{event.target}</p> : null}
-                {event.detail ? <p>{event.detail}</p> : null}
-              </article>
-            ))}
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -490,7 +427,7 @@ function V2SettingsPage({
             }
             type="checkbox"
           />
-          <span>记录网络诊断事件</span>
+          <span>记录网页网络时间线（默认关闭）</span>
         </label>
       </div>
       <section aria-label="快捷切换顺序" className="shortcut-order">

@@ -60,6 +60,7 @@ export interface BackgroundState {
     level: 'info' | 'error';
     scope: 'configuration' | 'proxy' | 'network' | 'runtime';
     message: string;
+    tabId?: number;
     target?: string;
     detail?: string;
   }[];
