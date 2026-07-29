@@ -6,30 +6,23 @@ import {
   ChevronRight,
   CircleGauge,
   Clock3,
-  Download,
   FileUp,
   Globe2,
   Network,
   RefreshCw,
   Route,
   Search,
-  Settings2,
-  Upload
+  Settings2
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import {
-  importProfileDocument,
-  parseConfigurationDocument,
-  type ConfigurationDocument,
-  type ProfileDocumentV2
-} from '@switchypeformance/contracts';
+import type { ConfigurationDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import type { BackgroundState } from '../../runtime/messages.ts';
 import { toUserFacingMessage } from '../error-message.ts';
 import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-routes.ts';
-import { requestBackgroundState } from '../background-client.ts';
 import { DiagnosticsPage } from './DiagnosticsPage.tsx';
+import { DataPage } from './DataPage.tsx';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
@@ -223,7 +216,12 @@ export function V2OptionsApp({
             />
           ) : null}
           {page === 'data' ? (
-            <V2DataPage busy={busy} document={document} onReplace={onReplace} />
+            <DataPage
+              busy={busy}
+              document={document}
+              onState={onState}
+              sourceStatuses={state.sourceStatuses}
+            />
           ) : null}
           {page === 'settings' ? (
             <V2SettingsPage busy={busy} document={document} onReplace={onReplace} />
@@ -259,89 +257,6 @@ function NavButton({
       <span>{label}</span>
       {selected ? <ChevronRight size={15} /> : null}
     </button>
-  );
-}
-
-function V2DataPage({
-  busy,
-  document,
-  onReplace
-}: {
-  busy: boolean;
-  document: ProfileDocumentV2;
-  onReplace(document: ConfigurationDocument): Promise<BackgroundState>;
-}) {
-  const [error, setError] = useState<string>();
-  const [notice, setNotice] = useState<string>();
-
-  function exportConfiguration(): void {
-    const blob = new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = window.document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'SwitchyPeformance-V2-配置.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function importConfiguration(file: File | undefined): Promise<void> {
-    if (!file) {
-      return;
-    }
-    try {
-      const raw = JSON.parse(await file.text()) as unknown;
-      const parsed = parseConfigurationDocument(raw);
-      if (parsed.ok) {
-        await onReplace(parsed.value);
-        setNotice('配置已导入并应用。');
-        setError(undefined);
-        return;
-      }
-      const legacy = importProfileDocument(raw);
-      if (!legacy.ok) {
-        throw new Error(legacy.error);
-      }
-      await onReplace(legacy.value);
-      setNotice(legacy.warnings.length === 0 ? '旧备份已导入。' : legacy.warnings.join(' '));
-      setError(undefined);
-    } catch (cause) {
-      setNotice(undefined);
-      setError(toUserFacingMessage(cause));
-    }
-  }
-
-  return (
-    <section className="data-grid">
-      <article className="page-panel data-action">
-        <Download size={24} />
-        <h2>导出配置</h2>
-        <p>代理账号密码不会写入配置文件。</p>
-        <button className="primary-button" onClick={exportConfiguration} type="button">
-          <Download size={16} />
-          导出 JSON
-        </button>
-      </article>
-      <article className="page-panel data-action">
-        <Upload size={24} />
-        <h2>导入配置</h2>
-        <p>无效文件不会修改当前路由。</p>
-        <label className="file-button">
-          <FileUp size={16} />
-          选择文件
-          <input
-            accept=".json,.bak,application/json"
-            disabled={busy}
-            onChange={(event) => {
-              void importConfiguration(event.target.files?.[0]);
-              event.currentTarget.value = '';
-            }}
-            type="file"
-          />
-        </label>
-        {notice ? <p className="inline-notice">{notice}</p> : null}
-        {error ? <p className="inline-error">{error}</p> : null}
-      </article>
-    </section>
   );
 }
 

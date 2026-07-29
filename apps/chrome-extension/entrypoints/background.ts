@@ -11,6 +11,7 @@ import {
 import { createNetworkMonitor } from '../src/runtime/network-monitor.ts';
 import type { NetworkEventRepository } from '../src/runtime/network-event-repository.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
+import { createConfigurationImportService } from '../src/runtime/configuration-import-service.ts';
 import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
 import { createRuleListService } from '../src/runtime/rule-list-service.ts';
 import { createRoutingApplicationService } from '../src/runtime/routing-application-service.ts';
@@ -88,6 +89,15 @@ export default defineBackground(() => {
     configuration: chromeConfigurationRepository,
     diagnostics: chromeDiagnosticsRepository,
     sources: chromeSourceStatusRepository
+  });
+  const configurationImport = createConfigurationImportService({
+    async commit(document) {
+      const committed = await service.replaceConfiguration(document);
+      if (committed.schemaVersion !== 2) {
+        throw new Error('导入后配置版本异常');
+      }
+      return committed;
+    }
   });
   const profileActivation = createProfileActivationService({
     activate: (profileId) => service.activateProfile(profileId),
@@ -227,6 +237,7 @@ export default defineBackground(() => {
       .then(() =>
         handleMessage(
           service,
+          configurationImport,
           proxyCredentials,
           profileActivation,
           temporaryRules,
@@ -488,6 +499,7 @@ export default defineBackground(() => {
 
 async function handleMessage(
   service: ReturnType<typeof createBackgroundService>,
+  configurationImport: ReturnType<typeof createConfigurationImportService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
@@ -501,8 +513,13 @@ async function handleMessage(
     return { ok: false, error: '不支持的后台请求' };
   }
 
+  if (message.type === 'configuration.import.preview') {
+    return { ok: true, importPreview: configurationImport.preview(message.input) };
+  }
+
   const routeStatus = await dispatch(
     service,
+    configurationImport,
     proxyCredentials,
     profileActivation,
     temporaryRules,
@@ -540,6 +557,7 @@ async function handleMessage(
 
 async function dispatch(
   service: ReturnType<typeof createBackgroundService>,
+  configurationImport: ReturnType<typeof createConfigurationImportService>,
   proxyCredentials: ReturnType<typeof createProxyCredentialService>,
   profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
@@ -556,6 +574,11 @@ async function dispatch(
       return undefined;
     case 'configuration.replace':
       await service.replaceConfiguration(message.document);
+      return undefined;
+    case 'configuration.import.preview':
+      return undefined;
+    case 'configuration.import.commit':
+      await configurationImport.commitPreview(configurationImport.preview(message.input));
       return undefined;
     case 'route.explain':
       return routingApplication.explain(await chromeConfigurationRepository.load(), message.url);
@@ -649,7 +672,8 @@ function messageChangesProxyList(message: unknown): boolean {
     typeof message === 'object' &&
     message !== null &&
     !Array.isArray(message) &&
-    (message as { type?: unknown }).type === 'configuration.replace'
+    ((message as { type?: unknown }).type === 'configuration.replace' ||
+      (message as { type?: unknown }).type === 'configuration.import.commit')
   );
 }
 

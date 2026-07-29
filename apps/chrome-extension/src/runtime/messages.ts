@@ -8,6 +8,7 @@ import { validateCondition } from '@switchypeformance/contracts';
 
 import type { CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
+import type { ConfigurationImportPreview } from './configuration-import-service.ts';
 import type { NetworkEvent } from './network-event-repository.ts';
 import type { SourceStatus } from './source-status-repository.ts';
 import type { TabNetworkSummary } from './tab-network-summary.ts';
@@ -23,6 +24,8 @@ export type BackgroundRequest =
   | { type: 'state.get' }
   | { type: 'profile.activate'; profileId: string }
   | { type: 'configuration.replace'; document: unknown }
+  | { type: 'configuration.import.preview'; input: unknown }
+  | { type: 'configuration.import.commit'; input: unknown }
   | { type: 'route.explain'; url: string }
   | {
       type: 'quick-rule.add';
@@ -72,6 +75,7 @@ export interface BackgroundState {
 export type BackgroundResponse =
   | {
       ok: true;
+      importPreview?: ConfigurationImportPreview;
       networkEvents?: readonly NetworkEvent[];
       routeStatus?: CurrentRouteStatus;
       state?: BackgroundState;
@@ -86,6 +90,7 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     type?: unknown;
     profileId?: unknown;
     document?: unknown;
+    input?: unknown;
     proxyId?: unknown;
     username?: unknown;
     password?: unknown;
@@ -108,6 +113,9 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     (message.type === 'route.explain' && isNonEmptyString(message.url)) ||
     (message.type === 'profile.activate' && typeof message.profileId === 'string') ||
     (message.type === 'configuration.replace' && 'document' in message) ||
+    ((message.type === 'configuration.import.preview' ||
+      message.type === 'configuration.import.commit') &&
+      Object.hasOwn(message, 'input')) ||
     (message.type === 'quick-rule.add' &&
       isNonEmptyString(message.automaticProfileId) &&
       isQuickRuleCondition(message.condition) &&

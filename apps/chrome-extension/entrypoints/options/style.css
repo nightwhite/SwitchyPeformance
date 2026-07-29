@@ -1120,6 +1120,10 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
+.data-page {
+  display: grid;
+  gap: 18px;
+}
 .data-action {
   display: grid;
   min-height: 210px;
@@ -1144,6 +1148,84 @@ textarea {
 }
 .file-button input {
   display: none;
+}
+.import-preview-panel {
+  display: grid;
+  gap: 14px;
+  max-width: 760px;
+}
+.import-preview-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+.import-preview-heading > svg {
+  color: #187350;
+}
+.import-preview-copy {
+  margin: 0;
+  color: #64736a;
+  font-size: 13px;
+}
+.import-preview-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid #d8e1d8;
+  background: #fbfdfb;
+}
+.import-preview-counts > div {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-right: 1px solid #dfe7df;
+}
+.import-preview-counts > div:last-child {
+  border-right: 0;
+}
+.import-preview-counts dt {
+  color: #748278;
+  font-size: 11px;
+}
+.import-preview-counts dd {
+  margin: 0;
+  color: #25382c;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 17px;
+  font-weight: 700;
+}
+.import-preview-warnings {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  color: #7f4637;
+  border: 1px solid #ecd4c9;
+  background: #fff8f3;
+  font-size: 12px;
+}
+.import-preview-warnings p,
+.import-preview-ready {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin: 0;
+  font-weight: 700;
+}
+.import-preview-warnings ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+.import-preview-ready {
+  color: #25704f;
+  font-size: 12px;
+}
+.import-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .settings-panel {
   display: flex;
@@ -1363,6 +1445,15 @@ textarea {
   .metric-grid,
   .data-grid {
     grid-template-columns: 1fr;
+  }
+  .import-preview-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .import-preview-counts > div:nth-child(2) {
+    border-right: 0;
+  }
+  .import-preview-counts > div:nth-child(-n + 2) {
+    border-bottom: 1px solid #dfe7df;
   }
   .metric {
     border-right: 0;

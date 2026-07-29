@@ -5,7 +5,6 @@ import {
   ChevronRight,
   CircleGauge,
   Clock3,
-  Download,
   FileUp,
   Globe2,
   KeyRound,
@@ -19,7 +18,6 @@ import {
   Settings2,
   ShieldCheck,
   Trash2,
-  Upload,
   Waypoints
 } from 'lucide-react';
 
@@ -29,7 +27,6 @@ import type {
   ProxyEndpoint,
   Rule
 } from '@switchypeformance/contracts';
-import { importProfileDocument } from '@switchypeformance/contracts';
 
 import {
   createId,
@@ -51,6 +48,7 @@ import { calculateVirtualWindow } from '../../src/ui/rule-virtualizer.ts';
 import type { BackgroundState } from '../../src/runtime/messages.ts';
 import { explainRouteWithWasm } from '../../src/runtime/wasm-runtime.ts';
 import type { RouteExplanation } from '../../src/runtime/route-explainer.ts';
+import { DataPage } from '../../src/ui/pages/DataPage.tsx';
 import { V2OptionsApp } from '../../src/ui/pages/V2OptionsApp.tsx';
 import { TemporaryRulesPage } from '../../src/ui/pages/TemporaryRulesPage.tsx';
 
@@ -288,7 +286,12 @@ export function OptionsApp() {
             />
           ) : null}
           {page === 'data' ? (
-            <DataPanel document={document} busy={busy} onSave={saveConfiguration} />
+            <DataPage
+              busy={busy}
+              document={document}
+              onState={setState}
+              sourceStatuses={state.sourceStatuses}
+            />
           ) : null}
           {page === 'settings' ? (
             <SettingsPanel document={document} busy={busy} onSave={saveConfiguration} />
@@ -1249,99 +1252,6 @@ function DiagnosticsPanel({
   );
 }
 
-function DataPanel({
-  document,
-  busy,
-  onSave
-}: {
-  document: ProfileDocument;
-  busy: boolean;
-  onSave(document: ProfileDocument): Promise<BackgroundState>;
-}) {
-  const [localError, setLocalError] = useState<string>();
-  const [localNotice, setLocalNotice] = useState<string>();
-  const [warnings, setWarnings] = useState<readonly string[]>([]);
-  function exportConfiguration(): void {
-    const { credentials: _credentials, ...serializable } = document;
-    const exportable = {
-      ...serializable,
-      proxies: serializable.proxies.map(({ credentialId: _credentialId, ...proxy }) => proxy)
-    };
-    const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = documentCreateAnchor(url, 'SwitchyPeformance-配置.json');
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-  async function importConfiguration(file: File | undefined): Promise<void> {
-    if (!file) return;
-    try {
-      setLocalError(undefined);
-      setLocalNotice(undefined);
-      setWarnings([]);
-      const imported = importProfileDocument(JSON.parse(await file.text()) as unknown);
-      if (!imported.ok) {
-        throw new Error(imported.error);
-      }
-      await onSave(imported.value);
-      const ruleCount = imported.value.profiles
-        .filter((profile): profile is AutoSwitchProfile => profile.kind === 'auto-switch')
-        .reduce((count, profile) => count + profile.rules.length, 0);
-      setLocalNotice(
-        `已导入 ${imported.value.proxies.length} 个代理、${imported.value.profiles.length} 个配置和 ${ruleCount} 条规则。`
-      );
-      setWarnings(imported.warnings);
-    } catch (cause) {
-      setLocalError(messageFor(cause));
-    }
-  }
-  return (
-    <section className="data-grid">
-      <article className="page-panel data-action">
-        <Download size={24} />
-        <h2>导出配置</h2>
-        <p>代理账号密码不会导出。</p>
-        <button
-          className="primary-button"
-          disabled={busy}
-          onClick={exportConfiguration}
-          type="button"
-        >
-          <Download size={16} />
-          导出 JSON
-        </button>
-      </article>
-      <article className="page-panel data-action">
-        <Upload size={24} />
-        <h2>导入配置</h2>
-        <p>无效文件不会修改现有路由。</p>
-        <label className="file-button">
-          <FileUp size={16} />
-          选择文件
-          <input
-            accept=".json,.bak,application/json"
-            disabled={busy}
-            onChange={(event) => {
-              void importConfiguration(event.target.files?.[0]);
-              event.currentTarget.value = '';
-            }}
-            type="file"
-          />
-        </label>
-        {localNotice ? <p className="inline-notice">{localNotice}</p> : null}
-        {warnings.length > 0 ? (
-          <ul className="import-warnings">
-            {warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        ) : null}
-        {localError ? <p className="inline-error">{localError}</p> : null}
-      </article>
-    </section>
-  );
-}
-
 function SettingsPanel({
   document,
   busy,
@@ -1403,13 +1313,6 @@ function pageFromHash(): Page {
     page === 'settings'
     ? page
     : 'overview';
-}
-
-function documentCreateAnchor(url: string, filename: string): HTMLAnchorElement {
-  const anchor = window.document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  return anchor;
 }
 
 function messageFor(cause: unknown): string {

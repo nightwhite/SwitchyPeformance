@@ -1560,9 +1560,9 @@ git commit -m "feat: provide explicit failure remediation actions"
 - Modify: `apps/chrome-extension/src/ui/pages/DataPage.tsx`
 - Modify: `apps/chrome-extension/src/runtime/messages.ts`
 - Test: `apps/chrome-extension/src/runtime/configuration-import-service.test.ts`
-- Test: `apps/chrome-extension/src/ui/components/ImportPreview.test.tsx`
+- Test: `apps/chrome-extension/src/ui/components/ImportPreview.test.ts`
 
-- [ ] **Step 1: 写出导出不包含密码、导入先预览且取消不改配置的失败测试。**
+- [x] **Step 1: 写出导出不包含密码、导入先预览且取消不改配置的失败测试。**
 
 ```ts
 expect(JSON.stringify(exportConfiguration(document))).not.toContain('secret-password');
@@ -1572,13 +1572,13 @@ await service.commitPreview();
 expect(await repository.read()).toMatchObject({ schemaVersion: 2 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/configuration-import-service.test.ts apps/chrome-extension/src/ui/components/ImportPreview.test.tsx`
 
 Expected: FAIL，当前导入直接替换且预览信息不足。
 
-- [ ] **Step 3: 实现两阶段导入。**
+- [x] **Step 3: 实现两阶段导入。**
 
 ```ts
 export interface ImportPreview {
@@ -1591,18 +1591,24 @@ export interface ImportPreview {
 
 支持 `.json` 与 `.bak` 文件名，但按内容解析，不把文件后缀当作格式。导入确认时使用 Task 5 的原子事务；导出仅含可移植配置和来源状态，不含本地账号密码、网络日志或临时规则。
 
-- [ ] **Step 4: 运行导入导出和全量测试。**
+- [x] **Step 4: 运行导入导出和全量测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/configuration-import-service.test.ts apps/chrome-extension/src/ui/components/ImportPreview.test.tsx && pnpm test`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交数据迁移界面。**
+- [x] **Step 5: 提交数据迁移界面。**
 
 ```bash
 git add apps/chrome-extension/src/runtime apps/chrome-extension/src/ui
 git commit -m "feat: preview and safely import configurations"
 ```
+
+**执行记录（2026-07-29）：** V1、V2 和旧版备份都会先转换为 V2 预览；选择 `.bak`
+文件时只按 JSON 内容判断，不按扩展名判断。预览阶段不会触碰 Chrome 代理设置或当前
+配置，用户确认后才走原有的“先应用、再保存、失败恢复”事务。导出和导入都会移除本地
+账号密码引用；导出保留来源状态摘要，但不带下载缓存、临时规则、网络时间线或排查日志。
+V1 与 V2 设置页共用同一导入入口，避免旧页面绕过确认步骤。
 
 ### Task 25: 实现外部代理检测、重置和启动配置
 

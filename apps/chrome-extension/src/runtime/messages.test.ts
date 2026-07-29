@@ -98,4 +98,21 @@ describe('background messages', () => {
     expect(isBackgroundRequest({ tabId: 14, type: 'network.events.list' })).toBe(true);
     expect(isBackgroundRequest({ tabId: 1.5, type: 'network.events.list' })).toBe(false);
   });
+
+  it('accepts preview and confirmation commands only when they carry an import payload', () => {
+    expect(
+      isBackgroundRequest({
+        input: { '+automatic': { name: 'automatic', profileType: 'SwitchProfile' } },
+        type: 'configuration.import.preview'
+      })
+    ).toBe(true);
+    expect(
+      isBackgroundRequest({
+        input: { schemaVersion: 2 },
+        type: 'configuration.import.commit'
+      })
+    ).toBe(true);
+    expect(isBackgroundRequest({ type: 'configuration.import.preview' })).toBe(false);
+    expect(isBackgroundRequest({ type: 'configuration.import.commit' })).toBe(false);
+  });
 });
