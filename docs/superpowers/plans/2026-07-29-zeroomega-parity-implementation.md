@@ -1621,7 +1621,7 @@ V1 与 V2 设置页共用同一导入入口，避免旧页面绕过确认步骤�
 - Test: `apps/chrome-extension/src/runtime/external-proxy-state.test.ts`
 - Test: `apps/chrome-extension/src/runtime/startup-profile-service.test.ts`
 
-- [ ] **Step 1: 写出扩展未控制代理时不会覆盖外部设置的失败测试。**
+- [x] **Step 1: 写出扩展未控制代理时不会覆盖外部设置的失败测试。**
 
 ```ts
 expect(decideExternalProxyConflict({ controlledBy: 'other_extension' }, settings)).toEqual({
@@ -1632,13 +1632,13 @@ expect(decideExternalProxyConflict({ controlledBy: 'this_extension' }, settings)
 });
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/external-proxy-state.test.ts apps/chrome-extension/src/runtime/startup-profile-service.test.ts`
 
 Expected: FAIL，外部控制和启动策略没有独立模块。
 
-- [ ] **Step 3: 实现控制权和重置策略。**
+- [x] **Step 3: 实现控制权和重置策略。**
 
 ```ts
 export interface StartupSettings {
@@ -1649,18 +1649,27 @@ export interface StartupSettings {
 
 设置页显示“Chrome 代理由谁控制”；重置仅清除本扩展写入的配置和本扩展 `storage` 键，不删除用户系统代理。外部扩展接管时不产生“未知后台命令”之类错误，而是显示明确冲突状态。
 
-- [ ] **Step 4: 运行代理状态与构建检查。**
+- [x] **Step 4: 运行代理状态与构建检查。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/external-proxy-state.test.ts apps/chrome-extension/src/runtime/startup-profile-service.test.ts && pnpm build`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交运行控制。**
+- [x] **Step 5: 提交运行控制。**
 
 ```bash
 git add apps/chrome-extension/src/runtime apps/chrome-extension/src/ui/pages/SettingsPage.tsx
 git commit -m "feat: manage startup and external proxy control"
 ```
+
+**执行记录（2026-07-29）：** 每次写入 Chrome 代理前都会读取控制权；若系统策略或其他扩展
+接管，扩展会保留外部设置并显示明确原因。启动配置、临时规则到期和来源刷新都走同一保护，
+不会因后台定时任务重新抢占代理。控制权归属只存入 Chrome 会话存储，用于 MV3 后台休眠后
+识别“外部接管已经释放”的情形；仅当用户选择“控制权恢复后重新应用”时才恢复启动配置。
+重置会清除本扩展的配置、账号密码、缓存、临时规则和日志，并且只有本扩展自己控制 Chrome
+代理时才清除该代理设置。旧 V2 配置保持原样读取，缺少的新策略字段在运行时默认按“提示冲突”
+处理。验证：`pnpm test`（79 个测试文件、295 个测试）、`pnpm check:ts`、`cargo fmt --all -- --check`
+和 `pnpm build` 均通过。
 
 ### Task 26: 实现 Chrome 同步、Gist 和 WebDAV 同步
 

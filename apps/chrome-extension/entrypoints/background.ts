@@ -1,5 +1,7 @@
 import { applyConfiguration } from '../src/runtime/apply-configuration.ts';
 import { createBackgroundService } from '../src/runtime/background-service.ts';
+import { createDefaultProfileDocumentV2 } from '../src/runtime/configuration-repository.ts';
+import { createExtensionResetService } from '../src/runtime/extension-reset-service.ts';
 import {
   chromeCredentialRepository,
   chromeConfigurationRepository,
@@ -12,6 +14,12 @@ import { createNetworkMonitor } from '../src/runtime/network-monitor.ts';
 import type { NetworkEventRepository } from '../src/runtime/network-event-repository.ts';
 import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
 import { createConfigurationImportService } from '../src/runtime/configuration-import-service.ts';
+import {
+  canControlChromeProxy,
+  proxyControlStateFromLevel,
+  shouldReapplyAfterExternalControlReleased,
+  type ProxyControlState
+} from '../src/runtime/external-proxy-state.ts';
 import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
 import { createRuleListService } from '../src/runtime/rule-list-service.ts';
 import { createRoutingApplicationService } from '../src/runtime/routing-application-service.ts';
@@ -20,6 +28,7 @@ import { createSourceRefreshLifecycle } from '../src/runtime/source-refresh-life
 import { SOURCE_REFRESH_ALARM } from '../src/runtime/source-refresh-scheduler.ts';
 import { createProxyAuthenticationHandler } from '../src/runtime/proxy-auth.ts';
 import { createProxyCredentialService } from '../src/runtime/proxy-credential-service.ts';
+import { createProxyControlTracker } from '../src/runtime/proxy-control-tracker.ts';
 import { createProfileActivationService } from '../src/runtime/profile-activation-service.ts';
 import { explainCurrentRoute, type CurrentRouteStatus } from '../src/runtime/current-route.ts';
 import { addCurrentSiteRule } from '../src/runtime/quick-site-rule.ts';
@@ -41,7 +50,12 @@ import {
 import { nextProfileId, profileCycleIds } from '../src/runtime/shortcut-service.ts';
 import { createSourceFetcher } from '../src/runtime/source-fetcher.ts';
 import { summarizeTabNetworkEvents } from '../src/runtime/tab-network-summary.ts';
-import { setChromeProxySetting } from '../src/runtime/chrome-proxy.ts';
+import {
+  clearChromeProxySetting,
+  readChromeProxyControl,
+  setChromeProxySetting
+} from '../src/runtime/chrome-proxy.ts';
+import { createStartupProfileService } from '../src/runtime/startup-profile-service.ts';
 import {
   isBackgroundRequest,
   type BackgroundRequest,
@@ -55,6 +69,8 @@ import {
   type ConfigurationDocument,
   type ProfileDocumentV2
 } from '@switchypeformance/contracts';
+
+const PROXY_CONTROL_TRACKER_KEY = 'switchypeformance.proxy-control-tracker.v1';
 
 export default defineBackground(() => {
   const temporaryRules = createTemporaryRuleService({
@@ -138,6 +154,29 @@ export default defineBackground(() => {
       });
     }
   });
+  const startupProfiles = createStartupProfileService({
+    activate: (profileId) => service.activateProfile(profileId),
+    loadConfiguration: () => chromeConfigurationRepository.load(),
+    readProxyControl: readTrackedProxyControl,
+    reportExternalControl: (controlledBy, action) =>
+      chromeDiagnosticsRepository.append({
+        detail: `${controlledBy} / ${action}`,
+        level: 'error',
+        message: 'Chrome 代理由外部控制，未应用启动配置',
+        scope: 'proxy'
+      })
+  });
+  const extensionReset = createExtensionResetService({
+    appendDiagnostic: (event) => chromeDiagnosticsRepository.append(event),
+    clearChromeProxy: clearChromeProxySetting,
+    clearCredentials: () => chromeCredentialRepository.clear(),
+    clearDiagnostics: () => chromeDiagnosticsRepository.clear(),
+    clearNetworkEvents: () => chromeNetworkEventRepository.clear(),
+    clearSourceStatuses: () => chromeSourceStatusRepository.clear(),
+    clearTemporaryRules: () => chromeTemporaryRuleRepository.replace([]),
+    createDefaultDocument: createDefaultProfileDocumentV2,
+    replaceConfiguration: (document) => chromeConfigurationRepository.replace(document)
+  });
 
   const reapply = () => {
     void reapplyAndSchedule();
@@ -153,17 +192,28 @@ export default defineBackground(() => {
     replace: (document) => service.replaceConfiguration(document)
   });
   const networkMonitor = createNetworkMonitor({ repository: chromeNetworkEventRepository });
+  const proxyControlTracker = createProxyControlTracker({
+    async read() {
+      const stored = await chrome.storage.session.get(PROXY_CONTROL_TRACKER_KEY);
+      return stored[PROXY_CONTROL_TRACKER_KEY];
+    },
+    async write(state) {
+      await chrome.storage.session.set({ [PROXY_CONTROL_TRACKER_KEY]: state });
+    }
+  });
   const recordNetworkFailure = createNetworkFailureRecorder((event) =>
     chromeDiagnosticsRepository.append(event)
   );
   const networkRequestFilter = { urls: ['<all_urls>'] };
   let networkMonitoringListenersAttached = false;
+  let lastProxyControl: ProxyControlState | undefined;
+  let resettingExtension = false;
 
   chrome.runtime.onInstalled.addListener(reapply);
   chrome.runtime.onStartup.addListener(reapply);
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === TEMPORARY_RULE_EXPIRY_ALARM) {
-      void temporaryRuleLifecycle.synchronize().catch(() => undefined);
+      void synchronizeTemporaryRules().catch(() => undefined);
     }
     if (alarm.name === SOURCE_REFRESH_ALARM) {
       void sourceRefreshLifecycle.refreshDue().catch((error: unknown) => {
@@ -175,6 +225,13 @@ export default defineBackground(() => {
         });
       });
     }
+  });
+  chrome.proxy.settings.onChange.addListener((details) => {
+    void handleProxyControlChange(proxyControlStateFromLevel(details.levelOfControl)).catch(
+      (error: unknown) => {
+        void reportRuntimeFailure('外部代理控制权恢复后重新应用失败', error);
+      }
+    );
   });
   chrome.proxy.onProxyError.addListener((details) => {
     void service.recordProxyError(details.error, details.details);
@@ -232,8 +289,7 @@ export default defineBackground(() => {
     });
   });
   chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
-    void temporaryRuleLifecycle
-      .synchronize()
+    void synchronizeTemporaryRules()
       .then(() =>
         handleMessage(
           service,
@@ -242,9 +298,10 @@ export default defineBackground(() => {
           profileActivation,
           temporaryRules,
           routingApplication,
-          temporaryRuleLifecycle,
+          synchronizeTemporaryRules,
           sourceRefreshLifecycle,
           chromeNetworkEventRepository,
+          resetExtensionState,
           message
         )
       )
@@ -301,7 +358,8 @@ export default defineBackground(() => {
 
   async function reapplyAndSchedule(): Promise<void> {
     try {
-      await temporaryRuleLifecycle.reapplyAndSchedule();
+      await startupProfiles.applyStartupProfile();
+      await synchronizeTemporaryRules();
     } catch (error) {
       await reportRuntimeFailure('应用启动代理配置失败', error);
     }
@@ -331,6 +389,72 @@ export default defineBackground(() => {
       return;
     }
     detachNetworkMonitoringListeners();
+  }
+
+  async function synchronizeTemporaryRules(): Promise<void> {
+    const control = await readTrackedProxyControl();
+    if (canControlChromeProxy(control)) {
+      await temporaryRuleLifecycle.synchronize();
+      return;
+    }
+    await temporaryRuleLifecycle.schedule();
+  }
+
+  async function resetExtensionState(): Promise<void> {
+    resettingExtension = true;
+    try {
+      await extensionReset.reset();
+    } finally {
+      resettingExtension = false;
+      await readTrackedProxyControl().catch(() => undefined);
+    }
+  }
+
+  async function readTrackedProxyControl(): Promise<ProxyControlState> {
+    const control = await readChromeProxyControl();
+    trackProxyControl(control);
+    return control;
+  }
+
+  async function handleProxyControlChange(next: ProxyControlState): Promise<void> {
+    const previous = lastProxyControl ?? (await proxyControlTracker.load().catch(() => undefined));
+    trackProxyControl(next);
+    if (resettingExtension) {
+      return;
+    }
+    await reapplyAfterExternalControlReleased(previous, next);
+  }
+
+  function trackProxyControl(control: ProxyControlState): void {
+    const changed =
+      lastProxyControl?.controlledBy !== control.controlledBy ||
+      lastProxyControl?.levelOfControl !== control.levelOfControl;
+    lastProxyControl = control;
+    if (changed) {
+      void proxyControlTracker.remember(control).catch(() => undefined);
+    }
+  }
+
+  async function reapplyAfterExternalControlReleased(
+    previous: ProxyControlState | undefined,
+    next: ProxyControlState
+  ): Promise<void> {
+    const document = await chromeConfigurationRepository.load();
+    if (
+      document.schemaVersion !== 2 ||
+      !shouldReapplyAfterExternalControlReleased(previous, next, document.settings)
+    ) {
+      return;
+    }
+    const result = await startupProfiles.applyStartupProfile();
+    if (result.action === 'apply-startup-profile') {
+      await chromeDiagnosticsRepository.append({
+        detail: result.profileId,
+        level: 'info',
+        message: 'Chrome 代理控制权已恢复，已重新应用启动配置',
+        scope: 'proxy'
+      });
+    }
   }
 
   function attachNetworkMonitoringListeners(): void {
@@ -504,9 +628,10 @@ async function handleMessage(
   profileActivation: ReturnType<typeof createProfileActivationService>,
   temporaryRules: TemporaryRuleService,
   routingApplication: ReturnType<typeof createRoutingApplicationService>,
-  temporaryRuleLifecycle: ReturnType<typeof createTemporaryRuleLifecycle>,
+  synchronizeTemporaryRules: () => Promise<void>,
   sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
   networkEvents: Pick<NetworkEventRepository, 'clear' | 'list'>,
+  resetExtensionState: () => Promise<void>,
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
@@ -526,13 +651,15 @@ async function handleMessage(
     routingApplication,
     sourceRefreshLifecycle,
     networkEvents,
+    resetExtensionState,
     message
   );
-  await temporaryRuleLifecycle.synchronize();
+  await synchronizeTemporaryRules();
   if (message.type === 'options.open') {
     return { ok: true };
   }
   const snapshot = await service.snapshot();
+  const proxyControl = await readChromeProxyControl().catch(() => undefined);
   const allNetworkEvents =
     message.type === 'state.get' || message.type === 'network.events.list'
       ? await networkEvents.list()
@@ -548,6 +675,7 @@ async function handleMessage(
     state: {
       ...snapshot,
       temporaryRules: await temporaryRules.list(snapshot.configuration),
+      ...(proxyControl === undefined ? {} : { proxyControl }),
       ...(allNetworkEvents === undefined
         ? {}
         : { networkSummary: summarizeTabNetworkEvents(allNetworkEvents) })
@@ -564,6 +692,7 @@ async function dispatch(
   routingApplication: ReturnType<typeof createRoutingApplicationService>,
   sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
   networkEvents: Pick<NetworkEventRepository, 'clear'>,
+  resetExtensionState: () => Promise<void>,
   message: BackgroundRequest
 ): Promise<CurrentRouteStatus | undefined> {
   switch (message.type) {
@@ -579,6 +708,9 @@ async function dispatch(
       return undefined;
     case 'configuration.import.commit':
       await configurationImport.commitPreview(configurationImport.preview(message.input));
+      return undefined;
+    case 'extension.reset':
+      await resetExtensionState();
       return undefined;
     case 'route.explain':
       return routingApplication.explain(await chromeConfigurationRepository.load(), message.url);
@@ -668,12 +800,14 @@ function quickRuleSourceLabel(source: 'frame' | 'link' | 'media' | 'page'): stri
 }
 
 function messageChangesProxyList(message: unknown): boolean {
+  if (typeof message !== 'object' || message === null || Array.isArray(message)) {
+    return false;
+  }
+  const type = (message as { type?: unknown }).type;
   return (
-    typeof message === 'object' &&
-    message !== null &&
-    !Array.isArray(message) &&
-    ((message as { type?: unknown }).type === 'configuration.replace' ||
-      (message as { type?: unknown }).type === 'configuration.import.commit')
+    type === 'configuration.replace' ||
+    type === 'configuration.import.commit' ||
+    type === 'extension.reset'
   );
 }
 

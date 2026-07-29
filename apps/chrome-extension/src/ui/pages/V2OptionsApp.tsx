@@ -1,8 +1,6 @@
 import {
   Activity,
   AlertTriangle,
-  ArrowDown,
-  ArrowUp,
   ChevronRight,
   CircleGauge,
   Clock3,
@@ -19,16 +17,15 @@ import { useEffect, useState } from 'react';
 import type { ConfigurationDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import type { BackgroundState } from '../../runtime/messages.ts';
-import { toUserFacingMessage } from '../error-message.ts';
 import { optionsHash, pageFromOptionsHash, type OptionPage } from '../options-routes.ts';
 import { DiagnosticsPage } from './DiagnosticsPage.tsx';
 import { DataPage } from './DataPage.tsx';
+import { SettingsPage } from './SettingsPage.tsx';
 import { V2OverviewPage } from './V2OverviewPage.tsx';
 import { V2ProfilesPage } from './V2ProfilesPage.tsx';
 import { V2ProxyServersPage } from './V2ProxyServersPage.tsx';
 import { V2RulesPage } from './V2RulesPage.tsx';
 import { TemporaryRulesPage } from './TemporaryRulesPage.tsx';
-import { moveShortcutProfile, shortcutProfileOrder } from './v2-shortcut-order.ts';
 
 const PAGE_META: Record<OptionPage, { eyebrow: string; title: string }> = {
   overview: { eyebrow: '运行状态', title: '代理路由状态' },
@@ -224,7 +221,13 @@ export function V2OptionsApp({
             />
           ) : null}
           {page === 'settings' ? (
-            <V2SettingsPage busy={busy} document={document} onReplace={onReplace} />
+            <SettingsPage
+              busy={busy}
+              document={document}
+              onReplace={onReplace}
+              onState={onState}
+              proxyControl={state.proxyControl}
+            />
           ) : null}
         </div>
       </section>
@@ -257,139 +260,5 @@ function NavButton({
       <span>{label}</span>
       {selected ? <ChevronRight size={15} /> : null}
     </button>
-  );
-}
-
-function V2SettingsPage({
-  busy,
-  document,
-  onReplace
-}: {
-  busy: boolean;
-  document: ProfileDocumentV2;
-  onReplace(document: ConfigurationDocument): Promise<BackgroundState>;
-}) {
-  const [error, setError] = useState<string>();
-  const shortcutOrder = shortcutProfileOrder(
-    document.profiles.map((profile) => profile.id),
-    document.settings.shortcutProfileIds
-  );
-
-  async function updateSettings(patch: Partial<ProfileDocumentV2['settings']>): Promise<void> {
-    try {
-      setError(undefined);
-      await onReplace({ ...document, settings: { ...document.settings, ...patch } });
-    } catch (cause) {
-      setError(toUserFacingMessage(cause));
-    }
-  }
-
-  async function moveShortcut(profileId: string, direction: 'down' | 'up'): Promise<void> {
-    await updateSettings({
-      shortcutProfileIds: moveShortcutProfile(shortcutOrder, profileId, direction)
-    });
-  }
-
-  return (
-    <section className="page-panel settings-panel v2-settings-panel">
-      <div className="form-grid">
-        <label>
-          启动时使用的配置
-          <select
-            disabled={busy}
-            onChange={(event) => void updateSettings({ startupProfileId: event.target.value })}
-            value={document.settings.startupProfileId}
-          >
-            {document.profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          新规则插入位置
-          <select
-            disabled={busy}
-            onChange={(event) =>
-              void updateSettings({
-                ruleInsertPosition: event.target.value === 'first' ? 'first' : 'last'
-              })
-            }
-            value={document.settings.ruleInsertPosition}
-          >
-            <option value="first">最前</option>
-            <option value="last">最后</option>
-          </select>
-        </label>
-        <label className="switch-setting">
-          <input
-            checked={document.settings.reloadAfterProfileChange}
-            disabled={busy}
-            onChange={(event) =>
-              void updateSettings({ reloadAfterProfileChange: event.target.checked })
-            }
-            type="checkbox"
-          />
-          <span>切换配置后刷新当前标签页</span>
-        </label>
-        <label className="switch-setting">
-          <input
-            checked={document.settings.networkMonitor.enabled}
-            disabled={busy}
-            onChange={(event) =>
-              void updateSettings({ networkMonitor: { enabled: event.target.checked } })
-            }
-            type="checkbox"
-          />
-          <span>记录网页网络时间线（默认关闭）</span>
-        </label>
-      </div>
-      <section aria-label="快捷切换顺序" className="shortcut-order">
-        <div className="shortcut-order-heading">
-          <div>
-            <p className="panel-kicker">快捷切换</p>
-            <h2>配置循环顺序</h2>
-          </div>
-        </div>
-        <ol className="shortcut-order-list">
-          {shortcutOrder.map((profileId, index) => {
-            const profile = document.profiles.find((candidate) => candidate.id === profileId);
-            if (!profile) {
-              return null;
-            }
-            return (
-              <li className="shortcut-order-row" key={profile.id}>
-                <span className="shortcut-order-index">{index + 1}</span>
-                <span className="shortcut-order-name">{profile.name}</span>
-                <span className="shortcut-order-actions">
-                  <button
-                    aria-label={`将 ${profile.name} 上移`}
-                    className="icon-button"
-                    disabled={busy || index === 0}
-                    onClick={() => void moveShortcut(profile.id, 'up')}
-                    title="上移"
-                    type="button"
-                  >
-                    <ArrowUp size={15} />
-                  </button>
-                  <button
-                    aria-label={`将 ${profile.name} 下移`}
-                    className="icon-button"
-                    disabled={busy || index === shortcutOrder.length - 1}
-                    onClick={() => void moveShortcut(profile.id, 'down')}
-                    title="下移"
-                    type="button"
-                  >
-                    <ArrowDown size={15} />
-                  </button>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-      {error ? <p className="inline-error">{error}</p> : null}
-    </section>
   );
 }

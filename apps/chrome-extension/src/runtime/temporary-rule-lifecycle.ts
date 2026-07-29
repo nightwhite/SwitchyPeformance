@@ -16,6 +16,7 @@ export interface TemporaryRuleLifecycleDependencies {
 
 export interface TemporaryRuleLifecycle {
   reapplyAndSchedule(): Promise<void>;
+  schedule(): Promise<void>;
   synchronize(): Promise<void>;
 }
 
@@ -35,6 +36,10 @@ export function createTemporaryRuleLifecycle(
       if (changed) {
         await dependencies.reapply();
       }
+      await scheduleTemporaryRuleExpiry(dependencies.alarms, rules, now());
+    },
+    async schedule() {
+      const { rules } = await pruneCurrentDocument();
       await scheduleTemporaryRuleExpiry(dependencies.alarms, rules, now());
     }
   };

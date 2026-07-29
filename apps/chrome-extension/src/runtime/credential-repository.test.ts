@@ -3,6 +3,20 @@ import { describe, expect, it, vi } from 'vitest';
 import { createCredentialRepository } from './credential-repository.ts';
 
 describe('createCredentialRepository', () => {
+  it('clears the memory cache as well as the local credential store', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const repository = createCredentialRepository({
+      read: vi.fn().mockResolvedValue([{ id: 'credential-a', password: 'secret', username: 'user' }]),
+      write
+    });
+
+    await repository.get('credential-a');
+    await repository.clear();
+
+    await expect(repository.get('credential-a')).resolves.toBeUndefined();
+    expect(write).toHaveBeenCalledWith([]);
+  });
+
   it('serializes local credential changes and does not mix them with routing configuration', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     const repository = createCredentialRepository({

@@ -29,6 +29,7 @@ import { isProfileTarget, type ProfileTarget } from './targets.ts';
 import { validateProfileDocumentV2 } from './validate.ts';
 
 export interface RuntimeSettingsV2 {
+  onExternalConflict?: 'warn' | 'leave-unchanged' | 'reapply';
   startupProfileId: string;
   reloadAfterProfileChange: boolean;
   ruleInsertPosition: 'first' | 'last';
@@ -74,6 +75,7 @@ export type ProfileDocumentV2ParseResult =
 
 export function defaultRuntimeSettings(): RuntimeSettingsV2 {
   return {
+    onExternalConflict: 'warn',
     startupProfileId: 'direct',
     reloadAfterProfileChange: false,
     ruleInsertPosition: 'last',
@@ -436,6 +438,9 @@ function parseRuntimeSettings(
   const shortcutProfileIds = parseOptionalStringArray(
     isRecord(input) ? input.shortcutProfileIds : undefined
   );
+  const onExternalConflict = parseOptionalExternalConflictPolicy(
+    isRecord(input) ? input.onExternalConflict : undefined
+  );
   if (
     !isRecord(input) ||
     !isNonEmptyString(input.startupProfileId) ||
@@ -443,7 +448,8 @@ function parseRuntimeSettings(
     !isRuleInsertPosition(input.ruleInsertPosition) ||
     !isRecord(input.networkMonitor) ||
     typeof input.networkMonitor.enabled !== 'boolean' ||
-    shortcutProfileIds === null
+    shortcutProfileIds === null ||
+    onExternalConflict === null
   ) {
     issues.push({ code: 'invalid-settings', path: 'settings' });
     return undefined;
@@ -454,6 +460,7 @@ function parseRuntimeSettings(
     reloadAfterProfileChange: input.reloadAfterProfileChange,
     ruleInsertPosition: input.ruleInsertPosition,
     networkMonitor: { enabled: input.networkMonitor.enabled },
+    ...(onExternalConflict === undefined ? {} : { onExternalConflict }),
     ...(shortcutProfileIds === undefined ? {} : { shortcutProfileIds })
   };
 }
@@ -491,6 +498,20 @@ function parseOptionalStringArray(value: unknown): readonly string[] | undefined
     return undefined;
   }
   return readStringArray(value) ?? null;
+}
+
+function parseOptionalExternalConflictPolicy(
+  value: unknown
+): RuntimeSettingsV2['onExternalConflict'] | null {
+  if (
+    value === undefined ||
+    value === 'warn' ||
+    value === 'leave-unchanged' ||
+    value === 'reapply'
+  ) {
+    return value;
+  }
+  return null;
 }
 
 function normalizeOptionalId(value: unknown): string | undefined | null {

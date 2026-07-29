@@ -111,6 +111,21 @@ describe('V2 配置文档', () => {
     expect(parseProfileDocumentV2(validDocument())).toMatchObject({ ok: true });
   });
 
+  it('兼容没有外部代理冲突策略字段的旧 V2 配置，不在读取时改写备份', () => {
+    expect(api.parseProfileDocumentV2).toBeTypeOf('function');
+    const parseProfileDocumentV2 = api.parseProfileDocumentV2 as (value: unknown) => ParseResult;
+
+    const result = parseProfileDocumentV2(validDocument());
+
+    expect(result).toMatchObject({ ok: true });
+    if (result.ok) {
+      expect(
+        (result.value as { settings?: { onExternalConflict?: unknown } }).settings
+          ?.onExternalConflict
+      ).toBeUndefined();
+    }
+  });
+
   it('把旧布尔绕过条件转换成明确的始终或永不命中条件', () => {
     expect(api.parseProfileDocumentV2).toBeTypeOf('function');
     const parseProfileDocumentV2 = api.parseProfileDocumentV2 as (value: unknown) => ParseResult;

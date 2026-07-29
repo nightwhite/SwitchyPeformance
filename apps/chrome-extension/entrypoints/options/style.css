@@ -1240,6 +1240,55 @@ textarea {
 .v2-settings-panel .form-grid {
   width: min(100%, 460px);
 }
+.proxy-control-panel {
+  display: grid;
+  width: min(100%, 620px);
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #d7ddd6;
+  background: #fbfdfb;
+}
+.proxy-control-heading,
+.settings-reset {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+.proxy-control-heading > svg {
+  color: #187350;
+}
+.proxy-control-detail {
+  margin: 0;
+  color: #526158;
+}
+.proxy-control-detail-conflict {
+  color: #a1473e;
+}
+.proxy-control-panel:has(.proxy-control-detail-conflict) {
+  border-color: #e8c5bd;
+  background: #fff9f7;
+}
+.proxy-control-panel:has(.proxy-control-detail-conflict) .proxy-control-heading > svg {
+  color: #bf4e43;
+}
+.field-help {
+  color: #6a766e;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.settings-reset {
+  width: min(100%, 620px);
+  padding-top: 16px;
+  border-top: 1px solid #dde4dd;
+}
+.settings-reset h2 {
+  margin-bottom: 5px;
+}
+.settings-reset p {
+  max-width: 460px;
+}
 .shortcut-order {
   display: grid;
   width: min(100%, 560px);

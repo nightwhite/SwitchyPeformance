@@ -10,6 +10,7 @@ export interface CredentialStorage {
 }
 
 export interface CredentialRepository {
+  clear(): Promise<void>;
   get(id: string): Promise<ProxyCredential | undefined>;
   remove(id: string): Promise<void>;
   save(credential: ProxyCredential): Promise<void>;
@@ -40,6 +41,12 @@ export function createCredentialRepository(storage: CredentialStorage): Credenti
   }
 
   return {
+    clear() {
+      return queue(async () => {
+        await storage.write([]);
+        cache = [];
+      });
+    },
     async get(id) {
       await mutation;
       return (await current()).find((credential) => credential.id === id);

@@ -9,6 +9,7 @@ import { validateCondition } from '@switchypeformance/contracts';
 import type { CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
 import type { ConfigurationImportPreview } from './configuration-import-service.ts';
+import type { ProxyControlState } from './external-proxy-state.ts';
 import type { NetworkEvent } from './network-event-repository.ts';
 import type { SourceStatus } from './source-status-repository.ts';
 import type { TabNetworkSummary } from './tab-network-summary.ts';
@@ -26,6 +27,7 @@ export type BackgroundRequest =
   | { type: 'configuration.replace'; document: unknown }
   | { type: 'configuration.import.preview'; input: unknown }
   | { type: 'configuration.import.commit'; input: unknown }
+  | { type: 'extension.reset' }
   | { type: 'route.explain'; url: string }
   | {
       type: 'quick-rule.add';
@@ -70,6 +72,7 @@ export interface BackgroundState {
   sourceStatuses: readonly SourceStatus[];
   temporaryRules: readonly TemporaryRule[];
   networkSummary?: readonly TabNetworkSummary[];
+  proxyControl?: ProxyControlState;
 }
 
 export type BackgroundResponse =
@@ -109,6 +112,7 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
   return (
     message.type === 'state.get' ||
     message.type === 'diagnostics.clear' ||
+    message.type === 'extension.reset' ||
     message.type === 'options.open' ||
     (message.type === 'route.explain' && isNonEmptyString(message.url)) ||
     (message.type === 'profile.activate' && typeof message.profileId === 'string') ||

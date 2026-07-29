@@ -115,4 +115,8 @@ describe('background messages', () => {
     expect(isBackgroundRequest({ type: 'configuration.import.preview' })).toBe(false);
     expect(isBackgroundRequest({ type: 'configuration.import.commit' })).toBe(false);
   });
+
+  it('accepts the explicit extension reset command', () => {
+    expect(isBackgroundRequest({ type: 'extension.reset' })).toBe(true);
+  });
 });

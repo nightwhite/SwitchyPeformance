@@ -49,6 +49,7 @@ export interface SaveRuleListStats {
 }
 
 export interface SourceStatusRepository {
+  clear(): Promise<void>;
   get(sourceId: string): Promise<SourceStatus | undefined>;
   list(): Promise<readonly SourceStatus[]>;
   saveContent(content: SaveSourceContent): Promise<SourceStatus>;
@@ -71,6 +72,11 @@ export function createSourceStatusRepository(
   const maxCacheBytes = cacheByteLimit(options.maxCacheBytes);
 
   return {
+    clear() {
+      return serialize(async () => {
+        await storage.write({});
+      });
+    },
     async get(sourceId) {
       await pendingOperation;
       const status = (await readRecords())[sourceId];

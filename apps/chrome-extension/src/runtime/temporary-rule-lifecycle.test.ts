@@ -67,6 +67,25 @@ describe('temporary rule lifecycle', () => {
     });
     expect(alarms.clear).toHaveBeenCalledWith('switchypeformance.temporary-rule-expiry');
   });
+
+  it('can prune and schedule without reapplying when Chrome proxy control belongs elsewhere', async () => {
+    const alarms = { clear: vi.fn(), create: vi.fn() };
+    const reapply = vi.fn();
+    const lifecycle = createTemporaryRuleLifecycle({
+      alarms,
+      loadConfiguration: vi.fn().mockResolvedValue(document),
+      now: () => 1_000,
+      reapply,
+      temporaryRules: { prune: vi.fn().mockResolvedValue({ changed: true, rules: [rule('safe', 2_000)] }) }
+    });
+
+    await lifecycle.schedule();
+
+    expect(reapply).not.toHaveBeenCalled();
+    expect(alarms.create).toHaveBeenCalledWith('switchypeformance.temporary-rule-expiry', {
+      when: 2_000
+    });
+  });
 });
 
 function rule(id: string, expiresAt: number): TemporaryRule {

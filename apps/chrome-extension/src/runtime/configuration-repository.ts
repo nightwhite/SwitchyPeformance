@@ -1,4 +1,5 @@
 import {
+  defaultRuntimeSettings,
   parseConfigurationDocument,
   type ConfigurationDocument,
   type ProfileDocument,
@@ -61,6 +62,30 @@ export function createDefaultProfileDocument(): ProfileDocument {
         rules: []
       }
     ]
+  };
+}
+
+export function createDefaultProfileDocumentV2(): ProfileDocumentV2 {
+  return {
+    schemaVersion: 2,
+    activeProfileId: 'direct',
+    profiles: [
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' },
+      {
+        id: 'auto-switch',
+        kind: 'auto-switch',
+        name: '自动切换',
+        fallback: { profileId: 'direct' },
+        loopbackPolicy: 'direct',
+        proxyFailurePolicy: 'direct',
+        rules: [],
+        ruleSourceIds: []
+      }
+    ],
+    proxyServers: [],
+    ruleSources: [],
+    settings: defaultRuntimeSettings()
   };
 }
 

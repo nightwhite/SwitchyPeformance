@@ -3,6 +3,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSourceStatusRepository } from './source-status-repository.ts';
 
 describe('source status repository', () => {
+  it('clears cached source content during an extension reset', async () => {
+    const storage = memoryStorage({
+      'rule-list:company': {
+        sourceId: 'rule-list:company',
+        text: '||company.example',
+        url: 'https://rules.example/company.txt'
+      }
+    });
+    const repository = createSourceStatusRepository(storage);
+
+    await repository.clear();
+
+    await expect(repository.list()).resolves.toEqual([]);
+  });
+
   it('keeps the last successful PAC content when a later refresh fails', async () => {
     const storage = memoryStorage();
     const repository = createSourceStatusRepository(storage);
