@@ -1435,7 +1435,7 @@ git commit -m "feat: schedule and display source refreshes"
 - Test: `apps/chrome-extension/src/runtime/network-monitor.test.ts`
 - Test: `apps/chrome-extension/src/runtime/tab-network-summary.test.ts`
 
-- [ ] **Step 1: 写出事件采样、去重、上限和关闭监控不写入事件的失败测试。**
+- [x] **Step 1: 写出事件采样、去重、上限和关闭监控不写入事件的失败测试。**
 
 ```ts
 const monitor = createNetworkMonitor({ enabled: false, repository });
@@ -1445,13 +1445,13 @@ expect(repository.append).not.toHaveBeenCalled();
 expect(capEvents(Array.from({ length: 5_100 }, eventFactory), 5_000)).toHaveLength(5_000);
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/network-monitor.test.ts apps/chrome-extension/src/runtime/tab-network-summary.test.ts`
 
 Expected: FAIL，当前只有失败记录器。
 
-- [ ] **Step 3: 实现请求时间线。**
+- [x] **Step 3: 实现请求时间线。**
 
 ```ts
 export type NetworkPhase = 'started' | 'headers' | 'redirected' | 'completed' | 'failed';
@@ -1469,18 +1469,26 @@ export interface NetworkEvent {
 
 默认关闭完整监控，只保留失败与配置事件。开启后每个标签页最多保留 500 条、全局最多 5,000 条或 4 MB，超出先淘汰最旧记录。URL 中的敏感查询参数在保存前按白名单脱敏。
 
-- [ ] **Step 4: 运行监控回归测试。**
+- [x] **Step 4: 运行监控回归测试。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/runtime/network-monitor.test.ts apps/chrome-extension/src/runtime/tab-network-summary.test.ts apps/chrome-extension/src/runtime/network-failure-recorder.test.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交监控底座。**
+- [x] **Step 5: 提交监控底座。**
 
 ```bash
 git add apps/chrome-extension/src/runtime apps/chrome-extension/entrypoints/background.ts
 git commit -m "feat: record bounded network diagnostics"
 ```
+
+**执行记录（2026-07-29）：** 网络监控默认关闭，关闭时会直接卸载五个
+`webRequest` 监听器，不参与网页请求路径。开启后才记录请求开始、响应头、重定向、
+完成和失败；失败会按标签页、网址路径和错误在 60 秒内合并，取消请求不记录。
+网络时间线保存在 Chrome 会话存储中，每个标签页最多 500 条、总量最多 5,000 条或
+4 MB，超出时淘汰最旧记录；地址会移除账号、密码、片段和非白名单查询参数。后台
+消息可读取指定标签页时间线、清空时间线，并返回按标签页的成功/失败摘要；普通
+配置、代理和运行时日志仍保留在原来的本地排查日志中。
 
 ### Task 23: 在日志和弹窗中提供失败资源的正确修复操作
 

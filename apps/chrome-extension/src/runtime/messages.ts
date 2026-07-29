@@ -8,7 +8,9 @@ import { validateCondition } from '@switchypeformance/contracts';
 
 import type { CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
+import type { NetworkEvent } from './network-event-repository.ts';
 import type { SourceStatus } from './source-status-repository.ts';
+import type { TabNetworkSummary } from './tab-network-summary.ts';
 import type { TemporaryRule } from './temporary-rule-service.ts';
 
 export type QuickRuleTarget = ProfileTarget | RouteTarget;
@@ -42,6 +44,8 @@ export type BackgroundRequest =
   | { type: 'temporary-rule.remove'; ruleId: string }
   | { type: 'temporary-rule.clear' }
   | { type: 'source.refresh'; sourceId: string }
+  | { type: 'network.events.clear' }
+  | { type: 'network.events.list'; tabId?: number }
   | { type: 'diagnostics.clear' }
   | { type: 'options.open' }
   | { type: 'proxy.credentials.save'; proxyId: string; username: string; password: string }
@@ -61,10 +65,16 @@ export interface BackgroundState {
   }[];
   sourceStatuses: readonly SourceStatus[];
   temporaryRules: readonly TemporaryRule[];
+  networkSummary?: readonly TabNetworkSummary[];
 }
 
 export type BackgroundResponse =
-  | { ok: true; routeStatus?: CurrentRouteStatus; state?: BackgroundState }
+  | {
+      ok: true;
+      networkEvents?: readonly NetworkEvent[];
+      routeStatus?: CurrentRouteStatus;
+      state?: BackgroundState;
+    }
   | { ok: false; error: string };
 
 export function isBackgroundRequest(input: unknown): input is BackgroundRequest {
@@ -88,6 +98,7 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     expiresAt?: unknown;
     ruleId?: unknown;
     sourceId?: unknown;
+    tabId?: unknown;
   };
   return (
     message.type === 'state.get' ||
@@ -111,6 +122,9 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
       isQuickRuleTarget(message.target)) ||
     (message.type === 'temporary-rule.remove' && isNonEmptyString(message.ruleId)) ||
     message.type === 'temporary-rule.clear' ||
+    message.type === 'network.events.clear' ||
+    (message.type === 'network.events.list' &&
+      (message.tabId === undefined || isNetworkTabId(message.tabId))) ||
     (message.type === 'source.refresh' && isNonEmptyString(message.sourceId)) ||
     (message.type === 'proxy.credentials.save' &&
       typeof message.proxyId === 'string' &&
@@ -157,4 +171,8 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isExpiryTimestamp(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isNetworkTabId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= -1;
 }

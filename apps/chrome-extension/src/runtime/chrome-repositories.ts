@@ -7,12 +7,14 @@ import type {
 import { createConfigurationRepository } from './configuration-repository.ts';
 import { createCredentialRepository } from './credential-repository.ts';
 import { createDiagnosticsRepository, type DiagnosticEvent } from './diagnostics-repository.ts';
+import { createNetworkEventRepository } from './network-event-repository.ts';
 import { createSourceStatusRepository } from './source-status-repository.ts';
 import { createTemporaryRuleRepository } from './temporary-rule-repository.ts';
 
 const CONFIGURATION_KEY = 'switchypeformance.configuration.v1';
 const CREDENTIALS_KEY = 'switchypeformance.proxy-credentials.v1';
 const DIAGNOSTICS_KEY = 'switchypeformance.diagnostics.v1';
+const NETWORK_EVENTS_KEY = 'switchypeformance.network-events.v1';
 const TEMPORARY_RULES_KEY = 'switchypeformance.temporary-rules.v1';
 const SOURCE_STATUS_KEY = 'switchypeformance.source-status.v1';
 
@@ -33,6 +35,16 @@ export const chromeDiagnosticsRepository = createDiagnosticsRepository({
   },
   async write(events: readonly DiagnosticEvent[]) {
     await chrome.storage.local.set({ [DIAGNOSTICS_KEY]: events });
+  }
+});
+
+export const chromeNetworkEventRepository = createNetworkEventRepository({
+  async read() {
+    const stored = await chrome.storage.session.get(NETWORK_EVENTS_KEY);
+    return stored[NETWORK_EVENTS_KEY];
+  },
+  async write(events) {
+    await chrome.storage.session.set({ [NETWORK_EVENTS_KEY]: events });
   }
 });
 

@@ -4,10 +4,12 @@ import {
   chromeCredentialRepository,
   chromeConfigurationRepository,
   chromeDiagnosticsRepository,
+  chromeNetworkEventRepository,
   chromeSourceStatusRepository,
   chromeTemporaryRuleRepository
 } from '../src/runtime/chrome-repositories.ts';
-import { createNetworkFailureRecorder } from '../src/runtime/network-failure-recorder.ts';
+import { createNetworkMonitor } from '../src/runtime/network-monitor.ts';
+import type { NetworkEventRepository } from '../src/runtime/network-event-repository.ts';
 import { createPacSourceService } from '../src/runtime/pac-source-service.ts';
 import { createRuleListService } from '../src/runtime/rule-list-service.ts';
 import { createRoutingApplicationService } from '../src/runtime/routing-application-service.ts';
@@ -36,6 +38,7 @@ import {
 } from '../src/runtime/quick-rule-context-menu.ts';
 import { nextProfileId, profileCycleIds } from '../src/runtime/shortcut-service.ts';
 import { createSourceFetcher } from '../src/runtime/source-fetcher.ts';
+import { summarizeTabNetworkEvents } from '../src/runtime/tab-network-summary.ts';
 import { setChromeProxySetting } from '../src/runtime/chrome-proxy.ts';
 import {
   isBackgroundRequest,
@@ -138,9 +141,9 @@ export default defineBackground(() => {
     credentials: chromeCredentialRepository,
     replace: (document) => service.replaceConfiguration(document)
   });
-  const recordNetworkFailure = createNetworkFailureRecorder((event) =>
-    chromeDiagnosticsRepository.append(event)
-  );
+  const networkMonitor = createNetworkMonitor({ repository: chromeNetworkEventRepository });
+  const networkRequestFilter = { urls: ['<all_urls>'] };
+  let networkMonitoringListenersAttached = false;
 
   chrome.runtime.onInstalled.addListener(reapply);
   chrome.runtime.onStartup.addListener(reapply);
@@ -162,12 +165,6 @@ export default defineBackground(() => {
   chrome.proxy.onProxyError.addListener((details) => {
     void service.recordProxyError(details.error, details.details);
   });
-  chrome.webRequest.onErrorOccurred.addListener(
-    (details) => {
-      void recordNetworkFailure.record({ error: details.error, url: details.url });
-    },
-    { urls: ['<all_urls>'] }
-  );
   chrome.webRequest.onAuthRequired.addListener(
     (details, callback) => {
       void authenticate
@@ -227,11 +224,13 @@ export default defineBackground(() => {
           routingApplication,
           temporaryRuleLifecycle,
           sourceRefreshLifecycle,
+          chromeNetworkEventRepository,
           message
         )
       )
       .then(async (response) => {
         if (messageChangesProxyList(message)) {
+          await synchronizeNetworkMonitor();
           void synchronizeSourceRefresh();
           await rebuildQuickRuleMenus();
         }
@@ -286,6 +285,11 @@ export default defineBackground(() => {
     } catch (error) {
       await reportRuntimeFailure('应用启动代理配置失败', error);
     }
+    try {
+      await synchronizeNetworkMonitor();
+    } catch (error) {
+      await reportRuntimeFailure('无法读取网络监控设置', error);
+    }
     await synchronizeSourceRefresh();
     await rebuildQuickRuleMenus();
   }
@@ -295,6 +299,123 @@ export default defineBackground(() => {
       await sourceRefreshLifecycle.synchronize();
     } catch (error) {
       await reportRuntimeFailure('无法安排来源刷新', error);
+    }
+  }
+
+  async function synchronizeNetworkMonitor(): Promise<void> {
+    const document = await chromeConfigurationRepository.load();
+    const enabled = document.schemaVersion === 2 && document.settings.networkMonitor.enabled;
+    networkMonitor.setEnabled(enabled);
+    if (enabled) {
+      attachNetworkMonitoringListeners();
+      return;
+    }
+    detachNetworkMonitoringListeners();
+  }
+
+  function attachNetworkMonitoringListeners(): void {
+    if (networkMonitoringListenersAttached) {
+      return;
+    }
+    chrome.webRequest.onBeforeRequest.addListener(onNetworkStarted, networkRequestFilter);
+    chrome.webRequest.onHeadersReceived.addListener(onNetworkHeaders, networkRequestFilter);
+    chrome.webRequest.onBeforeRedirect.addListener(onNetworkRedirected, networkRequestFilter);
+    chrome.webRequest.onCompleted.addListener(onNetworkCompleted, networkRequestFilter);
+    chrome.webRequest.onErrorOccurred.addListener(onNetworkFailed, networkRequestFilter);
+    networkMonitoringListenersAttached = true;
+  }
+
+  function detachNetworkMonitoringListeners(): void {
+    if (!networkMonitoringListenersAttached) {
+      return;
+    }
+    chrome.webRequest.onBeforeRequest.removeListener(onNetworkStarted);
+    chrome.webRequest.onHeadersReceived.removeListener(onNetworkHeaders);
+    chrome.webRequest.onBeforeRedirect.removeListener(onNetworkRedirected);
+    chrome.webRequest.onCompleted.removeListener(onNetworkCompleted);
+    chrome.webRequest.onErrorOccurred.removeListener(onNetworkFailed);
+    networkMonitoringListenersAttached = false;
+  }
+
+  function onNetworkStarted(details: chrome.webRequest.OnBeforeRequestDetails): undefined {
+    if (!networkMonitor.isEnabled()) {
+      return undefined;
+    }
+    recordNetworkEvent(
+      networkMonitor.onStarted({
+        requestId: details.requestId,
+        tabId: details.tabId,
+        timestamp: details.timeStamp,
+        url: details.url
+      })
+    );
+    return undefined;
+  }
+
+  function onNetworkHeaders(details: chrome.webRequest.OnHeadersReceivedDetails): undefined {
+    if (!networkMonitor.isEnabled()) {
+      return undefined;
+    }
+    recordNetworkEvent(
+      networkMonitor.onHeaders({
+        requestId: details.requestId,
+        statusCode: details.statusCode,
+        tabId: details.tabId,
+        timestamp: details.timeStamp,
+        url: details.url
+      })
+    );
+    return undefined;
+  }
+
+  function onNetworkRedirected(details: chrome.webRequest.OnBeforeRedirectDetails): void {
+    if (!networkMonitor.isEnabled()) {
+      return;
+    }
+    recordNetworkEvent(
+      networkMonitor.onRedirected({
+        requestId: details.requestId,
+        statusCode: details.statusCode,
+        tabId: details.tabId,
+        timestamp: details.timeStamp,
+        url: details.url
+      })
+    );
+  }
+
+  function onNetworkCompleted(details: chrome.webRequest.OnCompletedDetails): void {
+    if (!networkMonitor.isEnabled()) {
+      return;
+    }
+    recordNetworkEvent(
+      networkMonitor.onCompleted({
+        requestId: details.requestId,
+        statusCode: details.statusCode,
+        tabId: details.tabId,
+        timestamp: details.timeStamp,
+        url: details.url
+      })
+    );
+  }
+
+  function onNetworkFailed(details: chrome.webRequest.OnErrorOccurredDetails): void {
+    if (!networkMonitor.isEnabled()) {
+      return;
+    }
+    recordNetworkEvent(
+      networkMonitor.onFailed({
+        error: details.error,
+        requestId: details.requestId,
+        tabId: details.tabId,
+        timestamp: details.timeStamp,
+        url: details.url
+      })
+    );
+  }
+
+  function recordNetworkEvent(recording: Promise<void> | undefined): void {
+    if (recording) {
+      void recording.catch(() => undefined);
     }
   }
 
@@ -352,6 +473,8 @@ export default defineBackground(() => {
     }
     await profileActivation.activate(nextProfile, tab);
   }
+
+  void synchronizeNetworkMonitor().catch(() => undefined);
 });
 
 async function handleMessage(
@@ -362,6 +485,7 @@ async function handleMessage(
   routingApplication: ReturnType<typeof createRoutingApplicationService>,
   temporaryRuleLifecycle: ReturnType<typeof createTemporaryRuleLifecycle>,
   sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
+  networkEvents: Pick<NetworkEventRepository, 'clear' | 'list'>,
   message: unknown
 ): Promise<BackgroundResponse> {
   if (!isBackgroundRequest(message)) {
@@ -375,6 +499,7 @@ async function handleMessage(
     temporaryRules,
     routingApplication,
     sourceRefreshLifecycle,
+    networkEvents,
     message
   );
   await temporaryRuleLifecycle.synchronize();
@@ -382,12 +507,24 @@ async function handleMessage(
     return { ok: true };
   }
   const snapshot = await service.snapshot();
+  const allNetworkEvents =
+    message.type === 'state.get' || message.type === 'network.events.list'
+      ? await networkEvents.list()
+      : undefined;
+  const requestedNetworkEvents =
+    message.type === 'network.events.list' && allNetworkEvents !== undefined
+      ? filterNetworkEvents(allNetworkEvents, message.tabId)
+      : undefined;
   return {
     ok: true,
     ...(routeStatus === undefined ? {} : { routeStatus }),
+    ...(requestedNetworkEvents === undefined ? {} : { networkEvents: requestedNetworkEvents }),
     state: {
       ...snapshot,
-      temporaryRules: await temporaryRules.list(snapshot.configuration)
+      temporaryRules: await temporaryRules.list(snapshot.configuration),
+      ...(allNetworkEvents === undefined
+        ? {}
+        : { networkSummary: summarizeTabNetworkEvents(allNetworkEvents) })
     }
   };
 }
@@ -399,6 +536,7 @@ async function dispatch(
   temporaryRules: TemporaryRuleService,
   routingApplication: ReturnType<typeof createRoutingApplicationService>,
   sourceRefreshLifecycle: ReturnType<typeof createSourceRefreshLifecycle>,
+  networkEvents: Pick<NetworkEventRepository, 'clear'>,
   message: BackgroundRequest
 ): Promise<CurrentRouteStatus | undefined> {
   switch (message.type) {
@@ -447,6 +585,11 @@ async function dispatch(
         await service.reapplyCurrent();
       }
       return undefined;
+    case 'network.events.clear':
+      await networkEvents.clear();
+      return undefined;
+    case 'network.events.list':
+      return undefined;
     case 'source.refresh':
       await sourceRefreshLifecycle.refresh(message.sourceId);
       return undefined;
@@ -466,6 +609,13 @@ async function dispatch(
       await chromeCredentialRepository.remove(message.credentialId);
       return undefined;
   }
+}
+
+function filterNetworkEvents(
+  events: readonly import('../src/runtime/network-event-repository.ts').NetworkEvent[],
+  tabId: number | undefined
+) {
+  return tabId === undefined ? events : events.filter((event) => event.tabId === tabId);
 }
 
 function errorMessage(error: unknown): string {

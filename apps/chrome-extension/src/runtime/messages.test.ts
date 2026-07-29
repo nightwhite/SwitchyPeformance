@@ -91,4 +91,11 @@ describe('background messages', () => {
     );
     expect(isBackgroundRequest({ type: 'source.refresh', sourceId: '' })).toBe(false);
   });
+
+  it('accepts bounded network timeline commands and rejects invalid tab IDs', () => {
+    expect(isBackgroundRequest({ type: 'network.events.clear' })).toBe(true);
+    expect(isBackgroundRequest({ type: 'network.events.list' })).toBe(true);
+    expect(isBackgroundRequest({ tabId: 14, type: 'network.events.list' })).toBe(true);
+    expect(isBackgroundRequest({ tabId: 1.5, type: 'network.events.list' })).toBe(false);
+  });
 });
