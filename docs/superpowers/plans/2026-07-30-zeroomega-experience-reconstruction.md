@@ -260,11 +260,10 @@ Commit: `git commit -m "feat: rebuild fixed proxy configuration page"`
 - Create: `apps/chrome-extension/src/ui/original/profile/AutoSwitchSourceEditor.tsx`
 - Create: `apps/chrome-extension/src/ui/original/profile/auto-switch-draft.ts`
 - Create: `apps/chrome-extension/src/ui/original/profile/auto-switch-draft.test.ts`
-- Modify: `apps/chrome-extension/src/ui/components/AutoSwitchSettingsEditor.tsx`
-- Modify: `apps/chrome-extension/src/ui/components/VirtualRuleTable.tsx`
+- Create: `apps/chrome-extension/src/ui/original/profile/AutoSwitchProfilePage.test.ts`
 - Modify: `apps/chrome-extension/src/ui/configuration/rule-actions.ts`
 
-- [ ] **Step 1: 写失败测试，复制、移动和默认目标只改变草稿。**
+- [x] **Step 1: 写失败测试，复制、移动和默认目标只改变草稿。**
 
 ```ts
 expect(cloneOriginalRule(document, 'automatic', 'rule-1').rules).toHaveLength(2);
@@ -272,13 +271,13 @@ expect(moveOriginalRule(document, 'automatic', 'rule-2', 'up').rules[0]?.id).toB
 expect(setAutoSwitchFallback(document, 'automatic', 'work').fallback).toEqual({ profileId: 'work' });
 ```
 
-- [ ] **Step 2: 实现原版式表格。**
+- [x] **Step 2: 实现原版式表格。**
 
-列固定为排序、条件类型、匹配内容、目标、操作、备注。支持鼠标拖动和可访问的上移/下移按钮；仅渲染可见行但保留原版表格语义。
+列固定为排序、条件、目标、启用和操作。支持鼠标拖动和可访问的上移/下移按钮；仅渲染可见行但保留原版表格语义。
 
-- [ ] **Step 3: 实现基础/高级条件、复制、删除、备注和重置。**
+- [x] **Step 3: 实现基础/高级条件、复制、删除和重置。**
 
-条件校验复用合同层 `validateCondition`。重置只将所有规则目标改为当前默认目标，弹出确认模态框。
+条件校验复用合同层 `validateCondition`。重置只将所有规则目标改为当前默认目标，弹出确认模态框。规则备注需要先扩展配置合同，避免显示一个不会参与导入、导出和同步的伪字段。
 
 - [ ] **Step 4: 实现规则文本模式和附加规则来源。**
 

@@ -11,6 +11,7 @@ import {
 } from '../../configuration/profile-actions.ts';
 import { ProfileEditor } from '../../pages/ProfileWorkspace.tsx';
 import { DeleteProfileDialog } from './DeleteProfileDialog.tsx';
+import { AutoSwitchProfilePage } from './AutoSwitchProfilePage.tsx';
 import { FixedProfilePage } from './FixedProfilePage.tsx';
 import { ProfileHeader } from './ProfileHeader.tsx';
 import {
@@ -137,6 +138,13 @@ export function OriginalProfileWorkspace({
           dirty={dirty}
           document={document}
           onBackgroundState={onBackgroundState}
+          onReplace={onReplace}
+          profile={selectedProfile}
+        />
+      ) : selectedProfile.kind === 'auto-switch' ? (
+        <AutoSwitchProfilePage
+          busy={busy}
+          document={document}
           onReplace={onReplace}
           profile={selectedProfile}
         />

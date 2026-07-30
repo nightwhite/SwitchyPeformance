@@ -4,8 +4,10 @@ import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import {
   addRule,
+  cloneRule,
   moveRule,
   removeRule,
+  resetRuleTargets,
   toggleRule,
   updateAutoSwitchSettings,
   updateRule
@@ -91,6 +93,29 @@ describe('V2 automatic rule actions', () => {
       loopbackPolicy: 'use-rules',
       proxyFailurePolicy: 'block'
     });
+  });
+
+  it('clones a rule beside its source and resets all targets to the current fallback', () => {
+    const cloned = cloneRule(document('last'), 'automatic', 'existing-rule', 'copied-rule');
+
+    expect(automatic(cloned).rules.map((rule) => rule.id)).toEqual([
+      'existing-rule',
+      'copied-rule'
+    ]);
+
+    const reset = resetRuleTargets(
+      {
+        ...cloned,
+        profiles: cloned.profiles.map((profile) =>
+          profile.id === 'automatic' && profile.kind === 'auto-switch'
+            ? { ...profile, fallback: { profileId: 'direct' } }
+            : profile
+        )
+      },
+      'automatic'
+    );
+
+    expect(automatic(reset).rules.every((rule) => rule.target.profileId === 'direct')).toBe(true);
   });
 });
 

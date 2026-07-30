@@ -52,6 +52,30 @@ export function updateRule(
   return replaceAutoSwitchProfile(document, { ...profile, rules });
 }
 
+export function cloneRule(
+  document: ProfileDocumentV2,
+  profileId: string,
+  ruleId: string,
+  copyId: string
+): ProfileDocumentV2 {
+  const profile = requiredAutoSwitchProfile(document, profileId);
+  const sourceIndex = profile.rules.findIndex((rule) => rule.id === ruleId);
+  if (sourceIndex < 0) {
+    throw new Error('自动切换规则不存在');
+  }
+  const source = profile.rules[sourceIndex];
+  if (!source) {
+    throw new Error('自动切换规则不存在');
+  }
+  const id = copyId.trim();
+  if (!id || profile.rules.some((rule) => rule.id === id)) {
+    throw new Error('规则 ID 已存在');
+  }
+  const copy: SwitchRuleV2 = { ...source, id };
+  const rules = [...profile.rules.slice(0, sourceIndex + 1), copy, ...profile.rules.slice(sourceIndex + 1)];
+  return replaceAutoSwitchProfile(document, { ...profile, rules });
+}
+
 export function toggleRule(
   document: ProfileDocumentV2,
   profileId: string,
@@ -110,6 +134,17 @@ export function removeRule(
     throw new Error('自动切换规则不存在');
   }
   return replaceAutoSwitchProfile(document, { ...profile, rules });
+}
+
+export function resetRuleTargets(
+  document: ProfileDocumentV2,
+  profileId: string
+): ProfileDocumentV2 {
+  const profile = requiredAutoSwitchProfile(document, profileId);
+  return replaceAutoSwitchProfile(document, {
+    ...profile,
+    rules: profile.rules.map((rule) => ({ ...rule, target: profile.fallback }))
+  });
 }
 
 export function updateAutoSwitchSettings(
