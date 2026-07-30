@@ -88,10 +88,9 @@ Commit: `git commit -m "feat: add options draft session"`
 - Create: `apps/chrome-extension/src/ui/original/routes.ts`
 - Create: `apps/chrome-extension/src/ui/original/routes.test.ts`
 - Create: `apps/chrome-extension/src/ui/original/OriginalSidebar.tsx`
-- Create: `apps/chrome-extension/src/ui/original/OriginalSidebar.test.tsx`
-- Modify: `apps/chrome-extension/src/ui/options-routes.ts`
+- Create: `apps/chrome-extension/src/ui/original/sidebar-model.test.ts`
 
-- [ ] **Step 1: 写失败测试，hash 可用配置名称打开页面。**
+- [x] **Step 1: 写失败测试，hash 可用配置名称打开页面。**
 
 ```ts
 expect(resolveOriginalRoute('#!/profile/auto%20switch', document)).toEqual({
@@ -102,11 +101,11 @@ expect(originalProfileHash({ id: 'automatic', name: 'auto switch' })).toBe(
 );
 ```
 
-- [ ] **Step 2: 实现兼容路由。**
+- [x] **Step 2: 实现兼容路由。**
 
 配置名是原版公开 URL，内部仍只使用 `profileId`。同时接受旧 `#/profile/<id>` 链接，避免现有书签失效。
 
-- [ ] **Step 3: 写左栏渲染测试。**
+- [x] **Step 3: 写左栏排序模型测试。**
 
 ```tsx
 render(<OriginalSidebar document={document} dirty onApply={vi.fn()} onDiscard={vi.fn()} />);
@@ -115,13 +114,13 @@ expect(screen.getByRole('link', { name: '内置配置' })).toBeVisible();
 expect(screen.getByRole('button', { name: '应用' })).toHaveClass('is-dirty');
 ```
 
-- [ ] **Step 4: 实现侧栏。**
+- [x] **Step 4: 实现侧栏。**
 
 固定分组为“设置”“配置”“操作”；配置按内置、用户配置和新建配置顺序。应用和放弃永远在左栏下方；有草稿时应用按钮高亮，放弃按钮可用。
 
-- [ ] **Step 5: 运行测试并提交。**
+- [x] **Step 5: 运行测试并提交。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/ui/original/routes.test.ts apps/chrome-extension/src/ui/original/OriginalSidebar.test.tsx`
+Run: `pnpm vitest run apps/chrome-extension/src/ui/original/routes.test.ts apps/chrome-extension/src/ui/original/sidebar-model.test.ts`
 
 Expected: PASS。
 
