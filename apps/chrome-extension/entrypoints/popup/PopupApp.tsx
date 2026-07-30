@@ -49,6 +49,8 @@ import { popupMenuActions, type PopupView } from '../../src/ui/popup/popup-menu-
 import { PopupRuleForm } from '../../src/ui/popup/PopupRuleForm.tsx';
 import { setPopupDefaultTarget } from '../../src/ui/original/popup/default-target.ts';
 import { OriginalPopupMenu } from '../../src/ui/original/popup/OriginalPopupMenu.tsx';
+import { QuickRuleForm } from '../../src/ui/original/popup/QuickRuleForm.tsx';
+import type { QuickRuleCondition } from '../../src/ui/original/popup/quick-rule-suggestion.ts';
 import type { CurrentRouteStatus } from '../../src/runtime/current-route.ts';
 import type { BackgroundState, QuickRuleTarget } from '../../src/runtime/messages.ts';
 
@@ -93,7 +95,7 @@ export function PopupApp() {
     }
     try {
       const condition = buildCurrentSiteRule(availableTab.url, ruleScope).condition;
-      return condition.pattern;
+      return condition.type === 'keyword' ? condition.value : condition.pattern;
     } catch {
       return undefined;
     }
@@ -210,6 +212,52 @@ export function PopupApp() {
       setView('menu');
     } catch (cause) {
       setError(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyAdvancedRule(
+    condition: QuickRuleCondition,
+    host: string,
+    temporary: boolean
+  ): Promise<void> {
+    if (
+      !document ||
+      document.schemaVersion !== 2 ||
+      !effectiveAutomaticProfileId ||
+      !effectiveRuleTarget
+    ) {
+      throw new Error('当前没有可用的自动切换配置或规则目标');
+    }
+
+    setBusy(true);
+    setError(undefined);
+    try {
+      const target = targetFromValueV2(effectiveRuleTarget);
+      const nextState = temporary
+        ? await requestBackgroundState({
+            type: 'temporary-rule.add',
+            automaticProfileId: effectiveAutomaticProfileId,
+            condition,
+            expiresAt: temporaryRuleExpiry(temporaryDuration, Date.now()),
+            host,
+            scope: 'host',
+            target
+          })
+        : await requestBackgroundState({
+            type: 'quick-rule.add',
+            automaticProfileId: effectiveAutomaticProfileId,
+            condition,
+            host,
+            scope: 'host',
+            target
+          });
+      await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
+      setView('menu');
+    } catch (cause) {
+      setError(messageFor(cause));
+      throw cause;
     } finally {
       setBusy(false);
     }
@@ -374,7 +422,7 @@ export function PopupApp() {
           onOpenOptions={() => void openOptions()}
           onOpenPermanentRule={() => setView('rule-form')}
           onOpenRoute={() => setView('route-info')}
-          onOpenTemporaryRule={() => setView('temporary-form')}
+          onOpenTemporaryRule={() => setView('rule-form')}
           onRefresh={() => void refresh()}
         />
       ) : null}
@@ -440,7 +488,29 @@ export function PopupApp() {
         </>
       ) : null}
 
-      {view === 'rule-form' ? (
+      {view === 'rule-form' && document?.schemaVersion === 2 ? (
+        <section className="popup-workspace original-popup-rule-workspace" aria-label="添加当前网站规则">
+          <PopupViewHeading onBack={() => setView('menu')} title="为当前网站添加规则" />
+          <QuickRuleForm
+            automaticProfileId={effectiveAutomaticProfileId}
+            automaticProfiles={automaticProfiles}
+            busy={busy}
+            onAutomaticProfileChange={setAutomaticProfileId}
+            onCancel={() => setView('menu')}
+            onRouteChange={setRuleTarget}
+            onSubmit={({ condition, host, temporary }) =>
+              applyAdvancedRule(condition, host, temporary)
+            }
+            onTemporaryDurationChange={setTemporaryDuration}
+            routeOptions={targetOptions}
+            routeValue={effectiveRuleTarget}
+            tab={availableTab}
+            temporaryDuration={temporaryDuration}
+          />
+        </section>
+      ) : null}
+
+      {view === 'rule-form' && document?.schemaVersion !== 2 ? (
         <section className="popup-workspace" aria-label="添加当前网站规则">
           <PopupViewHeading onBack={() => setView('menu')} title="为当前网站添加规则" />
           <PopupRuleForm

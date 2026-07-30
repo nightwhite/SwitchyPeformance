@@ -64,6 +64,22 @@ describe('quick site rule', () => {
     ).toHaveLength(1);
   });
 
+  it('stores an advanced popup condition in a V2 automatic profile', () => {
+    const updated = addCurrentSiteRule(v2Document(), {
+      automaticProfileId: 'automatic-secondary',
+      condition: { type: 'url-regex', pattern: '://([^/.]+\\.)*example\\.com(:\\d+)?/' },
+      host: 'sub.example.com',
+      ruleId: 'quick-regex',
+      scope: 'host',
+      target: { profileId: 'fixed-work' }
+    });
+
+    expect(v2Automatic(updated, 'automatic-secondary').rules[0]).toMatchObject({
+      condition: { type: 'url-regex', pattern: '://([^/.]+\\.)*example\\.com(:\\d+)?/' },
+      id: 'quick-regex'
+    });
+  });
+
   it('puts a new popup rule ahead of existing rules even when manual rules append at the end', () => {
     const document = {
       ...v2Document(),

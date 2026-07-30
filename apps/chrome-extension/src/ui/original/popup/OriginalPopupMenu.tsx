@@ -15,11 +15,12 @@ import {
   TriangleAlert,
   WandSparkles
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
 
 import { originalPopupRows, type OriginalPopupRow } from './menu-model.ts';
+import { originalPopupShortcut } from './keyboard-shortcuts.ts';
 
 interface OriginalPopupMenuProps {
   busy: boolean;
@@ -51,9 +52,85 @@ export function OriginalPopupMenu({
   onRefresh
 }: OriginalPopupMenuProps) {
   const [openDefaultFor, setOpenDefaultFor] = useState<string>();
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const rows = originalPopupRows(document);
   const builtinRows = rows.filter((row) => row.role === 'builtin');
   const customRows = rows.filter((row) => row.role === 'profile');
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (
+        busy ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isTypingTarget(event.target)
+      ) {
+        return;
+      }
+      const shortcut = originalPopupShortcut(event.key);
+      if (!shortcut) {
+        return;
+      }
+      switch (shortcut.kind) {
+        case 'activate-builtin':
+          event.preventDefault();
+          void onActivate(shortcut.profileId);
+          return;
+        case 'activate-custom': {
+          const profile = customRows[shortcut.index];
+          if (!profile) {
+            return;
+          }
+          event.preventDefault();
+          void onActivate(profile.profileId);
+          return;
+        }
+        case 'add-rule':
+          if (!currentHost) {
+            return;
+          }
+          event.preventDefault();
+          onOpenPermanentRule();
+          return;
+        case 'temporary-rule':
+          if (!currentHost) {
+            return;
+          }
+          event.preventDefault();
+          onOpenTemporaryRule();
+          return;
+        case 'failure-list':
+          event.preventDefault();
+          onOpenFailures();
+          return;
+        case 'open-options':
+          event.preventDefault();
+          onOpenOptions();
+          return;
+        case 'show-help':
+          event.preventDefault();
+          setShowShortcutHelp((current) => !current);
+          return;
+        case 'move-focus':
+          event.preventDefault();
+          movePopupFocus(shortcut.direction);
+          return;
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    busy,
+    currentHost,
+    customRows,
+    onActivate,
+    onOpenOptions,
+    onOpenPermanentRule,
+    onOpenRoute,
+    onOpenTemporaryRule
+  ]);
 
   async function changeDefaultTarget(profileId: string, targetProfileId: string): Promise<void> {
     await onChangeDefaultTarget(profileId, targetProfileId);
@@ -91,6 +168,11 @@ export function OriginalPopupMenu({
           <Settings2 size={16} />
         </button>
       </header>
+      {showShortcutHelp ? (
+        <p className="original-popup-shortcut-help" role="status">
+          0 直连，S 系统代理，1-9 选择配置，A 添加规则，T 临时规则，R 失败请求，O 选项。
+        </p>
+      ) : null}
 
       <ul className="original-popup-profile-list" role="menu">
         {builtinRows.map((row) => (
@@ -251,4 +333,35 @@ function ProfileIcon({ kind }: { kind: OriginalPopupRow['kind'] }) {
     case 'virtual':
       return <WandSparkles {...props} />;
   }
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
+function movePopupFocus(direction: 'next' | 'previous'): void {
+  const buttons = Array.from(
+    globalThis.document.querySelectorAll<HTMLButtonElement>(
+      '.original-popup-menu button:not([disabled])'
+    )
+  );
+  if (buttons.length === 0) {
+    return;
+  }
+  const currentIndex = buttons.indexOf(globalThis.document.activeElement as HTMLButtonElement);
+  const activeRowButton = globalThis.document.querySelector<HTMLButtonElement>(
+    '.original-popup-profile.active .original-popup-profile-main > button:first-child'
+  );
+  const fallbackIndex = activeRowButton ? buttons.indexOf(activeRowButton) : 0;
+  const startIndex = currentIndex >= 0 ? currentIndex : Math.max(fallbackIndex, 0);
+  const nextIndex =
+    direction === 'next'
+      ? (startIndex + 1) % buttons.length
+      : (startIndex - 1 + buttons.length) % buttons.length;
+  buttons[nextIndex]?.focus();
 }

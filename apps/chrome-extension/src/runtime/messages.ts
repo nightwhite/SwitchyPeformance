@@ -6,7 +6,10 @@ import type {
 } from '@switchypeformance/contracts';
 import { validateCondition } from '@switchypeformance/contracts';
 
-import type { CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
+import type {
+  CurrentSiteRuleCondition,
+  CurrentSiteScope
+} from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
 import type { ConfigurationImportPreview } from './configuration-import-service.ts';
 import type { ProxyControlState } from './external-proxy-state.ts';
@@ -23,10 +26,7 @@ import type {
 import { normalizeSyncProviderConfiguration } from './sync/sync-settings-repository.ts';
 
 export type QuickRuleTarget = ProfileTarget | RouteTarget;
-export type QuickRuleCondition = Extract<
-  RuleConditionV2,
-  { type: 'host-wildcard' | 'url-wildcard' }
->;
+export type QuickRuleCondition = CurrentSiteRuleCondition;
 
 export type BackgroundRequest =
   | { type: 'state.get' }
@@ -196,7 +196,11 @@ function isQuickRuleCondition(value: unknown): value is QuickRuleCondition {
   }
   const condition = value as RuleConditionV2;
   return (
-    (condition.type === 'host-wildcard' || condition.type === 'url-wildcard') &&
+    (condition.type === 'host-wildcard' ||
+      condition.type === 'host-regex' ||
+      condition.type === 'url-wildcard' ||
+      condition.type === 'url-regex' ||
+      condition.type === 'keyword') &&
     validateCondition(condition).ok
   );
 }

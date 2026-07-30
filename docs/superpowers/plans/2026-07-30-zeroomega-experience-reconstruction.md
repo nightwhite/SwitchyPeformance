@@ -405,22 +405,22 @@ Commit: `git commit -m "feat: rebuild popup profile menu"`
 - Modify: `apps/chrome-extension/src/ui/popup/PopupRuleForm.tsx`
 - Modify: `apps/chrome-extension/entrypoints/popup/PopupApp.tsx`
 
-- [ ] **Step 1: 写失败测试，域名层级切换会生成原版五类建议。**
+- [x] **Step 1: 写失败测试，域名层级切换会生成原版五类建议。**
 
 ```ts
 expect(suggestQuickRules('https://api.x.com/path', 0).hostWildcard).toBe('*.x.com');
 expect(suggestQuickRules('https://api.x.com/path', 1).hostWildcard).toBe('*.api.x.com');
 ```
 
-- [ ] **Step 2: 实现局部规则表单。**
+- [x] **Step 2: 实现局部规则表单。**
 
 表单包含条件类型、条件内容、层级切换、目标配置、取消、添加；永久规则只有当前自动切换可写时显示。临时规则为当前域名的下拉选择，不出现独立仪表盘表单。
 
-- [ ] **Step 3: 实现快捷键。**
+- [x] **Step 3: 实现快捷键。**
 
 映射：上下/J/K 导航，0 直连，S 系统，1-9 自定义配置，A 添加永久规则，T 临时规则，O 打开选项，R 失败请求，? 显示快捷键提示。输入框聚焦时不拦截。
 
-- [ ] **Step 4: 运行测试并提交。**
+- [x] **Step 4: 运行测试并提交。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/original/popup/quick-rule-suggestion.test.ts apps/chrome-extension/src/ui/original/popup/keyboard-shortcuts.test.ts`
 

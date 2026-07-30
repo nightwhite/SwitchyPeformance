@@ -7,9 +7,13 @@ import {
 } from '@switchypeformance/contracts';
 
 export type CurrentSiteScope = 'page' | 'host' | 'domain';
+export type CurrentSiteRuleCondition = Extract<
+  RuleConditionV2,
+  { type: 'host-wildcard' | 'host-regex' | 'url-wildcard' | 'url-regex' | 'keyword' }
+>;
 
 export interface CurrentSiteRule {
-  condition: Extract<RuleConditionV2, { type: 'host-wildcard' | 'url-wildcard' }>;
+  condition: CurrentSiteRuleCondition;
   host: string;
 }
 

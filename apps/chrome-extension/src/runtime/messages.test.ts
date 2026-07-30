@@ -14,6 +14,16 @@ describe('background messages', () => {
         target: { profileId: 'fixed-work' }
       })
     ).toBe(true);
+    expect(
+      isBackgroundRequest({
+        type: 'quick-rule.add',
+        automaticProfileId: 'automatic',
+        condition: { type: 'host-regex', pattern: '(^|\\.)example\\.co\\.uk$' },
+        host: 'sub.example.co.uk',
+        scope: 'host',
+        target: { profileId: 'fixed-work' }
+      })
+    ).toBe(true);
   });
 
   it('rejects incomplete or unsupported quick rule requests', () => {

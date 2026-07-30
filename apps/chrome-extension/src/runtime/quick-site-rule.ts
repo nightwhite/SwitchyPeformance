@@ -201,19 +201,17 @@ function v1Condition(
   if (condition.type === 'url-wildcard') {
     return { type: 'url-glob', value: condition.pattern };
   }
-  if (scope === 'domain' && condition.pattern.startsWith('*.')) {
-    return { type: 'host-suffix', value: condition.pattern.slice(2) };
+  if (condition.type === 'host-wildcard') {
+    if (scope === 'domain' && condition.pattern.startsWith('*.')) {
+      return { type: 'host-suffix', value: condition.pattern.slice(2) };
+    }
+    return { type: 'host-equals', value: condition.pattern };
   }
-  return { type: 'host-equals', value: condition.pattern };
+  throw new Error('旧配置不支持这种当前网站规则条件');
 }
 
 function sameV2Condition(left: RuleConditionV2, right: RuleConditionV2): boolean {
-  if (left.type === 'host-wildcard' && right.type === 'host-wildcard') {
-    return left.pattern === right.pattern;
-  }
-  return (
-    left.type === 'url-wildcard' && right.type === 'url-wildcard' && left.pattern === right.pattern
-  );
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function requiredQuickRuleCondition(

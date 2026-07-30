@@ -178,6 +178,16 @@ button:disabled {
   font-size: 10px;
 }
 
+.original-popup-shortcut-help {
+  margin: 0;
+  padding: 8px 12px;
+  color: #57666f;
+  background: #f1f6f9;
+  border-bottom: 1px solid #d9e5ec;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .original-popup-icon-button {
   display: grid;
   width: 30px;
@@ -914,4 +924,115 @@ select {
 .popup-error {
   margin: 10px 12px 0;
   border-radius: 2px;
+}
+
+.original-popup-rule-workspace {
+  padding-bottom: 14px;
+}
+
+.original-quick-rule-form {
+  display: grid;
+  gap: 11px;
+}
+
+.original-quick-rule-form > label {
+  display: grid;
+  gap: 5px;
+  color: #4d5961;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.original-quick-rule-host {
+  overflow: hidden;
+  margin: -2px 0 2px;
+  padding: 8px 9px;
+  color: #59656d;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #f4f7f8;
+  border: 1px solid #dfe5e8;
+  font-size: 12px;
+}
+
+.original-quick-rule-host strong {
+  color: #2f3e47;
+}
+
+.original-quick-rule-condition-input {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+
+.original-quick-rule-condition-input input {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  color: #34414a;
+  background: #ffffff;
+  border: 1px solid #cbd3d8;
+  border-right: 0;
+  border-radius: 2px 0 0 2px;
+  font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
+  font-size: 11px;
+}
+
+.original-quick-rule-condition-input button {
+  display: grid;
+  min-height: 32px;
+  place-items: center;
+  padding: 0;
+  color: #4b718c;
+  background: #f5f9fb;
+  border: 1px solid #cbd3d8;
+  border-radius: 0 2px 2px 0;
+}
+
+.original-quick-rule-condition-input button:hover:not(:disabled) {
+  color: #245878;
+  background: #e8f2f8;
+}
+
+.original-quick-rule-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 7px;
+  margin-top: 3px;
+}
+
+.original-quick-rule-actions button {
+  display: inline-flex;
+  min-height: 33px;
+  justify-content: center;
+  gap: 5px;
+  align-items: center;
+  padding: 0 8px;
+  color: #4b5861;
+  background: #ffffff;
+  border: 1px solid #c9d1d6;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.original-quick-rule-actions button:hover:not(:disabled) {
+  color: #2b5e82;
+  background: #eef5fa;
+  border-color: #a9c6da;
+}
+
+.original-quick-rule-actions button:last-child {
+  color: #ffffff;
+  background: #377db6;
+  border-color: #2e6da2;
+}
+
+.original-quick-rule-actions button:last-child:hover:not(:disabled) {
+  background: #2f6d9d;
+}
+
+.original-quick-rule-error {
+  margin: 0;
 }
