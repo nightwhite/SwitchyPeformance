@@ -131,12 +131,10 @@ Commit: `git commit -m "feat: add original style configuration navigation"`
 **Files:**
 - Create: `apps/chrome-extension/src/ui/original/use-draft-session.ts`
 - Create: `apps/chrome-extension/src/ui/original/OriginalOptionsApp.tsx`
-- Create: `apps/chrome-extension/src/ui/original/OriginalOptionsApp.test.tsx`
+- Create: `apps/chrome-extension/src/ui/original/OriginalOptionsApp.test.ts`
 - Modify: `apps/chrome-extension/entrypoints/options/OptionsApp.tsx`
-- Modify: `apps/chrome-extension/src/ui/pages/V2OptionsApp.tsx`
-- Modify: `apps/chrome-extension/src/ui/options-routes.test.ts`
 
-- [ ] **Step 1: 写失败测试，编辑前后后台配置不变。**
+- [x] **Step 1: 写失败测试，编辑前后后台配置不变。**
 
 ```tsx
 await user.click(screen.getByRole('button', { name: '新建配置' }));
@@ -148,7 +146,7 @@ expect(sendBackgroundCommand).not.toHaveBeenCalledWith(
 expect(screen.getByRole('button', { name: '应用' })).toHaveClass('is-dirty');
 ```
 
-- [ ] **Step 2: 实现钩子并将 `OptionsApp` 改为双状态。**
+- [x] **Step 2: 实现钩子并将 `OptionsApp` 改为双状态。**
 
 ```ts
 const session = useDraftSession(backgroundState.configuration);
@@ -158,11 +156,11 @@ const discard = () => session.discard();
 
 应用成功后用后台返回的配置作为新的 `applied` 和 `draft`；失败时草稿保留并显示错误。只有弹窗切换模式和明确的导入提交可绕过草稿。
 
-- [ ] **Step 3: 把配置编辑接口改为 `onDraftChange(nextDocument)`。**
+- [x] **Step 3: 把配置编辑接口改为 `onDraftChange(nextDocument)`。**
 
 `OriginalOptionsApp` 和配置编辑器不得自行发送 `configuration.replace`。保留 `onRefreshSource` 等只读/后台操作，但来源配置字段仍只修改草稿。
 
-- [ ] **Step 4: 补充放弃和 URL 跳转保护测试。**
+- [x] **Step 4: 补充放弃和 URL 跳转保护测试。**
 
 ```ts
 await user.click(screen.getByRole('button', { name: '放弃' }));
@@ -170,9 +168,9 @@ expect(screen.queryByText('工作代理')).not.toBeInTheDocument();
 expect(window.confirm).toHaveBeenCalled();
 ```
 
-- [ ] **Step 5: 运行测试并提交。**
+- [x] **Step 5: 运行测试并提交。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/ui/original/OriginalOptionsApp.test.tsx apps/chrome-extension/src/ui/original/draft-session.test.ts`
+Run: `pnpm vitest run apps/chrome-extension/src/ui/original/OriginalOptionsApp.test.ts apps/chrome-extension/src/ui/original/use-draft-session.test.ts apps/chrome-extension/src/ui/original/draft-session.test.ts`
 
 Expected: PASS。
 

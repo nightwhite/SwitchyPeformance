@@ -24,6 +24,7 @@ import {
 import type {
   AutoSwitchProfile,
   ProfileDocument,
+  ProfileDocumentV2,
   ProxyEndpoint,
   Rule
 } from '@switchypeformance/contracts';
@@ -49,8 +50,9 @@ import type { BackgroundState } from '../../src/runtime/messages.ts';
 import { explainRouteWithWasm } from '../../src/runtime/wasm-runtime.ts';
 import type { RouteExplanation } from '../../src/runtime/route-explainer.ts';
 import { DataPage } from '../../src/ui/pages/DataPage.tsx';
-import { V2OptionsApp } from '../../src/ui/pages/V2OptionsApp.tsx';
 import { TemporaryRulesPage } from '../../src/ui/pages/TemporaryRulesPage.tsx';
+import { OriginalOptionsApp } from '../../src/ui/original/OriginalOptionsApp.tsx';
+import { commitDraftSession, useDraftSession } from '../../src/ui/original/use-draft-session.ts';
 
 type Page =
   'overview' | 'proxies' | 'automatic' | 'temporary-rules' | 'diagnostics' | 'data' | 'settings';
@@ -128,26 +130,18 @@ export function OptionsApp() {
 
   const document = state.configuration;
   if (document.schemaVersion === 2) {
+    const v2State: BackgroundState & { configuration: ProfileDocumentV2 } = {
+      ...state,
+      configuration: document
+    };
     return (
-      <V2OptionsApp
+      <V2OptionsDraftSession
         busy={busy}
-        document={document}
         error={error}
-        state={state}
-        onActivate={async (profileId) => {
-          setBusy(true);
-          setError(undefined);
-          try {
-            setState(await requestBackgroundState({ type: 'profile.activate', profileId }));
-          } catch (cause) {
-            setError(messageFor(cause));
-          } finally {
-            setBusy(false);
-          }
-        }}
-        onRefresh={refresh}
-        onReplace={saveConfiguration}
+        state={v2State}
         onState={setState}
+        onBusyChange={setBusy}
+        onErrorChange={setError}
       />
     );
   }
@@ -299,6 +293,61 @@ export function OptionsApp() {
         </div>
       </section>
     </main>
+  );
+}
+
+function V2OptionsDraftSession({
+  busy,
+  error,
+  onBusyChange,
+  onErrorChange,
+  onState,
+  state
+}: {
+  busy: boolean;
+  error: string | undefined;
+  onBusyChange(busy: boolean): void;
+  onErrorChange(error: string | undefined): void;
+  onState(state: BackgroundState): void;
+  state: BackgroundState & { configuration: ProfileDocumentV2 };
+}) {
+  const session = useDraftSession(state.configuration);
+
+  async function applyDraft(): Promise<void> {
+    onBusyChange(true);
+    onErrorChange(undefined);
+    try {
+      const committed = await commitDraftSession(session, async (candidate) => {
+        const nextState = await requestBackgroundState({
+          type: 'configuration.replace',
+          document: candidate
+        });
+        if (nextState.configuration.schemaVersion !== 2) {
+          throw new Error('后台返回了不受支持的配置版本。');
+        }
+        onState(nextState);
+        return nextState.configuration;
+      });
+      session.acceptApplied(committed.applied);
+    } catch (cause) {
+      onErrorChange(messageFor(cause));
+    } finally {
+      onBusyChange(false);
+    }
+  }
+
+  return (
+    <OriginalOptionsApp
+      busy={busy}
+      dirty={session.dirty}
+      document={session.draft}
+      error={error}
+      onApply={() => void applyDraft()}
+      onBackgroundState={onState}
+      onDiscard={session.discard}
+      onDraftChange={session.replace}
+      state={state}
+    />
   );
 }
 

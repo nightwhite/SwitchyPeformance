@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 
 import { OptionsApp } from './OptionsApp.tsx';
 import './style.css';
+import '../../src/ui/original/original-options.css';
 
 const root = document.getElementById('root');
 if (!root) {
