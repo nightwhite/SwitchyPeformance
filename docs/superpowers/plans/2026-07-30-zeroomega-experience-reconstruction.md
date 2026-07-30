@@ -33,7 +33,7 @@
 - Create: `apps/chrome-extension/src/ui/original/draft-session.ts`
 - Create: `apps/chrome-extension/src/ui/original/draft-session.test.ts`
 
-- [ ] **Step 1: 写失败测试，定义草稿不立即改变已应用配置。**
+- [x] **Step 1: 写失败测试，定义草稿不立即改变已应用配置。**
 
 ```ts
 const session = createDraftSession(appliedDocument);
@@ -43,13 +43,13 @@ expect(next.draft.activeProfileId).toBe('system');
 expect(next.dirty).toBe(true);
 ```
 
-- [ ] **Step 2: 运行测试，确认模块尚不存在。**
+- [x] **Step 2: 运行测试，确认模块尚不存在。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/original/draft-session.test.ts`
 
 Expected: FAIL，提示无法解析 `draft-session.ts`。
 
-- [ ] **Step 3: 实现纯状态机。**
+- [x] **Step 3: 实现纯状态机。**
 
 ```ts
 export interface DraftSession<T> {
@@ -66,7 +66,7 @@ export function markDraftApplied<T>(session: DraftSession<T>, applied: T): Draft
 
 `dirty` 用稳定的 JSON 比较计算；不修改输入对象。
 
-- [ ] **Step 4: 补充应用成功、放弃、后台配置变化三种测试。**
+- [x] **Step 4: 补充应用成功、放弃、后台配置变化三种测试。**
 
 ```ts
 expect(discardDraft(changed).draft).toEqual(appliedDocument);
@@ -74,7 +74,7 @@ expect(markDraftApplied(changed, committed).dirty).toBe(false);
 expect(rebaseCleanDraft(clean, newerApplied).draft).toBe(newerApplied);
 ```
 
-- [ ] **Step 5: 运行测试并提交。**
+- [x] **Step 5: 运行测试并提交。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/original/draft-session.test.ts`
 
