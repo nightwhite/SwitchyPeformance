@@ -9,11 +9,15 @@ import {
   cloneProfile,
   planProfileDeletion
 } from '../../configuration/profile-actions.ts';
-import { ProfileEditor } from '../../pages/ProfileWorkspace.tsx';
+import { AutoDetectProfilePage } from './AutoDetectProfilePage.tsx';
 import { DeleteProfileDialog } from './DeleteProfileDialog.tsx';
 import { AutoSwitchProfilePage } from './AutoSwitchProfilePage.tsx';
+import { BuiltinProfilePage } from './BuiltinProfilePage.tsx';
 import { FixedProfilePage } from './FixedProfilePage.tsx';
+import { PacProfilePage } from './PacProfilePage.tsx';
 import { ProfileHeader } from './ProfileHeader.tsx';
+import { RuleListProfilePage } from './RuleListProfilePage.tsx';
+import { VirtualProfilePage } from './VirtualProfilePage.tsx';
 import {
   renameOriginalProfile,
   replaceAndDeleteOriginalProfile,
@@ -26,7 +30,6 @@ interface OriginalProfileWorkspaceProps {
   document: ProfileDocumentV2;
   onBackgroundState(state: BackgroundState): void;
   onOpenCreatedProfile(profile: ProfileV2): void;
-  onOpenTool(): void;
   onReplace(document: ConfigurationDocument): Promise<BackgroundState>;
   profileId: string;
   sourceStatuses: BackgroundState['sourceStatuses'];
@@ -38,7 +41,6 @@ export function OriginalProfileWorkspace({
   document,
   onBackgroundState,
   onOpenCreatedProfile,
-  onOpenTool,
   onReplace,
   profileId,
   sourceStatuses
@@ -148,17 +150,43 @@ export function OriginalProfileWorkspace({
           onReplace={onReplace}
           profile={selectedProfile}
         />
-      ) : (
-        <ProfileEditor
+      ) : selectedProfile.kind === 'pac' ? (
+        <PacProfilePage
+          busy={busy || refreshingSourceId === pacSourceStatusId(selectedProfile.id)}
+          document={document}
+          onReplace={onReplace}
+          profile={selectedProfile}
+          sourceStatus={sourceStatuses.find(
+            (status) => status.sourceId === pacSourceStatusId(selectedProfile.id)
+          )}
+          {...(selectedProfile.source.kind === 'url'
+            ? {
+                onRefresh: () =>
+                  refreshSource(pacSourceStatusId(selectedProfile.id), selectedProfile.name)
+              }
+            : {})}
+        />
+      ) : selectedProfile.kind === 'rule-list' ? (
+        <RuleListWorkspace
           busy={busy}
           document={document}
-          onOpenTool={onOpenTool}
-          onRefreshSource={refreshSource}
-          onReplace={replace}
+          onRefresh={refreshSource}
+          onReplace={onReplace}
           profile={selectedProfile}
           refreshingSourceId={refreshingSourceId}
           sourceStatuses={sourceStatuses}
         />
+      ) : selectedProfile.kind === 'virtual' ? (
+        <VirtualProfilePage
+          busy={busy}
+          document={document}
+          onReplace={onReplace}
+          profile={selectedProfile}
+        />
+      ) : selectedProfile.kind === 'auto-detect' ? (
+        <AutoDetectProfilePage profile={selectedProfile} />
+      ) : (
+        <BuiltinProfilePage profile={selectedProfile} />
       )}
       {deleting && deletionPlan ? (
         <DeleteProfileDialog
@@ -171,6 +199,43 @@ export function OriginalProfileWorkspace({
         />
       ) : null}
     </>
+  );
+}
+
+function RuleListWorkspace({
+  busy,
+  document,
+  onRefresh,
+  onReplace,
+  profile,
+  refreshingSourceId,
+  sourceStatuses
+}: {
+  busy: boolean;
+  document: ProfileDocumentV2;
+  onRefresh(sourceId: string, sourceName: string): Promise<void>;
+  onReplace(document: ConfigurationDocument): Promise<BackgroundState>;
+  profile: Extract<ProfileV2, { kind: 'rule-list' }>;
+  refreshingSourceId: string | undefined;
+  sourceStatuses: BackgroundState['sourceStatuses'];
+}) {
+  const source = document.ruleSources.find((candidate) => candidate.id === profile.sourceId);
+  if (!source) {
+    return <p className="inline-error">规则列表引用的来源不存在。</p>;
+  }
+  const sourceStatusId = ruleListSourceStatusId(source.id);
+  return (
+    <RuleListProfilePage
+      busy={busy || refreshingSourceId === sourceStatusId}
+      document={document}
+      onReplace={onReplace}
+      profile={profile}
+      source={source}
+      sourceStatus={sourceStatuses.find((status) => status.sourceId === sourceStatusId)}
+      {...(source.source.kind === 'url'
+        ? { onRefresh: () => onRefresh(sourceStatusId, source.name) }
+        : {})}
+    />
   );
 }
 

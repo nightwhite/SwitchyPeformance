@@ -303,7 +303,7 @@ Commit: `git commit -m "feat: rebuild automatic switching profile page"`
 - Modify: `apps/chrome-extension/src/ui/components/VirtualProfileEditor.tsx`
 - Modify: `apps/chrome-extension/src/ui/configuration/advanced-profile-actions.ts`
 
-- [ ] **Step 1: 写失败测试，四种高级配置可通过草稿更新。**
+- [x] **Step 1: 写失败测试，四种高级配置可通过草稿更新。**
 
 ```ts
 expect(updatePacDraft(document, 'pac', { url: 'https://example.com/proxy.pac' }).profiles).toEqual(
@@ -311,15 +311,15 @@ expect(updatePacDraft(document, 'pac', { url: 'https://example.com/proxy.pac' })
 );
 ```
 
-- [ ] **Step 2: 实现 PAC 和自动检测页。**
+- [x] **Step 2: 实现 PAC 和自动检测页。**
 
 PAC 支持地址、内联脚本、请求头、手动刷新、更新时间、错误提示；自动检测配置提供检测地址和兜底行为。刷新不会擅自应用未保存的字段。
 
-- [ ] **Step 3: 实现规则列表和虚拟配置页。**
+- [x] **Step 3: 实现规则列表和虚拟配置页。**
 
 规则列表支持匹配目标、默认目标、格式、来源、文本、刷新；虚拟配置只选择目标，并显示其最终指向。
 
-- [ ] **Step 4: 运行测试并提交。**
+- [x] **Step 4: 运行测试并提交。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/original/profile/advanced-profile-draft.test.ts apps/chrome-extension/src/ui/configuration/advanced-profile-actions.test.ts`
 

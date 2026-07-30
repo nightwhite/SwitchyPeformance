@@ -177,9 +177,6 @@ export function OriginalOptionsApp({
               document={document}
               onBackgroundState={onBackgroundState}
               onOpenCreatedProfile={navigateProfileEntity}
-              onOpenTool={() =>
-                setWorkspaceNotice('代理服务器会在固定代理配置页面中直接管理。')
-              }
               onReplace={replaceDraft}
               profileId={route.profileId}
               sourceStatuses={state.sourceStatuses}
