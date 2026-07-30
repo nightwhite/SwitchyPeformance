@@ -367,7 +367,7 @@ Commit: `git commit -m "feat: align settings with original navigation"`
 - Modify: `apps/chrome-extension/entrypoints/popup/PopupApp.tsx`
 - Modify: `apps/chrome-extension/src/ui/popup/popup-menu-model.ts`
 
-- [ ] **Step 1: 写失败测试，弹窗菜单排序与原版一致。**
+- [x] **Step 1: 写失败测试，弹窗菜单排序与原版一致。**
 
 ```ts
 expect(originalPopupRows(document)).toEqual([
@@ -377,15 +377,15 @@ expect(originalPopupRows(document)).toEqual([
 ]);
 ```
 
-- [ ] **Step 2: 实现配置行模型。**
+- [x] **Step 2: 实现配置行模型。**
 
 内置配置固定在顶部；隐藏配置不显示；固定、PAC、虚拟、自动切换、规则列表按原版顺序及名称排序；选中态与系统代理的“有效态”区分。
 
-- [ ] **Step 3: 实现可选默认目标下拉。**
+- [x] **Step 3: 实现可选默认目标下拉。**
 
 有默认目标的自动切换/规则列表/虚拟配置行显示 `[默认目标]` 和箭头。点击行只切换模式；箭头展开目标列表，选择后只修改默认目标并按设置刷新当前标签页。
 
-- [ ] **Step 4: 运行测试并提交。**
+- [x] **Step 4: 运行测试并提交。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/original/popup/menu-model.test.ts apps/chrome-extension/src/ui/popup/popup-menu-model.test.ts`
 

@@ -132,6 +132,237 @@ button:disabled {
   font-size: 12px;
 }
 
+.original-popup-menu {
+  overflow: hidden;
+  color: #303940;
+  background: #ffffff;
+}
+
+.original-popup-header {
+  display: flex;
+  min-height: 52px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 11px;
+  border-bottom: 1px solid #d8dde0;
+}
+
+.original-popup-logo {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: #ffffff;
+  background: #377db6;
+  border-radius: 2px;
+}
+
+.original-popup-brand {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.original-popup-brand strong {
+  overflow: hidden;
+  color: #29333a;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.original-popup-brand small {
+  color: #78838b;
+  font-size: 10px;
+}
+
+.original-popup-icon-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: #56616a;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+.original-popup-icon-button:hover:not(:disabled) {
+  color: #2f5877;
+  background: #edf4f9;
+  border-color: #cbddea;
+}
+
+.original-popup-profile-list,
+.original-popup-default-menu {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.original-popup-profile-list {
+  overflow-y: auto;
+  max-height: 310px;
+}
+
+.original-popup-profile {
+  border-bottom: 1px solid #edf0f2;
+}
+
+.original-popup-profile-main {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.original-popup-profile-main > button:first-child {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  grid-template-columns: 20px minmax(0, 1fr) minmax(0, auto) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 0 10px;
+  color: #3a454c;
+  text-align: left;
+  background: #ffffff;
+  border: 0;
+}
+
+.original-popup-profile-main > button:first-child:hover:not(:disabled) {
+  background: #f3f6f8;
+}
+
+.original-popup-profile.active .original-popup-profile-main > button:first-child {
+  color: #ffffff;
+  background: #377db6;
+}
+
+.original-popup-profile.active .original-popup-profile-main > button:first-child:hover:not(:disabled) {
+  background: #2f6f9f;
+}
+
+.original-popup-profile-label,
+.original-popup-default-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.original-popup-profile-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.original-popup-default-label {
+  max-width: 116px;
+  color: #7a858d;
+  font-size: 11px;
+}
+
+.original-popup-profile.active .original-popup-default-label {
+  color: #e2f0fb;
+}
+
+.original-popup-default-toggle {
+  display: grid;
+  width: 34px;
+  min-height: 38px;
+  place-items: center;
+  padding: 0;
+  color: #59666f;
+  background: #ffffff;
+  border: 0;
+  border-left: 1px solid #edf0f2;
+}
+
+.original-popup-default-toggle:hover:not(:disabled) {
+  color: #2e638b;
+  background: #eaf3f9;
+}
+
+.original-popup-profile.active .original-popup-default-toggle {
+  color: #ffffff;
+  background: #377db6;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.original-popup-profile.active .original-popup-default-toggle:hover:not(:disabled) {
+  background: #2f6f9f;
+}
+
+.original-popup-default-menu {
+  padding: 4px 0;
+  background: #f8fafb;
+  border-top: 1px solid #dbe2e6;
+}
+
+.original-popup-default-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  padding: 0 15px 0 38px;
+  color: #46525b;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+}
+
+.original-popup-default-menu button:hover:not(:disabled) {
+  color: #244f71;
+  background: #e8f1f7;
+}
+
+.original-popup-divider {
+  height: 7px;
+  background: #f3f5f6;
+  border-top: 1px solid #e2e6e8;
+  border-bottom: 1px solid #e2e6e8;
+}
+
+.original-popup-actions {
+  display: grid;
+  margin-top: 7px;
+  border-top: 1px solid #dfe4e7;
+}
+
+.original-popup-actions button {
+  display: grid;
+  width: 100%;
+  min-height: 36px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  color: #47545c;
+  text-align: left;
+  background: #ffffff;
+  border: 0;
+  border-bottom: 1px solid #edf0f2;
+  font-size: 12px;
+}
+
+.original-popup-actions button:hover:not(:disabled) {
+  color: #275a81;
+  background: #eef5fa;
+}
+
+.original-popup-actions p {
+  margin: 0;
+  padding: 11px 12px;
+  color: #7b858c;
+  font-size: 12px;
+}
+
 .popup-section {
   margin-top: 16px;
 }

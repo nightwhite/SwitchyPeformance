@@ -47,6 +47,8 @@ import {
 import { loadCurrentTab, type CurrentTab } from '../../src/ui/popup/current-tab.ts';
 import { popupMenuActions, type PopupView } from '../../src/ui/popup/popup-menu-model.ts';
 import { PopupRuleForm } from '../../src/ui/popup/PopupRuleForm.tsx';
+import { setPopupDefaultTarget } from '../../src/ui/original/popup/default-target.ts';
+import { OriginalPopupMenu } from '../../src/ui/original/popup/OriginalPopupMenu.tsx';
 import type { CurrentRouteStatus } from '../../src/runtime/current-route.ts';
 import type { BackgroundState, QuickRuleTarget } from '../../src/runtime/messages.ts';
 
@@ -135,6 +137,26 @@ export function PopupApp() {
     setError(undefined);
     try {
       const nextState = await requestBackgroundState({ type: 'profile.activate', profileId });
+      await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
+    } catch (cause) {
+      setError(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeDefaultTarget(profileId: string, targetProfileId: string): Promise<void> {
+    if (!document || document.schemaVersion !== 2) {
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
+    try {
+      const nextDocument = setPopupDefaultTarget(document, profileId, targetProfileId);
+      const nextState = await requestBackgroundState({
+        type: 'configuration.replace',
+        document: nextDocument
+      });
       await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
     } catch (cause) {
       setError(messageFor(cause));
@@ -315,30 +337,49 @@ export function PopupApp() {
 
   return (
     <main className="popup-shell">
-      <header className="popup-header">
-        <div className="brand-mark" aria-hidden="true">
-          <Zap size={17} strokeWidth={2.5} />
-        </div>
-        <div className="brand-copy">
-          <strong>SwitchyPeformance</strong>
-          <span>Chrome 代理路由</span>
-        </div>
-        <button className="icon-button" onClick={() => void refresh()} title="刷新" type="button">
-          <RefreshCw size={16} />
-        </button>
-        <button
-          className="icon-button"
-          onClick={() => void openOptions()}
-          title="打开设置"
-          type="button"
-        >
-          <Settings2 size={16} />
-        </button>
-      </header>
+      {view === 'menu' && document?.schemaVersion !== 2 ? (
+        <header className="popup-header">
+          <div className="brand-mark" aria-hidden="true">
+            <Zap size={17} strokeWidth={2.5} />
+          </div>
+          <div className="brand-copy">
+            <strong>SwitchyPeformance</strong>
+            <span>Chrome 代理路由</span>
+          </div>
+          <button className="icon-button" onClick={() => void refresh()} title="刷新" type="button">
+            <RefreshCw size={16} />
+          </button>
+          <button
+            className="icon-button"
+            onClick={() => void openOptions()}
+            title="打开设置"
+            type="button"
+          >
+            <Settings2 size={16} />
+          </button>
+        </header>
+      ) : null}
 
       {error ? <p className="popup-error">{error}</p> : null}
 
-      {view === 'menu' ? (
+      {view === 'menu' && document?.schemaVersion === 2 ? (
+        <OriginalPopupMenu
+          busy={busy}
+          currentHost={availableTab?.host}
+          document={document}
+          failureCount={failures.length}
+          onActivate={activate}
+          onChangeDefaultTarget={changeDefaultTarget}
+          onOpenFailures={() => setView('failure-list')}
+          onOpenOptions={() => void openOptions()}
+          onOpenPermanentRule={() => setView('rule-form')}
+          onOpenRoute={() => setView('route-info')}
+          onOpenTemporaryRule={() => setView('temporary-form')}
+          onRefresh={() => void refresh()}
+        />
+      ) : null}
+
+      {view === 'menu' && document?.schemaVersion !== 2 ? (
         <>
           <section className="popup-menu" aria-label="代理配置">
             <div className="profile-list">
