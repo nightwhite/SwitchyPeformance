@@ -1,4 +1,4 @@
-import type { ProfileDocumentV2, ProfileV2 } from '@switchypeformance/contracts';
+import type { ProfileDocumentV2, ProfileV2, ProxyServer } from '@switchypeformance/contracts';
 
 import {
   createProfile,
@@ -6,6 +6,7 @@ import {
   replaceAndDeleteProfile,
   type CreatableProfileKind
 } from '../../configuration/profile-actions.ts';
+import { addProxyServer } from '../../configuration/proxy-server-actions.ts';
 
 export const ORIGINAL_CREATABLE_PROFILE_KINDS = [
   'fixed-proxy',
@@ -22,6 +23,7 @@ export interface CreateOriginalProfileOptions {
   id: string;
   kind: OriginalCreatableProfileKind;
   name: string;
+  newProxy?: ProxyServer;
   proxyId?: string;
 }
 
@@ -37,8 +39,9 @@ export function createOriginalProfile(
   }
 
   if (options.kind === 'fixed-proxy') {
-    const proxyId = options.proxyId?.trim();
-    if (!proxyId || !document.proxyServers.some((proxy) => proxy.id === proxyId)) {
+    const withNewProxy = options.newProxy ? addProxyServer(document, options.newProxy) : document;
+    const proxyId = options.newProxy?.id ?? options.proxyId?.trim();
+    if (!proxyId || !withNewProxy.proxyServers.some((proxy) => proxy.id === proxyId)) {
       throw new Error('请选择一个代理服务器');
     }
     const profile: Extract<ProfileV2, { kind: 'fixed-proxy' }> = {
@@ -49,7 +52,7 @@ export function createOriginalProfile(
       routes: { fallbackProxyId: proxyId }
     };
     return {
-      document: { ...document, profiles: [...document.profiles, profile] },
+      document: { ...withNewProxy, profiles: [...withNewProxy.profiles, profile] },
       profileId: id
     };
   }
@@ -114,7 +117,9 @@ function assertUniqueProfileName(
   }
   if (
     document.profiles.some(
-      (profile) => profile.id !== excludingProfileId && profile.name.toLocaleLowerCase() === name.toLocaleLowerCase()
+      (profile) =>
+        profile.id !== excludingProfileId &&
+        profile.name.toLocaleLowerCase() === name.toLocaleLowerCase()
     )
   ) {
     throw new Error('配置名称已存在');

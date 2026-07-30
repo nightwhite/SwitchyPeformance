@@ -23,7 +23,14 @@ import {
 import { toUserFacingMessage } from '../../error-message.ts';
 import { AutoSwitchRuleTable } from './AutoSwitchRuleTable.tsx';
 import { AutoSwitchSourceEditor } from './AutoSwitchSourceEditor.tsx';
-import { setAutoSwitchRuleSourceIds } from './auto-switch-draft.ts';
+import { AutoSwitchTextEditor, type TextSourceApplyResult } from './AutoSwitchTextEditor.tsx';
+import {
+  attachedRuleListForAutoSwitch,
+  createAttachedRuleList,
+  composeAutoSwitchText,
+  removeAttachedRuleList,
+  replaceAutoSwitchText
+} from './auto-switch-draft.ts';
 
 interface AutoSwitchProfilePageProps {
   busy: boolean;
@@ -43,6 +50,9 @@ export function AutoSwitchProfilePage({
   const [editor, setEditor] = useState<RuleEditorState>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [textMode, setTextMode] = useState(false);
+  const [textSource, setTextSource] = useState('');
+  const attachedRuleList = attachedRuleListForAutoSwitch(document, profile.id);
   const editedRule =
     editor?.kind === 'edit' ? profile.rules.find((rule) => rule.id === editor.ruleId) : undefined;
 
@@ -127,6 +137,31 @@ export function AutoSwitchProfilePage({
     await replace(() => removeRule(document, profile.id, ruleId), '规则已加入待应用修改。');
   }
 
+  function openTextMode(): void {
+    try {
+      setError(undefined);
+      setTextSource(composeAutoSwitchText(document, profile.id));
+      setTextMode(true);
+    } catch (cause) {
+      setError(toUserFacingMessage(cause));
+    }
+  }
+
+  async function applyTextSource(source: string): Promise<TextSourceApplyResult> {
+    let next: ProfileDocumentV2;
+    try {
+      next = replaceAutoSwitchText(document, profile.id, source, () => createId('rule'));
+    } catch (cause) {
+      return { error: toUserFacingMessage(cause), ok: false };
+    }
+    const saved = await replace(() => next, '规则文本已解析并加入待应用修改。');
+    if (saved) {
+      setTextMode(false);
+      return { ok: true };
+    }
+    return { error: '无法保存规则文本，请检查页面提示后重试。', ok: false };
+  }
+
   return (
     <section className="original-auto-switch-page">
       <section className="original-page-panel original-auto-switch-default">
@@ -137,13 +172,20 @@ export function AutoSwitchProfilePage({
           </div>
         </div>
         <div className="original-auto-switch-settings">
-          <RuleTargetSelect
-            disabled={busy}
-            document={document}
-            label="没有规则命中时"
-            onChange={(profileId) => void changeFallback(profileId)}
-            profileId={profile.fallback.profileId}
-          />
+          {attachedRuleList ? (
+            <div className="original-auto-switch-attached-summary">
+              <strong>已附加规则列表</strong>
+              <span>当前表格规则未命中时，继续由下方规则列表判断。</span>
+            </div>
+          ) : (
+            <RuleTargetSelect
+              disabled={busy}
+              document={document}
+              label="没有规则命中时"
+              onChange={(profileId) => void changeFallback(profileId)}
+              profileId={profile.fallback.profileId}
+            />
+          )}
           <label>
             本地地址
             <select
@@ -176,50 +218,67 @@ export function AutoSwitchProfilePage({
       <AutoSwitchSourceEditor
         busy={busy}
         document={document}
-        onChange={async (sourceIds) => {
+        onAttach={async () => {
           await replace(
-            () => setAutoSwitchRuleSourceIds(document, profile.id, sourceIds),
-            '规则来源已加入待应用修改。'
+            () => createAttachedRuleList(document, profile.id, createId('profile')),
+            '已附加规则列表，等待应用修改。'
           );
         }}
+        onDetach={async () => {
+          await replace(
+            () => removeAttachedRuleList(document, profile.id),
+            '已移除附加规则列表，等待应用修改。'
+          );
+        }}
+        onReplace={onReplace}
         profile={profile}
       />
 
-      <AutoSwitchRuleTable
-        busy={busy}
-        document={document}
-        onAdd={() => setEditor({ kind: 'create' })}
-        onClone={async (rule) => {
-          await replace(
-            () => cloneRule(document, profile.id, rule.id, createId('rule')),
-            '规则副本已加入待应用修改。'
-          );
-        }}
-        onEdit={(rule) => setEditor({ kind: 'edit', ruleId: rule.id })}
-        onMove={async (ruleId, toIndex) => {
-          await replace(
-            () => moveRule(document, profile.id, ruleId, toIndex),
-            '规则顺序已加入待应用修改。'
-          );
-        }}
-        onRemove={remove}
-        onReset={async () => {
-          if (!window.confirm('要将所有规则目标改为当前默认目标吗？')) {
-            return;
-          }
-          await replace(
-            () => resetRuleTargets(document, profile.id),
-            '所有规则目标已加入待应用修改。'
-          );
-        }}
-        onToggle={async (ruleId, enabled) => {
-          await replace(
-            () => toggleRule(document, profile.id, ruleId, enabled),
-            enabled ? '规则已启用，等待应用。' : '规则已停用，等待应用。'
-          );
-        }}
-        profile={profile}
-      />
+      {textMode ? (
+        <AutoSwitchTextEditor
+          busy={busy}
+          initialText={textSource}
+          onApply={applyTextSource}
+          onClose={() => setTextMode(false)}
+        />
+      ) : (
+        <AutoSwitchRuleTable
+          busy={busy}
+          document={document}
+          onAdd={() => setEditor({ kind: 'create' })}
+          onClone={async (rule) => {
+            await replace(
+              () => cloneRule(document, profile.id, rule.id, createId('rule')),
+              '规则副本已加入待应用修改。'
+            );
+          }}
+          onEdit={(rule) => setEditor({ kind: 'edit', ruleId: rule.id })}
+          onEditText={openTextMode}
+          onMove={async (ruleId, toIndex) => {
+            await replace(
+              () => moveRule(document, profile.id, ruleId, toIndex),
+              '规则顺序已加入待应用修改。'
+            );
+          }}
+          onRemove={remove}
+          onReset={async () => {
+            if (!window.confirm('要将所有规则目标改为当前默认目标吗？')) {
+              return;
+            }
+            await replace(
+              () => resetRuleTargets(document, profile.id),
+              '所有规则目标已加入待应用修改。'
+            );
+          }}
+          onToggle={async (ruleId, enabled) => {
+            await replace(
+              () => toggleRule(document, profile.id, ruleId, enabled),
+              enabled ? '规则已启用，等待应用。' : '规则已停用，等待应用。'
+            );
+          }}
+          profile={profile}
+        />
+      )}
 
       {notice ? <p className="inline-notice original-auto-switch-message">{notice}</p> : null}
       {error ? <p className="inline-error original-auto-switch-message">{error}</p> : null}

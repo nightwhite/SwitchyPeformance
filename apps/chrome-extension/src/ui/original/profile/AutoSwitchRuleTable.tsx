@@ -1,4 +1,14 @@
-import { ArrowDown, ArrowUp, Copy, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  FilePenLine,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2
+} from 'lucide-react';
 import { useDeferredValue, useMemo, useState } from 'react';
 
 import type {
@@ -19,6 +29,7 @@ interface AutoSwitchRuleTableProps {
   document: ProfileDocumentV2;
   onAdd(): void;
   onClone(rule: SwitchRuleV2): Promise<void>;
+  onEditText(): void;
   onEdit(rule: SwitchRuleV2): void;
   onMove(ruleId: string, toIndex: number): Promise<void>;
   onRemove(ruleId: string): Promise<void>;
@@ -32,6 +43,7 @@ export function AutoSwitchRuleTable({
   document,
   onAdd,
   onClone,
+  onEditText,
   onEdit,
   onMove,
   onRemove,
@@ -78,6 +90,10 @@ export function AutoSwitchRuleTable({
         <button className="primary-button" disabled={busy} onClick={onAdd} type="button">
           <Plus size={16} />
           添加规则
+        </button>
+        <button className="outline-button" disabled={busy} onClick={onEditText} type="button">
+          <FilePenLine size={16} />
+          编辑规则文本
         </button>
         <button
           aria-label="将所有规则目标重置为默认目标"
@@ -260,7 +276,8 @@ function filterIndexes(
 ): readonly number[] {
   const indexes: number[] = [];
   for (const [index, rule] of profile.rules.entries()) {
-    const haystack = `${conditionLabel(rule.condition)} ${profileName(document, rule.target.profileId)}`.toLocaleLowerCase();
+    const haystack =
+      `${conditionLabel(rule.condition)} ${profileName(document, rule.target.profileId)}`.toLocaleLowerCase();
     if (haystack.includes(query)) {
       indexes.push(index);
     }
@@ -280,7 +297,7 @@ function visibleRules(
       return rule ? [{ index, rule }] : [];
     });
   }
-  return profile.rules.slice(start, end).flatMap((rule, offset) =>
-    rule ? [{ index: start + offset, rule }] : []
-  );
+  return profile.rules
+    .slice(start, end)
+    .flatMap((rule, offset) => (rule ? [{ index: start + offset, rule }] : []));
 }

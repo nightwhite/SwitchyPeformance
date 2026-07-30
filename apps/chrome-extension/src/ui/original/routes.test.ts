@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProfileDocumentV2 } from '@switchypeformance/contracts';
 
-import {
-  originalProfileHash,
-  originalToolHash,
-  resolveOriginalRoute
-} from './routes.ts';
+import { originalProfileHash, originalToolHash, resolveOriginalRoute } from './routes.ts';
 
 describe('original options routes', () => {
   it('opens a profile by its display name like the original options page', () => {
@@ -29,8 +25,18 @@ describe('original options routes', () => {
     expect(resolveOriginalRoute('#!/io', document())).toEqual({ kind: 'tool', page: 'io' });
   });
 
+  it('keeps diagnostics reachable from the general page without promoting it into the sidebar', () => {
+    expect(resolveOriginalRoute('#!/diagnostics', document())).toEqual({
+      kind: 'tool',
+      page: 'diagnostics'
+    });
+  });
+
   it('falls back to the built-in configuration page for an unknown route', () => {
-    expect(resolveOriginalRoute('#!/not-a-page', document())).toEqual({ kind: 'tool', page: 'builtin' });
+    expect(resolveOriginalRoute('#!/not-a-page', document())).toEqual({
+      kind: 'tool',
+      page: 'builtin'
+    });
   });
 });
 

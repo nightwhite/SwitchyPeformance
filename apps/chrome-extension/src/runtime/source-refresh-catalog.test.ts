@@ -35,6 +35,33 @@ describe('source refresh catalog', () => {
     expect(pac && isActiveSourceTarget(document, pac)).toBe(true);
     expect(ruleList && isActiveSourceTarget(document, ruleList)).toBe(false);
   });
+
+  it('recognizes a rule list attached to the active auto-switch profile', () => {
+    const base = refreshDocument();
+    const document: ProfileDocumentV2 = {
+      ...base,
+      activeProfileId: 'automatic',
+      profiles: [
+        ...base.profiles,
+        {
+          fallback: { profileId: 'direct' },
+          id: 'automatic',
+          kind: 'auto-switch',
+          loopbackPolicy: 'direct',
+          name: '自动切换',
+          proxyFailurePolicy: 'direct',
+          ruleSourceIds: ['company-rules'],
+          rules: []
+        }
+      ],
+      settings: { ...base.settings, startupProfileId: 'automatic' }
+    };
+    const ruleList = remoteSourceTargets(document).find(
+      (target) => target.id === 'rule-list:company-rules'
+    );
+
+    expect(ruleList && isActiveSourceTarget(document, ruleList)).toBe(true);
+  });
 });
 
 function refreshDocument(): ProfileDocumentV2 {

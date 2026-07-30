@@ -37,7 +37,7 @@ import { createProxyCredentialService } from '../src/runtime/proxy-credential-se
 import { createProxyControlTracker } from '../src/runtime/proxy-control-tracker.ts';
 import { createProfileActivationService } from '../src/runtime/profile-activation-service.ts';
 import { explainCurrentRoute, type CurrentRouteStatus } from '../src/runtime/current-route.ts';
-import { addCurrentSiteRule } from '../src/runtime/quick-site-rule.ts';
+import { addCurrentSiteRules, addCurrentSiteRule } from '../src/runtime/quick-site-rule.ts';
 import { TEMPORARY_RULE_EXPIRY_ALARM } from '../src/runtime/temporary-rule-alarm.ts';
 import { createTemporaryRuleLifecycle } from '../src/runtime/temporary-rule-lifecycle.ts';
 import {
@@ -758,6 +758,18 @@ async function dispatch(
           host: message.host,
           ruleId: `rule-${crypto.randomUUID()}`,
           scope: message.scope,
+          target: message.target
+        })
+      );
+      return undefined;
+    case 'quick-rule.add-many':
+      await service.mutateConfiguration((document) =>
+        addCurrentSiteRules(document, {
+          automaticProfileId: message.automaticProfileId,
+          entries: message.entries.map((entry) => ({
+            ...entry,
+            ruleId: `rule-${crypto.randomUUID()}`
+          })),
           target: message.target
         })
       );

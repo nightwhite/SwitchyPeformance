@@ -132,6 +132,15 @@ button:disabled {
   font-size: 12px;
 }
 
+.popup-notice {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  color: #176443;
+  background: #e2f5e9;
+  border-left: 3px solid #25a26a;
+  font-size: 12px;
+}
+
 .original-popup-menu {
   overflow: hidden;
   color: #303940;
@@ -253,7 +262,9 @@ button:disabled {
   background: #377db6;
 }
 
-.original-popup-profile.active .original-popup-profile-main > button:first-child:hover:not(:disabled) {
+.original-popup-profile.active
+  .original-popup-profile-main
+  > button:first-child:hover:not(:disabled) {
   background: #2f6f9f;
 }
 
@@ -644,13 +655,82 @@ select {
   background: #ffffff;
 }
 
+.failure-bulk-controls {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: #f6f8f6;
+  border: 1px solid #d2d9d2;
+}
+
+.failure-bulk-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.failure-bulk-heading strong {
+  color: #33433a;
+  font-size: 12px;
+}
+
+.failure-bulk-heading .link-button {
+  font-size: 11px;
+}
+
+.failure-bulk-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.failure-bulk-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  color: #67736b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.failure-bulk-fields select {
+  min-width: 0;
+  height: 29px;
+  padding: 0 5px;
+  color: #314139;
+  background: #ffffff;
+  border: 1px solid #bfc9c0;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.failure-bulk-submit {
+  justify-content: center;
+  width: 100%;
+}
+
 .failure-row {
   display: grid;
   min-height: 38px;
-  grid-template-columns: minmax(0, 1fr) 38px;
+  grid-template-columns: 32px minmax(0, 1fr) 38px;
   align-items: center;
   padding-left: 10px;
   border-bottom: 1px solid #e3e8e2;
+}
+
+.failure-select {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  cursor: pointer;
+}
+
+.failure-select input {
+  width: 14px;
+  height: 14px;
+  accent-color: #337ab7;
 }
 
 .failure-entry:last-child > .failure-row {
@@ -664,12 +744,24 @@ select {
 }
 
 .failure-host {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+  align-items: center;
   overflow: hidden;
   color: #3f4e46;
   font-family: 'SFMono-Regular', 'Cascadia Mono', monospace;
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.failure-host small {
+  flex: 0 0 auto;
+  color: #7a857d;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
 }
 
 .failure-error {

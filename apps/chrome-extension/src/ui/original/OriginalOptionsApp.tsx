@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ConfigurationDocument, ProfileDocumentV2, ProfileV2 } from '@switchypeformance/contracts';
+import type {
+  ConfigurationDocument,
+  ProfileDocumentV2,
+  ProfileV2
+} from '@switchypeformance/contracts';
 
 import type { BackgroundState } from '../../runtime/messages.ts';
 import { createId } from '../background-client.ts';
-import { DataPage } from '../pages/DataPage.tsx';
-import { SettingsPage } from '../pages/SettingsPage.tsx';
+import { DiagnosticsPage } from '../pages/DiagnosticsPage.tsx';
+import { GeneralSettingsPage } from './GeneralSettingsPage.tsx';
+import { ImportExportPage } from './ImportExportPage.tsx';
 import { OriginalSidebar } from './OriginalSidebar.tsx';
+import { ThemeSettingsPage } from './ThemeSettingsPage.tsx';
+import { UiSettingsPage } from './UiSettingsPage.tsx';
 import { shouldPromptBeforeUnload } from './navigation-guard.ts';
 import { NewProfileDialog, type NewProfileValue } from './profile/NewProfileDialog.tsx';
 import { OriginalProfileWorkspace } from './profile/OriginalProfileWorkspace.tsx';
@@ -19,6 +26,12 @@ import {
   type OriginalRoute,
   type OriginalToolPage
 } from './routes.ts';
+import {
+  applyUiPreferences,
+  loadUiPreferences,
+  saveUiPreferences,
+  type OriginalUiPreferences
+} from './ui-preferences.ts';
 
 export interface OriginalOptionsAppProps {
   busy: boolean;
@@ -27,6 +40,7 @@ export interface OriginalOptionsAppProps {
   error: string | undefined;
   onApply(): void;
   onBackgroundState(state: BackgroundState): void;
+  onConfigurationImported?(state: BackgroundState): void;
   onDiscard(): void;
   onDraftChange(document: ProfileDocumentV2): void;
   state: BackgroundState;
@@ -39,6 +53,7 @@ export function OriginalOptionsApp({
   error,
   onApply,
   onBackgroundState,
+  onConfigurationImported,
   onDiscard,
   onDraftChange,
   state
@@ -47,6 +62,7 @@ export function OriginalOptionsApp({
     resolveOriginalRoute(currentHash(), document)
   );
   const [workspaceNotice, setWorkspaceNotice] = useState<string>();
+  const [uiPreferences, setUiPreferences] = useState<OriginalUiPreferences>(loadUiPreferences);
 
   useEffect(() => {
     const onHashChange = () => setRoute(resolveOriginalRoute(currentHash(), document));
@@ -65,6 +81,10 @@ export function OriginalOptionsApp({
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [dirty]);
+
+  useEffect(() => {
+    applyUiPreferences(uiPreferences);
+  }, [uiPreferences]);
 
   useEffect(() => {
     if (
@@ -89,6 +109,11 @@ export function OriginalOptionsApp({
     () => ({ ...state, configuration: document }),
     [document, state]
   );
+  const receiveImportedState = onConfigurationImported ?? onBackgroundState;
+
+  const updateUiPreferences = useCallback((next: OriginalUiPreferences) => {
+    setUiPreferences(saveUiPreferences(next));
+  }, []);
 
   function navigateProfile(profileId: string): void {
     const profile = document.profiles.find((candidate) => candidate.id === profileId);
@@ -122,7 +147,6 @@ export function OriginalOptionsApp({
     }
   }
 
-
   async function replaceDraft(next: ConfigurationDocument): Promise<BackgroundState> {
     if (next.schemaVersion !== 2) {
       throw new Error('当前设置页只能编辑新版配置。');
@@ -132,7 +156,12 @@ export function OriginalOptionsApp({
   }
 
   async function createProfile(value: NewProfileValue): Promise<void> {
-    const result = createOriginalProfile(document, { ...value, id: createId('profile') });
+    const { newProxy, ...profileValue } = value;
+    const result = createOriginalProfile(document, {
+      ...profileValue,
+      id: createId('profile'),
+      ...(newProxy === undefined ? {} : { newProxy: { ...newProxy, id: createId('proxy') } })
+    });
     await replaceDraft(result.document);
     const profile = result.document.profiles.find((candidate) => candidate.id === result.profileId);
     if (profile) {
@@ -194,24 +223,55 @@ export function OriginalOptionsApp({
             <BuiltinConfigurationsPage document={document} onOpenProfile={navigateProfile} />
           ) : null}
           {route.kind === 'tool' && route.page === 'general' ? (
-            <SettingsPage
+            <GeneralSettingsPage
               busy={busy}
               document={document}
+              onOpenDiagnostics={() => navigateTool('diagnostics')}
               onReplace={replaceDraft}
               onState={onBackgroundState}
               proxyControl={state.proxyControl}
             />
           ) : null}
           {route.kind === 'tool' && route.page === 'io' ? (
-            <DataPage
+            <ImportExportPage
               busy={busy}
               document={document}
+              onImportCommitted={receiveImportedState}
               onState={onBackgroundState}
               sourceStatuses={state.sourceStatuses}
+              {...(state.sync ? { syncStatus: state.sync } : {})}
             />
           ) : null}
-          {route.kind === 'tool' && route.page === 'ui' ? <InterfacePage /> : null}
-          {route.kind === 'tool' && route.page === 'theme' ? <ThemePage /> : null}
+          {route.kind === 'tool' && route.page === 'ui' ? (
+            <UiSettingsPage
+              busy={busy}
+              document={document}
+              onPreferencesChange={updateUiPreferences}
+              onReplace={replaceDraft}
+              onState={onBackgroundState}
+              preferences={uiPreferences}
+              proxyControl={state.proxyControl}
+            />
+          ) : null}
+          {route.kind === 'tool' && route.page === 'theme' ? (
+            <ThemeSettingsPage onChange={updateUiPreferences} preferences={uiPreferences} />
+          ) : null}
+          {route.kind === 'tool' && route.page === 'diagnostics' ? (
+            <section className="original-diagnostics-page">
+              <header className="original-page-heading">
+                <p className="original-page-eyebrow">通用设置 / 网络请求</p>
+                <h1>详细排查</h1>
+                <p>这里保留失败资源、路由解释和本地日志，不干扰日常切换配置。</p>
+              </header>
+              <DiagnosticsPage
+                busy={busy}
+                document={document}
+                events={state.diagnostics}
+                networkSummary={state.networkSummary}
+                onState={onBackgroundState}
+              />
+            </section>
+          ) : null}
         </div>
       </section>
     </main>
@@ -239,26 +299,6 @@ function BuiltinConfigurationsPage({
             </button>
           ))}
       </div>
-    </section>
-  );
-}
-
-function InterfacePage() {
-  return (
-    <section className="original-page-panel">
-      <p className="original-page-eyebrow">界面</p>
-      <h1>界面设置</h1>
-      <p>界面语言、列表密度和诊断入口会在这里统一配置。</p>
-    </section>
-  );
-}
-
-function ThemePage() {
-  return (
-    <section className="original-page-panel">
-      <p className="original-page-eyebrow">主题</p>
-      <h1>主题设置</h1>
-      <p>主题样式不会影响代理路由；配置修改仍需要点击左侧“应用”才会生效。</p>
     </section>
   );
 }

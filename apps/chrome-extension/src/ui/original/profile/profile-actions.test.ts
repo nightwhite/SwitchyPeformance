@@ -41,6 +41,40 @@ describe('original profile actions', () => {
     });
   });
 
+  it('creates a first fixed profile and its new proxy server in one draft update', () => {
+    const result = createOriginalProfile(
+      { ...document(), proxyServers: [] },
+      {
+        id: 'local-socks',
+        kind: 'fixed-proxy',
+        name: '本地 SOCKS5',
+        newProxy: {
+          host: '127.0.0.1',
+          id: 'local-socks-server',
+          name: '本地 SOCKS5',
+          port: 1080,
+          scheme: 'socks5'
+        }
+      }
+    );
+
+    expect(result.document.proxyServers).toEqual([
+      {
+        host: '127.0.0.1',
+        id: 'local-socks-server',
+        name: '本地 SOCKS5',
+        port: 1080,
+        scheme: 'socks5'
+      }
+    ]);
+    expect(result.document.profiles.at(-1)).toMatchObject({
+      id: 'local-socks',
+      kind: 'fixed-proxy',
+      name: '本地 SOCKS5',
+      routes: { fallbackProxyId: 'local-socks-server' }
+    });
+  });
+
   it('does not allow ambiguous duplicate profile names', () => {
     expect(() =>
       createOriginalProfile(document(), {

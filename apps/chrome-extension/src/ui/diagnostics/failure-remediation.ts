@@ -26,6 +26,7 @@ export interface FailureResource {
   error: string;
   host: string;
   key: string;
+  occurrences: number;
   timestamp: number;
   url: string;
 }
@@ -135,30 +136,28 @@ function recentFailures(
   candidates: readonly { error: string; timestamp: number; url: string }[],
   limit: number
 ): readonly FailureResource[] {
-  const failures: FailureResource[] = [];
-  const seen = new Set<string>();
+  const failures = new Map<string, FailureResource>();
   for (const candidate of candidates.slice().reverse()) {
     const host = hostFromUrl(candidate.url);
     if (!host) {
       continue;
     }
     const key = `${host}\u0000${candidate.error}`;
-    if (seen.has(key)) {
+    const existing = failures.get(key);
+    if (existing) {
+      failures.set(key, { ...existing, occurrences: existing.occurrences + 1 });
       continue;
     }
-    failures.push({
+    failures.set(key, {
       error: candidate.error,
       host,
       key,
+      occurrences: 1,
       timestamp: candidate.timestamp,
       url: candidate.url
     });
-    seen.add(key);
-    if (failures.length >= Math.max(1, limit)) {
-      break;
-    }
   }
-  return failures;
+  return [...failures.values()].slice(0, Math.max(1, limit));
 }
 
 export function isLoopbackHost(host: string): boolean {

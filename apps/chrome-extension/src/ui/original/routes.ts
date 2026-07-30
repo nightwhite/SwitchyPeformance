@@ -1,6 +1,13 @@
 import type { ProfileDocumentV2, ProfileV2 } from '@switchypeformance/contracts';
 
-export const ORIGINAL_TOOL_PAGES = ['ui', 'general', 'io', 'theme', 'builtin'] as const;
+export const ORIGINAL_TOOL_PAGES = [
+  'ui',
+  'general',
+  'io',
+  'theme',
+  'builtin',
+  'diagnostics'
+] as const;
 
 export type OriginalToolPage = (typeof ORIGINAL_TOOL_PAGES)[number];
 
@@ -40,10 +47,12 @@ export function originalNewProfileHash(): string {
 }
 
 function hashPath(hash: string): string {
-  return hash
-    .replace(/^#?!?\/?/, '')
-    .split(/[?#]/, 1)[0]
-    ?.trim() ?? '';
+  return (
+    hash
+      .replace(/^#?!?\/?/, '')
+      .split(/[?#]/, 1)[0]
+      ?.trim() ?? ''
+  );
 }
 
 function decodeRouteSegment(value: string): string {
@@ -58,8 +67,10 @@ function profileForRouteSegment(
   document: ProfileDocumentV2,
   segment: string
 ): ProfileV2 | undefined {
-  return document.profiles.find((profile) => profile.name === segment) ??
-    document.profiles.find((profile) => profile.id === segment);
+  return (
+    document.profiles.find((profile) => profile.name === segment) ??
+    document.profiles.find((profile) => profile.id === segment)
+  );
 }
 
 function isOriginalToolPage(value: string): value is OriginalToolPage {

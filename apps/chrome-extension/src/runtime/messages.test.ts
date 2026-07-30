@@ -58,6 +58,48 @@ describe('background messages', () => {
     ).toBe(false);
   });
 
+  it('accepts a bounded batch of quick current-site rules', () => {
+    expect(
+      isBackgroundRequest({
+        type: 'quick-rule.add-many',
+        automaticProfileId: 'automatic',
+        entries: [
+          {
+            condition: { type: 'host-wildcard', pattern: 'cdn.example.co.uk' },
+            host: 'cdn.example.co.uk',
+            scope: 'host'
+          },
+          {
+            condition: { type: 'host-wildcard', pattern: 'api.example.co.uk' },
+            host: 'api.example.co.uk',
+            scope: 'host'
+          }
+        ],
+        target: { profileId: 'fixed-work' }
+      })
+    ).toBe(true);
+    expect(
+      isBackgroundRequest({
+        type: 'quick-rule.add-many',
+        automaticProfileId: 'automatic',
+        entries: [],
+        target: { profileId: 'fixed-work' }
+      })
+    ).toBe(false);
+    expect(
+      isBackgroundRequest({
+        type: 'quick-rule.add-many',
+        automaticProfileId: 'automatic',
+        entries: Array.from({ length: 51 }, () => ({
+          condition: { type: 'host-wildcard', pattern: 'cdn.example.co.uk' },
+          host: 'cdn.example.co.uk',
+          scope: 'host'
+        })),
+        target: { profileId: 'fixed-work' }
+      })
+    ).toBe(false);
+  });
+
   it('accepts a route explanation request only when it includes a URL', () => {
     expect(isBackgroundRequest({ type: 'route.explain', url: 'https://x.com/home' })).toBe(true);
     expect(isBackgroundRequest({ type: 'route.explain' })).toBe(false);

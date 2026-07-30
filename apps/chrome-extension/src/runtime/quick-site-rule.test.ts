@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProfileDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
 
-import { addCurrentSiteRule } from './quick-site-rule.ts';
+import { addCurrentSiteRules, addCurrentSiteRule } from './quick-site-rule.ts';
 
 describe('quick site rule', () => {
   it('adds the selected domain rule to the selected automatic profile at the configured position', () => {
@@ -62,6 +62,54 @@ describe('quick site rule', () => {
           rule.condition.type === 'host-wildcard' && rule.condition.pattern === 'sub.example.com'
       )
     ).toHaveLength(1);
+  });
+
+  it('adds selected failed-resource rules together and merges duplicate conditions', () => {
+    const updated = addCurrentSiteRules(v2Document(), {
+      automaticProfileId: 'automatic-secondary',
+      entries: [
+        {
+          condition: { type: 'host-wildcard', pattern: 'cdn.example.com' },
+          host: 'cdn.example.com',
+          ruleId: 'failure-cdn',
+          scope: 'host'
+        },
+        {
+          condition: { type: 'host-wildcard', pattern: 'api.example.com' },
+          host: 'api.example.com',
+          ruleId: 'failure-api',
+          scope: 'host'
+        },
+        {
+          condition: { type: 'host-wildcard', pattern: 'cdn.example.com' },
+          host: 'cdn.example.com',
+          ruleId: 'ignored-duplicate',
+          scope: 'host'
+        }
+      ],
+      target: { profileId: 'fixed-work' }
+    });
+
+    expect(v2Automatic(updated, 'automatic-secondary').rules).toEqual([
+      {
+        condition: { type: 'host-wildcard', pattern: 'api.example.com' },
+        enabled: true,
+        id: 'failure-api',
+        target: { profileId: 'fixed-work' }
+      },
+      {
+        condition: { type: 'host-wildcard', pattern: 'cdn.example.com' },
+        enabled: true,
+        id: 'failure-cdn',
+        target: { profileId: 'fixed-work' }
+      },
+      {
+        condition: { type: 'host-wildcard', pattern: '*.existing.example' },
+        enabled: true,
+        id: 'existing-rule',
+        target: { profileId: 'direct' }
+      }
+    ]);
   });
 
   it('stores an advanced popup condition in a V2 automatic profile', () => {

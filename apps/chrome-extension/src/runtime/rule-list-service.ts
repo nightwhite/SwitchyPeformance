@@ -48,6 +48,17 @@ interface ActiveRuleList {
   source: RuleListSource;
 }
 
+interface AttachedRuleList {
+  profile: RuleListProfileV2;
+  source: RuleListSource;
+}
+
+interface ActiveAutoSwitchSources {
+  profile: AutoSwitchProfileV2;
+  profileId: string;
+  sources: readonly AttachedRuleList[];
+}
+
 export function createRuleListService(dependencies: RuleListServiceDependencies): RuleListService {
   const remoteSources = createRemoteTextSourceService({
     contentKind: 'rule-list',
@@ -70,6 +81,10 @@ export function createRuleListService(dependencies: RuleListServiceDependencies)
       await parsedRuleList(source, await refreshText(source));
     },
     async refreshAndResolve(document) {
+      const activeAutoSwitch = activeAutoSwitchSources(document);
+      if (activeAutoSwitch) {
+        return resolveAutoSwitchSources(document, activeAutoSwitch, refreshText);
+      }
       const active = activeRuleList(document);
       if (!active) {
         return document;
@@ -77,6 +92,10 @@ export function createRuleListService(dependencies: RuleListServiceDependencies)
       return resolveDocument(document, active, await refreshText(active.source));
     },
     async resolveForApply(document) {
+      const activeAutoSwitch = activeAutoSwitchSources(document);
+      if (activeAutoSwitch) {
+        return resolveAutoSwitchSources(document, activeAutoSwitch, resolveText);
+      }
       const active = activeRuleList(document);
       if (!active) {
         return document;
@@ -109,6 +128,41 @@ export function createRuleListService(dependencies: RuleListServiceDependencies)
     }
     const parsed = await parsedRuleList(active.source, text);
     const replacement = toAutoSwitchProfile(document, active, parsed);
+    const resolved: ProfileDocumentV2 = {
+      ...document,
+      activeProfileId: active.profileId,
+      profiles: document.profiles.map((profile) =>
+        profile.id === active.profileId ? replacement : profile
+      )
+    };
+    return resolved as T;
+  }
+
+  async function resolveAutoSwitchSources<T extends ConfigurationDocument>(
+    document: T,
+    active: ActiveAutoSwitchSources,
+    loadText: (source: RuleListSource) => Promise<string>
+  ): Promise<T> {
+    if (document.schemaVersion !== 2) {
+      return document;
+    }
+    const parsedSources = await Promise.all(
+      active.sources.map(async (attached) => ({
+        attached,
+        parsed: await parsedRuleList(attached.source, await loadText(attached.source))
+      }))
+    );
+    const resolvedSources = parsedSources.map(({ attached, parsed }) =>
+      rulesAndFallback(document, attached.profile, attached.source, parsed)
+    );
+    const sourceRules = resolvedSources.flatMap((source) => source.rules);
+    const fallback = resolvedSources.at(-1)?.fallback ?? active.profile.fallback;
+    const replacement: AutoSwitchProfileV2 = {
+      ...active.profile,
+      fallback,
+      ruleSourceIds: [],
+      rules: [...active.profile.rules, ...sourceRules]
+    };
     const resolved: ProfileDocumentV2 = {
       ...document,
       activeProfileId: active.profileId,
@@ -180,6 +234,43 @@ function activeRuleList(document: ConfigurationDocument): ActiveRuleList | undef
     throw new Error(`规则列表来源不存在：${profile.sourceId}`);
   }
   return { profile, profileId: resolved.profileId, source };
+}
+
+function activeAutoSwitchSources(
+  document: ConfigurationDocument
+): ActiveAutoSwitchSources | undefined {
+  if (document.schemaVersion !== 2) {
+    return undefined;
+  }
+  const resolved = resolveProfileV2(document);
+  const profile = resolved.profile;
+  if (profile.kind !== 'auto-switch' || profile.ruleSourceIds.length === 0) {
+    return undefined;
+  }
+  const sources = profile.ruleSourceIds.map((sourceId) => attachedRuleList(document, sourceId));
+  return { profile, profileId: resolved.profileId, sources };
+}
+
+function attachedRuleList(document: ProfileDocumentV2, sourceId: string): AttachedRuleList {
+  const source = ruleListSource(document, sourceId);
+  if (!source) {
+    throw new Error(`自动切换规则来源不存在：${sourceId}`);
+  }
+  const profiles = document.profiles.filter(
+    (profile): profile is RuleListProfileV2 =>
+      profile.kind === 'rule-list' && profile.sourceId === sourceId
+  );
+  if (profiles.length === 0) {
+    throw new Error(`自动切换规则来源缺少规则列表配置：${source.name}`);
+  }
+  if (profiles.length > 1) {
+    throw new Error(`自动切换规则来源有多个规则列表配置：${source.name}`);
+  }
+  const profile = profiles[0];
+  if (!profile) {
+    throw new Error(`自动切换规则来源缺少规则列表配置：${source.name}`);
+  }
+  return { profile, source };
 }
 
 function ruleListSource(

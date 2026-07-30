@@ -35,6 +35,10 @@ import {
   type FailureResource
 } from '../../src/ui/diagnostics/failure-remediation.ts';
 import {
+  defaultFailureRuleTarget,
+  selectedFailureRuleEntries
+} from '../../src/ui/diagnostics/failure-rule-batch.ts';
+import {
   temporaryRuleExpiry,
   type TemporaryRuleDuration
 } from '../../src/ui/components/temporary-rule-form.ts';
@@ -63,11 +67,16 @@ export function PopupApp() {
   const [ruleTarget, setRuleTarget] = useState('');
   const [temporaryDuration, setTemporaryDuration] = useState<TemporaryRuleDuration>('30m');
   const [failures, setFailures] = useState<readonly FailureResource[]>([]);
+  const [failureScope, setFailureScope] =
+    useState<Extract<CurrentSiteScope, 'host' | 'domain'>>('host');
+  const [failureTarget, setFailureTarget] = useState('');
+  const [failureSelection, setFailureSelection] = useState<ReadonlySet<string>>();
   const [failureRoutes, setFailureRoutes] = useState<Record<string, CurrentRouteStatus>>({});
   const [expandedFailureKey, setExpandedFailureKey] = useState<string>();
   const [view, setView] = useState<PopupView>('menu');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
 
   const document = state?.configuration;
   const targetOptions = useMemo(() => {
@@ -89,6 +98,19 @@ export function PopupApp() {
   const effectiveRuleTarget = targetOptions.some((option) => option.value === ruleTarget)
     ? ruleTarget
     : targetOptions[0]?.value;
+  const effectiveFailureTarget = document
+    ? targetOptions.some((option) => option.value === failureTarget)
+      ? failureTarget
+      : defaultFailureRuleTarget(targetOptions, directRouteValue(document))
+    : undefined;
+  const effectiveFailureSelection = useMemo(
+    () => failureSelection ?? new Set(failures.map((failure) => failure.key)),
+    [failureSelection, failures]
+  );
+  const selectedFailureEntries = useMemo(
+    () => selectedFailureRuleEntries(failures, effectiveFailureSelection, failureScope),
+    [effectiveFailureSelection, failureScope, failures]
+  );
   const rulePreview = useMemo(() => {
     if (!availableTab) {
       return undefined;
@@ -118,6 +140,11 @@ export function PopupApp() {
       targetOptions.some((option) => option.value === current)
         ? current
         : (targetOptions[0]?.value ?? '')
+    );
+    setFailureTarget((current) =>
+      targetOptions.some((option) => option.value === current)
+        ? current
+        : (defaultFailureRuleTarget(targetOptions, directRouteValue(document)) ?? '')
     );
   }, [automaticProfiles, document, targetOptions]);
 
@@ -179,14 +206,17 @@ export function PopupApp() {
     url: string,
     scope: CurrentSiteScope,
     targetValue: string | undefined,
-    temporary: boolean
-  ): Promise<void> {
+    temporary: boolean,
+    successNotice?: string
+  ): Promise<boolean> {
     if (!document || !effectiveAutomaticProfileId || !targetValue) {
-      return;
+      setError('当前没有可用的自动切换配置或规则目标');
+      return false;
     }
 
     setBusy(true);
     setError(undefined);
+    setNotice(undefined);
     try {
       const siteRule = buildCurrentSiteRule(url, scope);
       const target = quickRuleTarget(document, targetValue);
@@ -210,8 +240,13 @@ export function PopupApp() {
           });
       await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
       setView('menu');
+      if (successNotice) {
+        setNotice(successNotice);
+      }
+      return true;
     } catch (cause) {
       setError(messageFor(cause));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -269,6 +304,7 @@ export function PopupApp() {
     if (!tab.available) {
       setRouteStatus(undefined);
       setFailures([]);
+      setFailureSelection(undefined);
       setFailureRoutes({});
       setExpandedFailureKey(undefined);
       return;
@@ -304,6 +340,13 @@ export function PopupApp() {
 
   async function setFailureResources(nextFailures: readonly FailureResource[]): Promise<void> {
     setFailures(nextFailures);
+    setFailureSelection((current) => {
+      if (!current) {
+        return new Set(nextFailures.map((failure) => failure.key));
+      }
+      const availableKeys = new Set(nextFailures.map((failure) => failure.key));
+      return new Set([...current].filter((key) => availableKeys.has(key)));
+    });
     setExpandedFailureKey((current) =>
       current && nextFailures.some((failure) => failure.key === current) ? current : undefined
     );
@@ -345,13 +388,67 @@ export function PopupApp() {
     const target =
       action === 'add-direct-rule' || action === 'add-temporary-direct-rule'
         ? document && directRouteValue(document)
-        : effectiveRuleTarget;
+        : effectiveFailureTarget;
     await applyRule(
       failure.url,
-      'host',
+      failureScope,
       target,
-      action === 'add-temporary-direct-rule' || action === 'add-temporary-proxy-rule'
+      action === 'add-temporary-direct-rule' || action === 'add-temporary-proxy-rule',
+      `已将 ${failure.host} 加入自动切换，目标：${
+        targetOptions.find((option) => option.value === target)?.label ?? '所选目标'
+      }。`
     );
+  }
+
+  async function addSelectedFailureRules(): Promise<void> {
+    if (!document || !effectiveAutomaticProfileId || !effectiveFailureTarget) {
+      setError('当前没有可用的自动切换配置或规则目标');
+      return;
+    }
+    if (selectedFailureEntries.length === 0) {
+      setError('请至少选择一个可加入规则的失败域名');
+      return;
+    }
+
+    setBusy(true);
+    setError(undefined);
+    setNotice(undefined);
+    try {
+      const nextState = await requestBackgroundState({
+        type: 'quick-rule.add-many',
+        automaticProfileId: effectiveAutomaticProfileId,
+        entries: selectedFailureEntries,
+        target: quickRuleTarget(document, effectiveFailureTarget)
+      });
+      await applyPopupState(nextState, currentTab ?? (await loadCurrentTab()));
+      setView('menu');
+      setNotice(
+        `已将 ${selectedFailureEntries.length} 个域名加入自动切换，目标：${
+          targetOptions.find((option) => option.value === effectiveFailureTarget)?.label ??
+          '所选目标'
+        }。`
+      );
+    } catch (cause) {
+      setError(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleFailureSelection(key: string): void {
+    setFailureSelection((current) => {
+      const next = new Set(current ?? failures.map((failure) => failure.key));
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function selectAllFailures(selectAll: boolean): void {
+    setFailureSelection(selectAll ? new Set(failures.map((failure) => failure.key)) : new Set());
   }
 
   async function openOptions(): Promise<void> {
@@ -368,8 +465,10 @@ export function PopupApp() {
   );
   const canAddRule = ruleActionAvailable && !busy;
   const proxyActionAvailable = Boolean(
-    document && effectiveRuleTarget && effectiveRuleTarget !== directRouteValue(document)
+    document && effectiveFailureTarget && effectiveFailureTarget !== directRouteValue(document)
   );
+  const allFailuresSelected =
+    failures.length > 0 && effectiveFailureSelection.size === failures.length;
   const menuActions = popupMenuActions({
     canAddRule: ruleActionAvailable,
     canAddTemporaryRule: ruleActionAvailable,
@@ -409,6 +508,11 @@ export function PopupApp() {
       ) : null}
 
       {error ? <p className="popup-error">{error}</p> : null}
+      {notice ? (
+        <p className="popup-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
 
       {view === 'menu' && document?.schemaVersion === 2 ? (
         <OriginalPopupMenu
@@ -489,7 +593,10 @@ export function PopupApp() {
       ) : null}
 
       {view === 'rule-form' && document?.schemaVersion === 2 ? (
-        <section className="popup-workspace original-popup-rule-workspace" aria-label="添加当前网站规则">
+        <section
+          className="popup-workspace original-popup-rule-workspace"
+          aria-label="添加当前网站规则"
+        >
           <PopupViewHeading onBack={() => setView('menu')} title="为当前网站添加规则" />
           <QuickRuleForm
             automaticProfileId={effectiveAutomaticProfileId}
@@ -597,57 +704,149 @@ export function PopupApp() {
             title={failures.length > 0 ? `失败资源 (${failures.length})` : '失败资源'}
           />
           {failures.length > 0 ? (
-            <div className="failure-list">
-              {failures.map((failure) => {
-                const failureRoute = failureRoutes[failure.key];
-                const expanded = expandedFailureKey === failure.key;
-                return (
-                  <div className="failure-entry" key={failure.key}>
-                    <div className="failure-row" title={failure.url}>
-                      <span className="failure-resource">
-                        <strong className="failure-host">{failure.host}</strong>
-                        <small className="failure-error">{failure.error}</small>
-                      </span>
-                      <button
-                        aria-expanded={expanded}
-                        aria-label={`处理 ${failure.host} 的失败资源`}
-                        className="icon-button"
-                        onClick={() =>
-                          setExpandedFailureKey((current) =>
-                            current === failure.key ? undefined : failure.key
-                          )
-                        }
-                        title="处理失败资源"
-                        type="button"
-                      >
-                        {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                      </button>
+            <>
+              <div className="failure-bulk-controls">
+                <div className="failure-bulk-heading">
+                  <strong>已选择 {selectedFailureEntries.length} 个域名</strong>
+                  <button
+                    className="link-button"
+                    disabled={busy}
+                    onClick={() => selectAllFailures(!allFailuresSelected)}
+                    type="button"
+                  >
+                    {allFailuresSelected ? '取消全选' : '全选'}
+                  </button>
+                </div>
+                <div className="failure-bulk-fields">
+                  <label>
+                    <span>自动切换</span>
+                    <select
+                      aria-label="失败资源的自动切换配置"
+                      disabled={busy || automaticProfiles.length === 0}
+                      onChange={(event) => setAutomaticProfileId(event.target.value)}
+                      value={effectiveAutomaticProfileId ?? ''}
+                    >
+                      {automaticProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>匹配范围</span>
+                    <select
+                      aria-label="失败资源的匹配范围"
+                      disabled={busy}
+                      onChange={(event) =>
+                        setFailureScope(
+                          event.target.value as Extract<CurrentSiteScope, 'host' | 'domain'>
+                        )
+                      }
+                      value={failureScope}
+                    >
+                      <option value="host">精确域名</option>
+                      <option value="domain">整个主域名</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>规则目标</span>
+                    <select
+                      aria-label="失败资源的规则目标"
+                      disabled={busy || targetOptions.length === 0}
+                      onChange={(event) => setFailureTarget(event.target.value)}
+                      value={effectiveFailureTarget ?? ''}
+                    >
+                      {targetOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <button
+                  className="command-button failure-bulk-submit"
+                  disabled={
+                    busy ||
+                    !effectiveAutomaticProfileId ||
+                    !effectiveFailureTarget ||
+                    selectedFailureEntries.length === 0
+                  }
+                  onClick={() => void addSelectedFailureRules()}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  加入自动切换
+                </button>
+              </div>
+              <div className="failure-list">
+                {failures.map((failure) => {
+                  const failureRoute = failureRoutes[failure.key];
+                  const expanded = expandedFailureKey === failure.key;
+                  const selected = effectiveFailureSelection.has(failure.key);
+                  return (
+                    <div className="failure-entry" key={failure.key}>
+                      <div className="failure-row" title={failure.url}>
+                        <label className="failure-select" title={`选择 ${failure.host}`}>
+                          <input
+                            aria-label={`选择 ${failure.host}`}
+                            checked={selected}
+                            disabled={busy}
+                            onChange={() => toggleFailureSelection(failure.key)}
+                            type="checkbox"
+                          />
+                        </label>
+                        <span className="failure-resource">
+                          <strong className="failure-host">
+                            {failure.host}
+                            {failure.occurrences > 1 ? (
+                              <small>{failure.occurrences} 次</small>
+                            ) : null}
+                          </strong>
+                          <small className="failure-error">{failure.error}</small>
+                        </span>
+                        <button
+                          aria-expanded={expanded}
+                          aria-label={`处理 ${failure.host} 的失败资源`}
+                          className="icon-button"
+                          onClick={() =>
+                            setExpandedFailureKey((current) =>
+                              current === failure.key ? undefined : failure.key
+                            )
+                          }
+                          title="处理失败资源"
+                          type="button"
+                        >
+                          {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                        </button>
+                      </div>
+                      {expanded ? (
+                        <FailureActionMenu
+                          busy={busy}
+                          failure={failure}
+                          onAction={(action) => void handleFailureAction(failure, action)}
+                          proxyActionAvailable={proxyActionAvailable}
+                          ruleActionAvailable={Boolean(effectiveAutomaticProfileId)}
+                          matchedRule={
+                            failureRoute?.matchedRuleId ??
+                            (failureRoute ? routeReasonLabel(failureRoute.reason) : '正在读取')
+                          }
+                          routeLabel={
+                            failureRoute
+                              ? `${profileLabel(
+                                  document,
+                                  failureRoute.resolvedProfileId
+                                )} / ${routeTargetLabel(document, failureRoute)}`
+                              : '正在检查路由'
+                          }
+                        />
+                      ) : null}
                     </div>
-                    {expanded ? (
-                      <FailureActionMenu
-                        busy={busy}
-                        failure={failure}
-                        onAction={(action) => void handleFailureAction(failure, action)}
-                        proxyActionAvailable={proxyActionAvailable}
-                        ruleActionAvailable={Boolean(effectiveAutomaticProfileId)}
-                        matchedRule={
-                          failureRoute?.matchedRuleId ??
-                          (failureRoute ? routeReasonLabel(failureRoute.reason) : '正在读取')
-                        }
-                        routeLabel={
-                          failureRoute
-                            ? `${profileLabel(
-                                document,
-                                failureRoute.resolvedProfileId
-                              )} / ${routeTargetLabel(document, failureRoute)}`
-                            : '正在检查路由'
-                        }
-                      />
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             <p className="popup-hint">没有近期失败资源。</p>
           )}

@@ -6,10 +6,7 @@ import type {
 } from '@switchypeformance/contracts';
 import { validateCondition } from '@switchypeformance/contracts';
 
-import type {
-  CurrentSiteRuleCondition,
-  CurrentSiteScope
-} from '../ui/popup/current-site-rule.ts';
+import type { CurrentSiteRuleCondition, CurrentSiteScope } from '../ui/popup/current-site-rule.ts';
 import type { CurrentRouteStatus } from './current-route.ts';
 import type { ConfigurationImportPreview } from './configuration-import-service.ts';
 import type { ProxyControlState } from './external-proxy-state.ts';
@@ -28,6 +25,12 @@ import { normalizeSyncProviderConfiguration } from './sync/sync-settings-reposit
 export type QuickRuleTarget = ProfileTarget | RouteTarget;
 export type QuickRuleCondition = CurrentSiteRuleCondition;
 
+export interface QuickRuleEntry {
+  condition: QuickRuleCondition;
+  host: string;
+  scope: CurrentSiteScope;
+}
+
 export type BackgroundRequest =
   | { type: 'state.get' }
   | { type: 'profile.activate'; profileId: string }
@@ -42,6 +45,12 @@ export type BackgroundRequest =
       condition: QuickRuleCondition;
       host: string;
       scope: CurrentSiteScope;
+      target: QuickRuleTarget;
+    }
+  | {
+      type: 'quick-rule.add-many';
+      automaticProfileId: string;
+      entries: readonly QuickRuleEntry[];
       target: QuickRuleTarget;
     }
   | {
@@ -126,6 +135,7 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
     url?: unknown;
     condition?: unknown;
     host?: unknown;
+    entries?: unknown;
     expiresAt?: unknown;
     ruleId?: unknown;
     sourceId?: unknown;
@@ -149,6 +159,10 @@ export function isBackgroundRequest(input: unknown): input is BackgroundRequest 
       isQuickRuleCondition(message.condition) &&
       isNonEmptyString(message.host) &&
       isCurrentSiteScope(message.scope) &&
+      isQuickRuleTarget(message.target)) ||
+    (message.type === 'quick-rule.add-many' &&
+      isNonEmptyString(message.automaticProfileId) &&
+      isQuickRuleEntries(message.entries) &&
       isQuickRuleTarget(message.target)) ||
     (message.type === 'temporary-rule.add' &&
       isNonEmptyString(message.automaticProfileId) &&
@@ -207,6 +221,23 @@ function isQuickRuleCondition(value: unknown): value is QuickRuleCondition {
 
 function isCurrentSiteScope(value: unknown): value is CurrentSiteScope {
   return value === 'page' || value === 'host' || value === 'domain';
+}
+
+function isQuickRuleEntries(value: unknown): value is readonly QuickRuleEntry[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= 50 &&
+    value.every(
+      (entry) =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        !Array.isArray(entry) &&
+        isQuickRuleCondition((entry as QuickRuleEntry).condition) &&
+        isNonEmptyString((entry as QuickRuleEntry).host) &&
+        isCurrentSiteScope((entry as QuickRuleEntry).scope)
+    )
+  );
 }
 
 function isQuickRuleTarget(value: unknown): value is QuickRuleTarget {

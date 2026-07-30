@@ -336,6 +336,15 @@ function V2OptionsDraftSession({
     }
   }
 
+  function acceptImportedConfiguration(nextState: BackgroundState): void {
+    if (nextState.configuration.schemaVersion !== 2) {
+      onState(nextState);
+      return;
+    }
+    session.acceptApplied(nextState.configuration);
+    onState(nextState);
+  }
+
   return (
     <OriginalOptionsApp
       busy={busy}
@@ -344,6 +353,7 @@ function V2OptionsDraftSession({
       error={error}
       onApply={() => void applyDraft()}
       onBackgroundState={onState}
+      onConfigurationImported={acceptImportedConfiguration}
       onDiscard={session.discard}
       onDraftChange={session.replace}
       state={state}

@@ -172,6 +172,33 @@ describe('rule-list service', () => {
     expect(activeAutoSwitch(resolved).id).toBe('list');
   });
 
+  it('compiles a rule list attached to an active auto-switch profile after its local rules', async () => {
+    const service = createRuleListService({
+      fetcher: { fetch: vi.fn() },
+      statuses: memoryStatuses()
+    });
+
+    const resolved = await service.resolveForApply(autoSwitchWithAttachedRuleListDocument());
+
+    expect(resolved.activeProfileId).toBe('automatic');
+    expect(activeAutoSwitch(resolved)).toMatchObject({
+      fallback: { profileId: 'direct' },
+      ruleSourceIds: [],
+      rules: [
+        {
+          condition: { pattern: '*.explicit.example', type: 'host-wildcard' },
+          id: 'explicit-rule',
+          target: { profileId: 'direct' }
+        },
+        {
+          condition: { pattern: '*.attached.example', type: 'host-wildcard' },
+          id: 'rule-list:attached-source:1',
+          target: { profileId: 'work' }
+        }
+      ]
+    });
+  });
+
   it('refreshes an inactive remote list and stores its parsed rule statistics', async () => {
     const statuses = memoryStatuses();
     const fetch = vi.fn().mockResolvedValue({
@@ -291,6 +318,65 @@ function remoteRuleListDocument(url = 'https://rules.example/company.txt'): Prof
       url
     }
   });
+}
+
+function autoSwitchWithAttachedRuleListDocument(): ProfileDocumentV2 {
+  const source: RuleListSource = {
+    format: 'auto-proxy',
+    id: 'attached-source',
+    name: '附加规则',
+    source: { kind: 'inline', text: '||attached.example' }
+  };
+  return {
+    activeProfileId: 'automatic',
+    profiles: [
+      { id: 'direct', kind: 'direct', name: '直连' },
+      { id: 'system', kind: 'system', name: '系统代理' },
+      {
+        bypassList: [],
+        id: 'work',
+        kind: 'fixed-proxy',
+        name: '工作代理',
+        routes: { fallbackProxyId: 'edge' }
+      },
+      {
+        fallback: { profileId: 'work' },
+        id: 'automatic',
+        kind: 'auto-switch',
+        loopbackPolicy: 'direct',
+        name: '自动切换',
+        proxyFailurePolicy: 'direct',
+        ruleSourceIds: ['attached-source'],
+        rules: [
+          {
+            condition: { pattern: '*.explicit.example', type: 'host-wildcard' },
+            enabled: true,
+            id: 'explicit-rule',
+            target: { profileId: 'direct' }
+          }
+        ]
+      },
+      {
+        fallback: { profileId: 'direct' },
+        id: 'attached-list',
+        kind: 'rule-list',
+        matchTarget: { profileId: 'work' },
+        name: '自动切换规则列表',
+        sourceId: 'attached-source'
+      }
+    ],
+    proxyServers: [
+      { host: 'proxy.example', id: 'edge', name: '边缘', port: 1080, scheme: 'socks5' }
+    ],
+    ruleSources: [source],
+    schemaVersion: 2,
+    settings: {
+      networkMonitor: { enabled: false },
+      reloadAfterProfileChange: false,
+      ruleInsertPosition: 'last',
+      startupProfileId: 'automatic'
+    }
+  };
 }
 
 function activeAutoSwitch(document: ProfileDocumentV2) {

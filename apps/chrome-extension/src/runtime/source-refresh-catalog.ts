@@ -63,5 +63,8 @@ export function isActiveSourceTarget(
       target.kind === 'rule-list' && target.id === ruleListSourceStatusId(resolved.profile.sourceId)
     );
   }
+  if (resolved.profile.kind === 'auto-switch') {
+    return target.kind === 'rule-list' && resolved.profile.ruleSourceIds.includes(target.ownerId);
+  }
   return false;
 }

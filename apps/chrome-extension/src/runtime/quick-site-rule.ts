@@ -27,6 +27,23 @@ export interface CurrentSiteRuleInput extends CurrentSiteRuleInputBase {
   target: ProfileTarget | RouteTarget;
 }
 
+interface CurrentSiteRulesInputBase {
+  automaticProfileId: string;
+  entries: readonly Omit<CurrentSiteRuleInputBase, 'automaticProfileId'>[];
+}
+
+export interface V1CurrentSiteRulesInput extends CurrentSiteRulesInputBase {
+  target: RouteTarget;
+}
+
+export interface V2CurrentSiteRulesInput extends CurrentSiteRulesInputBase {
+  target: ProfileTarget;
+}
+
+export interface CurrentSiteRulesInput extends CurrentSiteRulesInputBase {
+  target: ProfileTarget | RouteTarget;
+}
+
 export interface V1CurrentSiteRuleInput extends CurrentSiteRuleInputBase {
   target: RouteTarget;
 }
@@ -82,6 +99,33 @@ export function addCurrentSiteRule(
   return document.schemaVersion === 1
     ? addV1CurrentSiteRule(document, input as V1CurrentSiteRuleInput)
     : addV2CurrentSiteRule(document, input as V2CurrentSiteRuleInput);
+}
+
+export function addCurrentSiteRules(
+  document: ProfileDocument,
+  input: V1CurrentSiteRulesInput
+): ProfileDocument;
+export function addCurrentSiteRules(
+  document: ProfileDocumentV2,
+  input: V2CurrentSiteRulesInput
+): ProfileDocumentV2;
+export function addCurrentSiteRules(
+  document: ConfigurationDocument,
+  input: CurrentSiteRulesInput
+): ConfigurationDocument;
+export function addCurrentSiteRules(
+  document: ConfigurationDocument,
+  input: CurrentSiteRulesInput
+): ConfigurationDocument {
+  return input.entries.reduce<ConfigurationDocument>(
+    (current, entry) =>
+      addCurrentSiteRule(current, {
+        automaticProfileId: input.automaticProfileId,
+        ...entry,
+        target: input.target
+      }),
+    document
+  );
 }
 
 function addV1CurrentSiteRule(

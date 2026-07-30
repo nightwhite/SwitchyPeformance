@@ -1,4 +1,5 @@
 import {
+  Activity,
   CheckCircle2,
   CirclePlus,
   FileCog,
@@ -93,7 +94,9 @@ function SidebarItem({
     case 'profile':
       return (
         <button
-          aria-current={route.kind === 'profile' && route.profileId === item.profileId ? 'page' : undefined}
+          aria-current={
+            route.kind === 'profile' && route.profileId === item.profileId ? 'page' : undefined
+          }
           className="original-sidebar-item original-sidebar-profile"
           onClick={() => onNavigateProfile(item.profileId)}
           type="button"
@@ -112,7 +115,11 @@ function SidebarItem({
     case 'apply':
       return (
         <button
-          className={dirty ? 'original-sidebar-item original-sidebar-apply is-dirty' : 'original-sidebar-item original-sidebar-apply'}
+          className={
+            dirty
+              ? 'original-sidebar-item original-sidebar-apply is-dirty'
+              : 'original-sidebar-item original-sidebar-apply'
+          }
           disabled={busy || !dirty}
           onClick={onApply}
           type="button"
@@ -148,5 +155,7 @@ function toolIcon(page: OriginalToolPage): React.ReactNode {
       return <Palette size={15} />;
     case 'builtin':
       return <Settings2 size={15} />;
+    case 'diagnostics':
+      return <Activity size={15} />;
   }
 }

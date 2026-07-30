@@ -10,6 +10,7 @@ describe('failureActionMenuView', () => {
           error: 'net::ERR_PROXY_CONNECTION_FAILED',
           host: 'cdn.example.test',
           key: 'cdn.example.test\u0000net::ERR_PROXY_CONNECTION_FAILED',
+          occurrences: 1,
           timestamp: 100,
           url: 'https://cdn.example.test/app.js'
         },

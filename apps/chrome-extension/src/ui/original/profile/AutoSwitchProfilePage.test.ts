@@ -7,7 +7,7 @@ import type { AutoSwitchProfileV2, ProfileDocumentV2 } from '@switchypeformance/
 import { AutoSwitchProfilePage } from './AutoSwitchProfilePage.tsx';
 
 describe('AutoSwitchProfilePage', () => {
-  it('renders default routing, attached sources, and the virtualized rule workspace together', () => {
+  it('renders default routing, the original attached rule-list editor, and the virtualized rule workspace together', () => {
     const document = fixture();
     const profile = document.profiles.find(
       (candidate) => candidate.id === 'automatic'
@@ -21,10 +21,12 @@ describe('AutoSwitchProfilePage', () => {
       })
     );
 
-    expect(markup).toContain('没有规则命中时');
-    expect(markup).toContain('规则来源');
+    expect(markup).toContain('当前表格规则未命中时，继续由下方规则列表判断。');
+    expect(markup).toContain('附加规则列表');
     expect(markup).toContain('公司规则');
+    expect(markup).toContain('更新附加规则列表');
     expect(markup).toContain('添加规则');
+    expect(markup).toContain('编辑规则文本');
     expect(markup).toContain('*.example.com');
   });
 });
@@ -59,6 +61,14 @@ function fixture(): ProfileDocumentV2 {
             target: { profileId: 'fixed' }
           }
         ]
+      },
+      {
+        fallback: { profileId: 'direct' },
+        id: 'source-profile',
+        kind: 'rule-list',
+        matchTarget: { profileId: 'fixed' },
+        name: '公司规则列表',
+        sourceId: 'source'
       }
     ],
     proxyServers: [

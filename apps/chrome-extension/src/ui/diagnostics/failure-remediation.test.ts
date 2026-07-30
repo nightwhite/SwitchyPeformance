@@ -28,7 +28,7 @@ describe('failure remediation', () => {
     });
   });
 
-  it('keeps the newest distinct failed resources with their error reason', () => {
+  it('keeps the newest distinct failed resources with their error reason and occurrence count', () => {
     expect(
       recentNetworkFailures([
         {
@@ -61,6 +61,7 @@ describe('failure remediation', () => {
         error: 'net::ERR_PROXY_CONNECTION_FAILED',
         host: 'cdn.example.test',
         key: 'cdn.example.test\u0000net::ERR_PROXY_CONNECTION_FAILED',
+        occurrences: 2,
         timestamp: 3,
         url: 'https://cdn.example.test/style.css'
       },
@@ -68,6 +69,7 @@ describe('failure remediation', () => {
         error: 'net::ERR_CONNECTION_TIMED_OUT',
         host: 'api.example.test',
         key: 'api.example.test\u0000net::ERR_CONNECTION_TIMED_OUT',
+        occurrences: 1,
         timestamp: 1,
         url: 'https://api.example.test/first'
       }
@@ -101,6 +103,7 @@ describe('failure remediation', () => {
         error: 'net::ERR_PROXY_CONNECTION_FAILED',
         host: 'cdn.example.test',
         key: 'cdn.example.test\u0000net::ERR_PROXY_CONNECTION_FAILED',
+        occurrences: 1,
         timestamp: 100,
         url: 'https://cdn.example.test/app.js'
       }
