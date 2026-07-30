@@ -264,7 +264,7 @@ export function ProfileWorkspace({
   );
 }
 
-function ProfileEditor({
+export function ProfileEditor({
   busy,
   document,
   onOpenTool,

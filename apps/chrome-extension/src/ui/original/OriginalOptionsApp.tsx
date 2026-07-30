@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { ConfigurationDocument, ProfileDocumentV2 } from '@switchypeformance/contracts';
+import type { ConfigurationDocument, ProfileDocumentV2, ProfileV2 } from '@switchypeformance/contracts';
 
 import type { BackgroundState } from '../../runtime/messages.ts';
+import { createId } from '../background-client.ts';
 import { DataPage } from '../pages/DataPage.tsx';
-import { ProfileWorkspace } from '../pages/ProfileWorkspace.tsx';
 import { SettingsPage } from '../pages/SettingsPage.tsx';
-import { V2ProfilesPage } from '../pages/V2ProfilesPage.tsx';
 import { OriginalSidebar } from './OriginalSidebar.tsx';
-import { confirmDiscardBeforeNavigation } from './navigation-guard.ts';
+import { shouldPromptBeforeUnload } from './navigation-guard.ts';
+import { NewProfileDialog, type NewProfileValue } from './profile/NewProfileDialog.tsx';
+import { OriginalProfileWorkspace } from './profile/OriginalProfileWorkspace.tsx';
+import { createOriginalProfile } from './profile/profile-actions.ts';
 import {
   originalNewProfileHash,
   originalProfileHash,
@@ -45,31 +47,24 @@ export function OriginalOptionsApp({
     resolveOriginalRoute(currentHash(), document)
   );
   const [workspaceNotice, setWorkspaceNotice] = useState<string>();
-  const expectedHash = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    const onHashChange = () => {
-      const hash = currentHash();
-      if (expectedHash.current === hash) {
-        expectedHash.current = undefined;
-        return;
-      }
-      const nextRoute = resolveOriginalRoute(hash, document);
-      if (sameRoute(nextRoute, route)) {
-        return;
-      }
-      if (!confirmNavigation()) {
-        writeHash(hashForRoute(route, document));
-        return;
-      }
-      if (dirty) {
-        onDiscard();
-      }
-      setRoute(nextRoute);
-    };
+    const onHashChange = () => setRoute(resolveOriginalRoute(currentHash(), document));
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [dirty, document, onDiscard, route]);
+  }, [document]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!shouldPromptBeforeUnload(dirty)) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
 
   useEffect(() => {
     if (
@@ -79,6 +74,16 @@ export function OriginalOptionsApp({
       setRoute({ kind: 'tool', page: 'builtin' });
     }
   }, [document.profiles, route]);
+
+  useEffect(() => {
+    if (route.kind !== 'profile') {
+      return;
+    }
+    const profile = document.profiles.find((candidate) => candidate.id === route.profileId);
+    if (profile && currentHash().startsWith('#!/profile/')) {
+      writeHash(originalProfileHash(profile));
+    }
+  }, [document, route]);
 
   const draftState = useMemo<BackgroundState>(
     () => ({ ...state, configuration: document }),
@@ -93,6 +98,10 @@ export function OriginalOptionsApp({
     navigate({ kind: 'profile', profileId }, originalProfileHash(profile));
   }
 
+  function navigateProfileEntity(profile: Pick<ProfileV2, 'id' | 'name'>): void {
+    navigate({ kind: 'profile', profileId: profile.id }, originalProfileHash(profile));
+  }
+
   function navigateTool(page: OriginalToolPage): void {
     navigate({ kind: 'tool', page }, originalToolHash(page));
   }
@@ -102,12 +111,6 @@ export function OriginalOptionsApp({
   }
 
   function navigate(nextRoute: OriginalRoute, hash: string): void {
-    if (!confirmNavigation()) {
-      return;
-    }
-    if (dirty) {
-      onDiscard();
-    }
     setWorkspaceNotice(undefined);
     setRoute(nextRoute);
     writeHash(hash);
@@ -115,17 +118,10 @@ export function OriginalOptionsApp({
 
   function writeHash(hash: string): void {
     if (typeof window !== 'undefined' && window.location.hash !== hash) {
-      expectedHash.current = hash;
       window.location.hash = hash;
     }
   }
 
-  function confirmNavigation(): boolean {
-    return confirmDiscardBeforeNavigation(
-      dirty,
-      (message) => typeof window !== 'undefined' && window.confirm(message)
-    );
-  }
 
   async function replaceDraft(next: ConfigurationDocument): Promise<BackgroundState> {
     if (next.schemaVersion !== 2) {
@@ -137,6 +133,15 @@ export function OriginalOptionsApp({
 
   async function activateDraft(profileId: string): Promise<void> {
     await replaceDraft({ ...document, activeProfileId: profileId });
+  }
+
+  async function createProfile(value: NewProfileValue): Promise<void> {
+    const result = createOriginalProfile(document, { ...value, id: createId('profile') });
+    await replaceDraft(result.document);
+    const profile = result.document.profiles.find((candidate) => candidate.id === result.profileId);
+    if (profile) {
+      navigateProfileEntity(profile);
+    }
   }
 
   return (
@@ -170,29 +175,26 @@ export function OriginalOptionsApp({
         ) : null}
         <div className="original-workspace-content">
           {route.kind === 'profile' ? (
-            <ProfileWorkspace
+            <OriginalProfileWorkspace
               busy={busy}
               document={document}
               onActivate={activateDraft}
-              onOpenProfile={navigateProfile}
+              onBackgroundState={onBackgroundState}
+              onOpenCreatedProfile={navigateProfileEntity}
               onOpenTool={() =>
                 setWorkspaceNotice('代理服务器会在固定代理配置页面中直接管理。')
               }
               onReplace={replaceDraft}
-              onState={onBackgroundState}
               profileId={route.profileId}
               sourceStatuses={state.sourceStatuses}
             />
           ) : null}
           {route.kind === 'new-profile' ? (
-            <V2ProfilesPage
+            <NewProfileDialog
               busy={busy}
               document={document}
-              onActivate={activateDraft}
-              onOpenProfile={navigateProfile}
-              onReplace={replaceDraft}
-              onState={onBackgroundState}
-              sourceStatuses={state.sourceStatuses}
+              onClose={() => navigateTool('builtin')}
+              onCreate={createProfile}
             />
           ) : null}
           {route.kind === 'tool' && route.page === 'builtin' ? (
@@ -270,25 +272,4 @@ function ThemePage() {
 
 function currentHash(): string {
   return typeof window === 'undefined' ? '#!/builtin' : window.location.hash;
-}
-
-function hashForRoute(route: OriginalRoute, document: ProfileDocumentV2): string {
-  if (route.kind === 'profile') {
-    const profile = document.profiles.find((candidate) => candidate.id === route.profileId);
-    return profile ? originalProfileHash(profile) : originalToolHash('builtin');
-  }
-  return route.kind === 'new-profile' ? originalNewProfileHash() : originalToolHash(route.page);
-}
-
-function sameRoute(left: OriginalRoute, right: OriginalRoute): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
-  if (left.kind === 'profile' && right.kind === 'profile') {
-    return left.profileId === right.profileId;
-  }
-  if (left.kind === 'tool' && right.kind === 'tool') {
-    return left.page === right.page;
-  }
-  return true;
 }

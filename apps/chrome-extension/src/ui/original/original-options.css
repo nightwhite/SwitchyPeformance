@@ -251,6 +251,106 @@
   border-radius: 3px;
 }
 
+.original-profile-header {
+  display: flex;
+  position: relative;
+  min-height: 72px;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: #ffffff;
+  border: 1px solid var(--original-border);
+  border-radius: 2px;
+}
+
+.original-profile-heading,
+.original-profile-actions,
+.original-profile-name-edit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.original-profile-heading {
+  min-width: 0;
+}
+
+.original-profile-heading > div {
+  min-width: 0;
+}
+
+.original-profile-heading p {
+  margin: 0 0 3px;
+  color: var(--original-muted);
+  font-size: 12px;
+}
+
+.original-profile-heading h1 {
+  margin: 0;
+  overflow: hidden;
+  color: #27313a;
+  font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.original-profile-color {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  padding: 2px;
+  background: #ffffff;
+  border: 1px solid #bfc9d1;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.original-profile-name-edit input {
+  width: min(330px, 48vw);
+  min-height: 31px;
+}
+
+.original-profile-actions {
+  flex: 0 0 auto;
+}
+
+.original-profile-header-error {
+  position: absolute;
+  right: 18px;
+  bottom: -31px;
+  z-index: 1;
+  margin: 0;
+  padding: 5px 8px;
+  background: #fff5f4;
+  border: 1px solid #edc5c1;
+  border-radius: 2px;
+  font-size: 12px;
+}
+
+.original-profile-workspace-message {
+  margin: -8px 0 12px;
+}
+
+.original-workspace .modal-dialog {
+  width: min(470px, calc(100vw - 32px));
+  border-radius: 3px;
+}
+
+.original-workspace .modal-dialog > label {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  color: #44515a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.original-workspace .modal-dialog .panel-kicker {
+  margin-bottom: 2px;
+}
+
 @media (max-width: 820px) {
   .original-options-app {
     min-width: 0;
@@ -295,5 +395,14 @@
 
   .original-draft-banner {
     padding: 9px 14px;
+  }
+
+  .original-profile-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .original-profile-actions {
+    width: 100%;
   }
 }

@@ -160,13 +160,14 @@ const discard = () => session.discard();
 
 `OriginalOptionsApp` 和配置编辑器不得自行发送 `configuration.replace`。保留 `onRefreshSource` 等只读/后台操作，但来源配置字段仍只修改草稿。
 
-- [x] **Step 4: 补充放弃和 URL 跳转保护测试。**
+- [x] **Step 4: 补充放弃和关闭/刷新保护测试。**
 
 ```ts
-await user.click(screen.getByRole('button', { name: '放弃' }));
-expect(screen.queryByText('工作代理')).not.toBeInTheDocument();
-expect(window.confirm).toHaveBeenCalled();
+expect(discardDraft(changed).dirty).toBe(false);
+expect(shouldPromptBeforeUnload(true)).toBe(true);
 ```
+
+在原版交互中，设置页内切换配置仍保留全局草稿；只有关闭或刷新页面时由浏览器提示用户。
 
 - [x] **Step 5: 运行测试并提交。**
 
@@ -182,12 +183,12 @@ Commit: `git commit -m "feat: stage configuration changes before apply"`
 - Create: `apps/chrome-extension/src/ui/original/profile/ProfileHeader.tsx`
 - Create: `apps/chrome-extension/src/ui/original/profile/NewProfileDialog.tsx`
 - Create: `apps/chrome-extension/src/ui/original/profile/DeleteProfileDialog.tsx`
+- Create: `apps/chrome-extension/src/ui/original/profile/OriginalProfileWorkspace.tsx`
 - Create: `apps/chrome-extension/src/ui/original/profile/profile-actions.ts`
 - Create: `apps/chrome-extension/src/ui/original/profile/profile-actions.test.ts`
 - Modify: `apps/chrome-extension/src/ui/pages/ProfileWorkspace.tsx`
-- Modify: `apps/chrome-extension/src/ui/configuration/profile-actions.ts`
 
-- [ ] **Step 1: 写失败测试，新建配置只创建草稿且进入其配置页。**
+- [x] **Step 1: 写失败测试，新建配置只创建草稿且进入其配置页。**
 
 ```ts
 const result = createOriginalProfile(document, { kind: 'auto-switch', name: '自动分流' });
@@ -195,11 +196,11 @@ expect(result.document.profiles.at(-1)).toMatchObject({ kind: 'auto-switch', nam
 expect(result.profileId).toBeTruthy();
 ```
 
-- [ ] **Step 2: 实现新建模态框。**
+- [x] **Step 2: 实现新建模态框。**
 
 类型仅显示固定代理、自动切换、PAC、自动检测、规则列表和虚拟配置。创建后跳转到 `#!/profile/<name>`，但不修改 `activeProfileId`。
 
-- [ ] **Step 3: 写删除替换和重命名测试。**
+- [x] **Step 3: 写删除替换和重命名测试。**
 
 ```ts
 expect(replaceAndDeleteOriginalProfile(document, 'work', 'direct').profiles).not.toContainEqual(
@@ -207,11 +208,11 @@ expect(replaceAndDeleteOriginalProfile(document, 'work', 'direct').profiles).not
 );
 ```
 
-- [ ] **Step 4: 实现统一页头。**
+- [x] **Step 4: 实现统一页头。**
 
 页头包含颜色、配置名、导出规则/脚本（适用时）、重命名、删除。所有编辑通过 `onDraftChange` 更新；删除被引用时显示替换目标选择。
 
-- [ ] **Step 5: 运行测试并提交。**
+- [x] **Step 5: 运行测试并提交。**
 
 Run: `pnpm vitest run apps/chrome-extension/src/ui/original/profile/profile-actions.test.ts`
 
