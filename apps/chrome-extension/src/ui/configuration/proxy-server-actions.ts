@@ -21,6 +21,22 @@ export interface FixedProxyProfileUpdate {
   routes: ProxyRoutes;
 }
 
+export function addProxyServer(
+  document: ProfileDocumentV2,
+  server: ProxyServer
+): ProfileDocumentV2 {
+  const proxy = normalizeProxyServer(server);
+  if (document.proxyServers.some((candidate) => candidate.id === proxy.id)) {
+    throw new Error('代理服务器 ID 已存在');
+  }
+  const next: ProfileDocumentV2 = {
+    ...document,
+    proxyServers: [...document.proxyServers, proxy]
+  };
+  assertValid(next);
+  return next;
+}
+
 export interface ProxyServerReference {
   field: `routes.${keyof ProxyRoutes}`;
   profileId: string;

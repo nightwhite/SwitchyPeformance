@@ -11,6 +11,7 @@ import {
 } from '../../configuration/profile-actions.ts';
 import { ProfileEditor } from '../../pages/ProfileWorkspace.tsx';
 import { DeleteProfileDialog } from './DeleteProfileDialog.tsx';
+import { FixedProfilePage } from './FixedProfilePage.tsx';
 import { ProfileHeader } from './ProfileHeader.tsx';
 import {
   renameOriginalProfile,
@@ -20,8 +21,8 @@ import {
 
 interface OriginalProfileWorkspaceProps {
   busy: boolean;
+  dirty: boolean;
   document: ProfileDocumentV2;
-  onActivate(profileId: string): Promise<void>;
   onBackgroundState(state: BackgroundState): void;
   onOpenCreatedProfile(profile: ProfileV2): void;
   onOpenTool(): void;
@@ -32,8 +33,8 @@ interface OriginalProfileWorkspaceProps {
 
 export function OriginalProfileWorkspace({
   busy,
+  dirty,
   document,
-  onActivate,
   onBackgroundState,
   onOpenCreatedProfile,
   onOpenTool,
@@ -130,16 +131,27 @@ export function OriginalProfileWorkspace({
       />
       {notice ? <p className="inline-notice original-profile-workspace-message">{notice}</p> : null}
       {error ? <p className="inline-error original-profile-workspace-message">{error}</p> : null}
-      <ProfileEditor
-        busy={busy}
-        document={document}
-        onOpenTool={onOpenTool}
-        onRefreshSource={refreshSource}
-        onReplace={replace}
-        profile={selectedProfile}
-        refreshingSourceId={refreshingSourceId}
-        sourceStatuses={sourceStatuses}
-      />
+      {selectedProfile.kind === 'fixed-proxy' ? (
+        <FixedProfilePage
+          busy={busy}
+          dirty={dirty}
+          document={document}
+          onBackgroundState={onBackgroundState}
+          onReplace={onReplace}
+          profile={selectedProfile}
+        />
+      ) : (
+        <ProfileEditor
+          busy={busy}
+          document={document}
+          onOpenTool={onOpenTool}
+          onRefreshSource={refreshSource}
+          onReplace={replace}
+          profile={selectedProfile}
+          refreshingSourceId={refreshingSourceId}
+          sourceStatuses={sourceStatuses}
+        />
+      )}
       {deleting && deletionPlan ? (
         <DeleteProfileDialog
           busy={busy}

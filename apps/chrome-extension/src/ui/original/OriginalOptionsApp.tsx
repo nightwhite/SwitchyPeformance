@@ -131,10 +131,6 @@ export function OriginalOptionsApp({
     return { ...draftState, configuration: next };
   }
 
-  async function activateDraft(profileId: string): Promise<void> {
-    await replaceDraft({ ...document, activeProfileId: profileId });
-  }
-
   async function createProfile(value: NewProfileValue): Promise<void> {
     const result = createOriginalProfile(document, { ...value, id: createId('profile') });
     await replaceDraft(result.document);
@@ -177,8 +173,8 @@ export function OriginalOptionsApp({
           {route.kind === 'profile' ? (
             <OriginalProfileWorkspace
               busy={busy}
+              dirty={dirty}
               document={document}
-              onActivate={activateDraft}
               onBackgroundState={onBackgroundState}
               onOpenCreatedProfile={navigateProfileEntity}
               onOpenTool={() =>

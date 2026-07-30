@@ -224,29 +224,29 @@ Commit: `git commit -m "feat: add original profile header and dialogs"`
 
 **Files:**
 - Create: `apps/chrome-extension/src/ui/original/profile/FixedProfilePage.tsx`
+- Create: `apps/chrome-extension/src/ui/original/profile/FixedProfilePage.test.ts`
 - Create: `apps/chrome-extension/src/ui/original/profile/fixed-profile-draft.ts`
 - Create: `apps/chrome-extension/src/ui/original/profile/fixed-profile-draft.test.ts`
-- Modify: `apps/chrome-extension/src/ui/components/FixedProxyEditor.tsx`
 - Modify: `apps/chrome-extension/src/ui/configuration/proxy-server-actions.ts`
 
-- [ ] **Step 1: 写失败测试，默认和协议覆盖都留在草稿。**
+- [x] **Step 1: 写失败测试，默认和协议覆盖都留在草稿。**
 
 ```ts
 const next = setFixedRoute(document, 'work', 'httpsProxyId', 'proxy-us');
 expect(findFixed(next, 'work').routes).toMatchObject({ fallbackProxyId: 'proxy-hk', httpsProxyId: 'proxy-us' });
 ```
 
-- [ ] **Step 2: 实现原版式代理表。**
+- [x] **Step 2: 实现原版式代理表。**
 
 显示默认、HTTP、HTTPS、FTP 行；每行可使用默认或选择代理。代理服务器可通过紧凑编辑器新增，并在草稿中同时写入 `proxyServers`。账号密码入口继续使用既有凭据服务，不在 UI 中暴露密码。
 
-- [ ] **Step 3: 实现绕过列表和高级展开。**
+- [x] **Step 3: 实现绕过列表和高级展开。**
 
 默认只显示默认代理；有协议覆盖时自动展开。绕过列表文本按行处理，保留 `localhost`、IP/CIDR 和通配符。
 
-- [ ] **Step 4: 运行测试并提交。**
+- [x] **Step 4: 运行测试并提交。**
 
-Run: `pnpm vitest run apps/chrome-extension/src/ui/original/profile/fixed-profile-draft.test.ts apps/chrome-extension/src/ui/configuration/proxy-server-actions.test.ts`
+Run: `pnpm vitest run apps/chrome-extension/src/ui/original/profile/FixedProfilePage.test.ts apps/chrome-extension/src/ui/original/profile/fixed-profile-draft.test.ts apps/chrome-extension/src/ui/configuration/proxy-server-actions.test.ts`
 
 Expected: PASS。
 
